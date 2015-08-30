@@ -26,7 +26,7 @@
 
 #include <stdlib.h>
 #include <stdarg.h>
-#include <GNUstepBase/objc-gnu2next.h>
+//#include <GNUstepBase/objc-gnu2next.h>
 
 #if     defined(__WIN32__) || defined(_WIN32) || defined(__MS_WIN32__)
 #ifndef __WIN32__
@@ -93,8 +93,8 @@
 /* The following group of lines maintained by the gstep-base configure */
 #define GNUSTEP_BASE_VERSION            @VERSION@
 #define GNUSTEP_BASE_MAJOR_VERSION      1
-#define GNUSTEP_BASE_MINOR_VERSION      6
-#define GNUSTEP_BASE_SUBMINOR_VERSION   0
+#define GNUSTEP_BASE_MINOR_VERSION      21
+#define GNUSTEP_BASE_SUBMINOR_VERSION   1
 #define GNUSTEP_BASE_GCC_VERSION        @GCC_VERSION@
 
 #if 0
@@ -106,15 +106,15 @@ extern const char o_NeXT_cc_version[];
 #endif
 
 #define OBJC_MALLOC(VAR, TYPE, NUM) \
-   ((VAR) = (TYPE *) objc_malloc ((unsigned)(NUM)*sizeof(TYPE))) 
+   ((VAR) = (TYPE *) objc_malloc ((NSUInteger)(NUM)*sizeof(TYPE))) 
 #define OBJC_VALLOC(VAR, TYPE, NUM) \
-   ((VAR) = (TYPE *) objc_valloc ((unsigned)(NUM)*sizeof(TYPE))) 
+   ((VAR) = (TYPE *) objc_valloc ((NSUInteger)(NUM)*sizeof(TYPE))) 
 #define OBJC_ATOMIC_MALLOC(VAR, TYPE, NUM) \
-   ((VAR) = (TYPE *) objc_atomic_malloc ((unsigned)(NUM)*sizeof(TYPE))) 
+   ((VAR) = (TYPE *) objc_atomic_malloc ((NSUInteger)(NUM)*sizeof(TYPE))) 
 #define OBJC_REALLOC(VAR, TYPE, NUM) \
-   ((VAR) = (TYPE *) objc_realloc ((VAR), (unsigned)(NUM)*sizeof(TYPE)))
+   ((VAR) = (TYPE *) objc_realloc ((VAR), (NSUInteger)(NUM)*sizeof(TYPE)))
 #define OBJC_CALLOC(VAR, TYPE, NUM) \
-   ((VAR) = (TYPE *) objc_calloc ((unsigned)(NUM), sizeof(TYPE)))
+   ((VAR) = (TYPE *) objc_calloc ((NSUInteger)(NUM), sizeof(TYPE)))
 #define OBJC_FREE(PTR) objc_free (PTR)
 
 #ifndef MAX
@@ -164,5 +164,9 @@ extern const char o_NeXT_cc_version[];
 #define VASPRINTF_LENGTH(VASPF_CALL) strlen((VASPF_CALL))
 #endif /* VSPRINTF_RETURNS_LENGTH */
 
+/* Evil hack to stop gcc-4.1 complaining about a dealloc method which
+ * does not call the superclass implementation.
+ */
+#define	GSNOSUPERDEALLOC	if (0) [super dealloc]
 
 #endif /* __preface_h_OBJECTS_INCLUDE */
