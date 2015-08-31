@@ -196,11 +196,13 @@ setDirectory(NSMutableDictionary *dict, NSString *path)
     }
 }
 
+#if !__has_feature(objc_arc)
 - (void) dealloc
 {
   RELEASE(refs);
   [super dealloc];
 }
+#endif
 
 - (NSString*) globalRef: (NSString*)ref type: (NSString*)type
 {
