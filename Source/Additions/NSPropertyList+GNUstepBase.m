@@ -94,7 +94,7 @@ PString(NSString *obj, NSMutableData *output)
       unichar		*from;
       unichar		*end;
       unsigned char	*ptr;
-      int		base = [output length];
+      NSInteger		base = [output length];
       int		len = 0;
 
       if (length <= 1024)
@@ -292,9 +292,9 @@ OAppend(id obj, NSDictionary *loc, NSUInteger lev, NSUInteger step,
     {
       const unsigned char	*src;
       unsigned char		*dst;
-      int		length;
+      NSInteger	length;
       int		i;
-      int		j;
+      NSInteger	j;
 
       src = [obj bytes];
       length = [obj length];
@@ -491,7 +491,7 @@ OAppend(id obj, NSDictionary *loc, NSUInteger lev, NSUInteger step,
 	  NSUInteger	c,d, stride;
 	  BOOL		found;
 	  NSComparisonResult	(*comp)(id, SEL, id) = 0;
-	  unsigned int	count = numKeys;
+	  NSUInteger	count = numKeys;
 	  #ifdef	GSWARN
 	  BOOL		badComparison = NO;
 	  #endif

@@ -209,8 +209,8 @@ randombytes(uint8_t *buf, NSUInteger len)
 - (char*) hexadecimalRepresentation: (NSUInteger*)length
 {
   static const char	*hexChars = "0123456789ABCDEF";
-  unsigned		slen = [self length];
-  unsigned		dlen = slen * 2;
+  NSUInteger	slen = [self length];
+  NSUInteger	dlen = slen * 2;
   const unsigned char	*src = (const unsigned char *)[self bytes];
   char			*dst;
   unsigned		spos = 0;
@@ -254,7 +254,7 @@ randombytes(uint8_t *buf, NSUInteger len)
     {
       NSZone    *zone = NSDefaultMallocZone();
       uint8_t   *dst;
-      unsigned  capacity;
+      NSUInteger  capacity;
       int       status = Z_OK;
 
       capacity = 2 * length;
@@ -915,7 +915,7 @@ static void MD5Transform (uint32_t buf[4], uint32_t const in[16])
 
   while (length > 0)
     {
-      int	count;
+      NSInteger	count;
       NSUInteger	pos;
 
       /*

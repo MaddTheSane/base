@@ -2372,7 +2372,7 @@ static NSString	*endMarker = @"At end of incremental parse";
     {
       return;	// Parsing impossible or disabled.
     }
-  xmlParseChunk(lib, [data bytes], [data length], data == nil);
+  xmlParseChunk(lib, [data bytes], (int)[data length], data == nil);
 }
 
 @end
@@ -2407,7 +2407,7 @@ static NSString	*endMarker = @"At end of incremental parse";
 
 - (void) _parseChunk: (NSData*)data
 {
-  htmlParseChunk(lib, [data bytes], [data length], data == nil);
+  htmlParseChunk(lib, [data bytes], (int)[data length], data == nil);
 }
 
 @end
@@ -2703,7 +2703,7 @@ static int
 isStandaloneFunction(void *ctx)
 {
   NSCAssert(ctx,@"No Context");
-  return [HANDLER isStandalone];
+  return (int)[HANDLER isStandalone];
 }
 
 static int
@@ -2712,7 +2712,7 @@ hasInternalSubsetFunction(void *ctx)
   int	has;
 
   NSCAssert(ctx,@"No Context");
-  has = [HANDLER hasInternalSubset];
+  has = (int)[HANDLER hasInternalSubset];
   if (has < 0)
     {
       has = TREEFUN(hasInternalSubset, (ctx));
@@ -2726,7 +2726,7 @@ hasExternalSubsetFunction(void *ctx)
   int	has;
 
   NSCAssert(ctx,@"No Context");
-  has = [HANDLER hasExternalSubset];
+  has = (int)[HANDLER hasExternalSubset];
   if (has < 0)
     {
       has = TREEFUN(hasExternalSubset, (ctx));
@@ -5084,7 +5084,7 @@ static void indentation(NSUInteger level, NSMutableString *str)
   NSDictionary		*fault;
 
   fault = [NSDictionary dictionaryWithObjectsAndKeys:
-    [NSNumber numberWithInt: code], @"faultCode",
+    [NSNumber numberWithInteger: code], @"faultCode",
     s, @"faultString",
     nil];
 

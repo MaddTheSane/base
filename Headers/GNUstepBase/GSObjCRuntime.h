@@ -138,7 +138,7 @@ extern "C" {
  */
 GS_EXPORT BOOL
 GSObjCFindVariable(id obj, const char *name,
-		   const char **type, unsigned int *size, int *offset);
+		   const char **type, size_t *size, ptrdiff_t *offset);
 
 GS_EXPORT void
 GSObjCGetVariable(id obj, int offset, unsigned int size, void *data);

@@ -131,7 +131,7 @@
  */
 - (NSString*) pathWithEscapes
 {
-  return CFURLCopyPath(self);
+  return CFBridgingRelease(CFURLCopyPath((CFURLRef)self));
 }
 
 @end

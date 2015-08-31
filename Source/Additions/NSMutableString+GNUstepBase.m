@@ -55,7 +55,7 @@
 }
 
 - (NSComparisonResult) compare: (NSString*)aString
-		       options: (NSUInteger)mask
+		       options: (NSStringCompareOptions)mask
 			 range: (NSRange)aRange
 {
   return [_parent compare: aString options: mask range: aRange];
@@ -194,14 +194,14 @@
 }
 
 - (NSRange) rangeOfCharacterFromSet: (NSCharacterSet*)aSet
-			    options: (NSUInteger)mask
+			    options: (NSStringCompareOptions)mask
 			      range: (NSRange)aRange
 {
   return [_parent rangeOfCharacterFromSet: aSet options: mask range: aRange];
 }
 
 - (NSRange) rangeOfString: (NSString*)aString
-		  options: (NSUInteger)mask
+		  options: (NSStringCompareOptions)mask
 		    range: (NSRange)aRange
 {
   return [_parent rangeOfString: aString options: mask range: aRange];
