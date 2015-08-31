@@ -241,11 +241,11 @@ GSObjCAddMethods(Class cls, Method *list, BOOL replace);
  */
 GS_EXPORT id
 GSObjCGetVal(NSObject *self, const char *key, SEL sel,
-  const char *type, unsigned size, int offset);
+  const char *type, NSUInteger size, int offset);
 
 GS_EXPORT void
 GSObjCSetVal(NSObject *self, const char *key, id val, SEL sel,
-  const char *type, unsigned size, int offset);
+  const char *type, NSUInteger size, int offset);
 
 /*
  * This section includes runtime functions
@@ -432,7 +432,7 @@ GS_EXPORT int GSObjCVersion(Class cls);
  * Quickly return autoreleased data storage area.
  */
 GS_EXPORT void *
-GSAutoreleasedBuffer(unsigned size);
+GSAutoreleasedBuffer(NSUInteger size);
 
 /**
  * <p>Prints a message to fptr using the format string provided and any

@@ -43,10 +43,10 @@
   NSString		*nextFile;	// Not retained
   NSString		*prevFile;	// Not retained
   NSString		*upFile;	// Not retained
-  unsigned		chap;
-  unsigned		sect;
-  unsigned		ssect;
-  unsigned		sssect;
+  NSUInteger	chap;
+  NSUInteger	sect;
+  NSUInteger	ssect;
+  NSUInteger	sssect;
   BOOL			isContentsDoc;
   BOOL			ivarsAtEnd;
 }

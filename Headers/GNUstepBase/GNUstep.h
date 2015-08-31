@@ -65,7 +65,49 @@
 #define	DESTROY(object) 	object = nil
 #endif
 
+#define	IF_NO_GC(X)
+
+#elif __has_feature(objc_arc)
+
 #define	IF_NO_GC(X)	
+
+#ifndef	RETAIN
+#define	RETAIN(object)		(object)
+#endif
+#ifndef	RELEASE
+#define	RELEASE(object)		(object)
+#endif
+#ifndef	AUTORELEASE
+#define	AUTORELEASE(object)	(object)
+#endif
+
+#ifndef	TEST_RETAIN
+#define	TEST_RETAIN(object)	(object)
+#endif
+#ifndef	TEST_RELEASE
+#define	TEST_RELEASE(object)
+#endif
+#ifndef	TEST_AUTORELEASE
+#define	TEST_AUTORELEASE(object)	(object)
+#endif
+
+#ifndef	ASSIGN
+#define	ASSIGN(object,value)	object = (value)
+#endif
+#ifndef	ASSIGNCOPY
+#define	ASSIGNCOPY(object,value)	object = [(value) copy]
+#endif
+#ifndef	DESTROY
+#define	DESTROY(object) 	object = nil
+#endif
+
+#ifndef	CREATE_AUTORELEASE_POOL
+#define	CREATE_AUTORELEASE_POOL(X)
+#endif
+
+#ifndef RECREATE_AUTORELEASE_POOL
+#define RECREATE_AUTORELEASE_POOL(x)
+#endif
 
 #else
 

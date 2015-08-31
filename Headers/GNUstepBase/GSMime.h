@@ -208,17 +208,17 @@ extern "C" {
 #if	GS_EXPOSE(GSMimeParser)
   NSMutableData		*data;
   unsigned char		*bytes;
-  unsigned		dataEnd;
-  unsigned		sectionStart;
-  unsigned		lineStart;
-  unsigned		lineEnd;
-  unsigned		input;
+  NSUInteger		dataEnd;
+  NSUInteger		sectionStart;
+  NSUInteger		lineStart;
+  NSUInteger		lineEnd;
+  NSUInteger		input;
   /* During header parsing, we use this field to count white space we are
    * expecting to have after an encoded word.
    * During bnody parsing, we use the field to count expected content bytes.
    */
-  unsigned		expect;
-  unsigned		rawBodyLength;
+  NSUInteger		expect;
+  NSUInteger		rawBodyLength;
   struct {
     unsigned int	inBody:1;
     unsigned int	isHttp:1;

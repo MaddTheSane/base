@@ -76,7 +76,7 @@
   NSMutableData		*rdata;\
   NSMutableString	*reply;\
   NSError		*lastError;\
-  unsigned		woffset;\
+  NSUInteger		woffset;\
   BOOL			readable;\
   BOOL			writable;\
   int			cState
@@ -173,17 +173,18 @@ GSPrivateEncodeBase64(const uint8_t *src, NSUInteger length, uint8_t *dst)
        dst[dIndex - 1] = '=';
        dst[dIndex - 2] = '=';
      }
+  return dIndex;
 }
 
 static void
 encodeQuotedPrintable(NSMutableData *result,
-  const unsigned char *src, unsigned length)
+  const unsigned char *src, NSUInteger length)
 {
   static char	*hex = "0123456789ABCDEF";
-  unsigned	offset;
-  unsigned	column = 0;
-  unsigned	size = 0;
-  unsigned	i;
+  NSUInteger	offset;
+  NSUInteger	column = 0;
+  NSUInteger	size = 0;
+  NSUInteger	i;
   unsigned char	*dst;
 
   for (i = 0; i < length; i++)
@@ -1498,7 +1499,7 @@ wordData(NSString *word, BOOL *encoded)
     }
 
   NSDebugMLLog(@"GSMime", @"Parse %u bytes - '%*.*s'",
-    (unsigned)l, (unsigned)l, (unsigned)l, [d bytes]);
+    (NSUInteger)l, (NSUInteger)l, (NSUInteger)l, [d bytes]);
 
   r = [self _endOfHeaders: d];
   if (r.location == NSNotFound)
@@ -2391,7 +2392,7 @@ NSDebugMLLog(@"GSMime", @"Header parsed - %@", info);
     }
 
   NSDebugMLLog(@"GSMime", @"Parse %u bytes - '%*.*s'",
-    (unsigned)l, (unsigned)l, (unsigned)l, [d bytes]);
+    (NSUInteger)l, (NSUInteger)l, (NSUInteger)l, [d bytes]);
   // NSDebugMLLog(@"GSMime", @"Boundary - '%*.*s'", [boundary length], [boundary length], [boundary bytes]);
 
   if ([context atEnd] == YES)
@@ -2401,7 +2402,7 @@ NSDebugMLLog(@"GSMime", @"Header parsed - %@", info);
       if ([d length] > 0)
 	{
 	  NSLog(@"Additional data (%*.*s) ignored after parse complete",
-	    (unsigned)[d length], (unsigned)[d length], [d bytes]);
+	    [d length], [d length], [d bytes]);
 	}
       needsMore = NO;	/* Nothing more to do	*/
     }
@@ -3111,10 +3112,10 @@ unfold(const unsigned char *src, const unsigned char *end, BOOL *folded)
  */
 - (NSRange) _endOfHeaders: (NSData*)newData
 {
-  unsigned int		ol = [data length];
-  unsigned int		nl = [newData length];
-  unsigned int		len = ol + nl;
-  unsigned int		pos = ol;
+  NSUInteger		ol = [data length];
+  NSUInteger		nl = [newData length];
+  NSUInteger		len = ol + nl;
+  NSUInteger		pos = ol;
   const unsigned char	*op = (const unsigned char*)[data bytes];
   const unsigned char	*np = (const unsigned char*)[newData bytes];
   char			c;
@@ -3442,7 +3443,8 @@ static NSCharacterSet	*tokenSet = nil;
       [c setObject: [self objectForKey: k] forKey: k];
     }
   return c;
-} 
+}
+
 - (void) dealloc
 {
   RELEASE(name);

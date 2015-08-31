@@ -202,7 +202,7 @@ in the returned dictionary. */
 - (void) log: (NSString*)fmt arguments: (va_list)args
 {
   const char	*msg;
-  int		where;
+  NSInteger		where;
 
   /*
    * Take the current position in the character buffer and
@@ -228,25 +228,25 @@ in the returned dictionary. */
     {
       if (itemName != nil)
 	{
-          fmt = [NSString stringWithFormat: @"%@:%u %@(%@): %@",
-	    fileName, where, unitName, itemName, fmt];
+          fmt = [NSString stringWithFormat: @"%@:%ld %@(%@): %@",
+	    fileName, (long)where, unitName, itemName, fmt];
 	}
       else
 	{
-          fmt = [NSString stringWithFormat: @"%@:%u %@: %@",
-	    fileName, where, unitName, fmt];
+          fmt = [NSString stringWithFormat: @"%@:%ld %@: %@",
+	    fileName, (long)where, unitName, fmt];
 	}
     }
   else
     {
-      fmt = [NSString stringWithFormat: @"%@:%u %@", fileName, where, fmt];
+      fmt = [NSString stringWithFormat: @"%@:%ld %@", fileName, (long)where, fmt];
     }
   fmt = AUTORELEASE([[NSString alloc] initWithFormat: fmt arguments: args]);
   if ([fmt hasSuffix: @"\n"] == NO)
     {
       fmt = [fmt stringByAppendingString: @"\n"];
     }
-  msg = [fmt lossyCString];
+  msg = [fmt UTF8String];
   fwrite(msg, strlen(msg), 1, stderr);
 }
 
@@ -317,7 +317,7 @@ in the returned dictionary. */
   NSString		*basic = [info objectForKey: @"Header"];
   NSString		*names[5] = { @"Functions", @"Typedefs", @"Variables",
     @"Macros", @"Constants" };
-  unsigned		i;
+  NSUInteger		i;
 
   basic = [basic lastPathComponent];
   basic = [basic stringByDeletingPathExtension];
@@ -531,7 +531,7 @@ patata
  * prsence of file header markup, which is extracted into the 'info'
  * dictionary.
  */
-- (unsigned) parseComment
+- (NSUInteger) parseComment
 {
   if (buffer[pos + 1] == '/')
     {
@@ -729,7 +729,7 @@ recheck:
            */
 	  if (commentsRead == NO && comment != nil)
 	    {
-	      unsigned		commentLength = [comment length];
+	      NSInteger		commentLength = [comment length];
 	      NSMutableArray	*authors;
 	      NSEnumerator	*enumerator;
 	      NSArray		*keys;
@@ -747,7 +747,7 @@ recheck:
 				       range: r];
 		  if (r.length > 0)
 		    {
-		      unsigned	i = r.location;
+		      NSInteger	i = r.location;
 
 		      r = NSMakeRange(i, commentLength - i);
 		      r = [comment rangeOfString: @"</author>"
@@ -835,7 +835,7 @@ recheck:
 
 		  if (r.length > 0)
 		    {
-		      unsigned	i = NSMaxRange(r);
+		      NSInteger	i = NSMaxRange(r);
 		      NSString	*line;
 		      NSString	*author;
 
@@ -904,7 +904,7 @@ recheck:
 				       range: r];
 		  if (r.length > 0)
 		    {
-		      unsigned	i = NSMaxRange(r);
+		      NSInteger	i = NSMaxRange(r);
 		      NSString	*line;
 
 		      r = NSMakeRange(i, commentLength - i);
@@ -1031,7 +1031,7 @@ recheck:
 		  r = [comment rangeOfString: s];
 		  if (r.length > 0)
 		    {
-		      unsigned	i = r.location;
+		      NSInteger	i = r.location;
 
 		      r = NSMakeRange(i, commentLength - i);
 		      r = [comment rangeOfString: e
@@ -1068,7 +1068,7 @@ recheck:
 					   range: r];
 		      if (r.length > 0)
 			{
-			  unsigned	i = NSMaxRange(r);
+			  NSInteger	i = NSMaxRange(r);
 			  NSString	*line;
 
 			  r = NSMakeRange(i, commentLength - i);
@@ -1097,7 +1097,7 @@ recheck:
 		  r = [comment rangeOfString: @"$Date:"];
 		  if (r.length > 0)
 		    {
-		      unsigned	i = NSMaxRange(r);
+		      NSInteger	i = NSMaxRange(r);
 		      NSString	*date;
 
 		      r = NSMakeRange(i, commentLength - i);
@@ -1124,7 +1124,7 @@ recheck:
 		  r = [comment rangeOfString: @"$Revision:"];
 		  if (r.length > 0)
 		    {
-		      unsigned	i = NSMaxRange(r);
+		      NSInteger	i = NSMaxRange(r);
 		      NSString	*version;
 
 		      r = NSMakeRange(i, commentLength - i);
@@ -1275,21 +1275,19 @@ recheck:
 - (NSMutableDictionary*) parseDeclaration
 {
   NSMutableDictionary	*d = [NSMutableDictionary dictionary];
-#if GS_WITH_GC == 0
-  CREATE_AUTORELEASE_POOL(arp);
-#endif
-  static NSSet		*qualifiers = nil;
-  static NSSet		*keep = nil;
-  NSMutableString	*t = nil;
-  NSMutableArray	*a;
-  NSString		*s;
-  BOOL			isTypedef = NO;
-  BOOL			isPointer = NO;
-  BOOL			isFunction = NO;
-  BOOL			baseConstant = NO;
-  BOOL			needScalarType = NO;
-
-  if (qualifiers == nil)
+  @autoreleasepool {
+	static NSSet		*qualifiers = nil;
+    static NSSet		*keep = nil;
+    NSMutableString	*t = nil;
+    NSMutableArray	*a;
+    NSString		*s;
+    BOOL			isTypedef = NO;
+    BOOL			isPointer = NO;
+    BOOL			isFunction = NO;
+    BOOL			baseConstant = NO;
+    BOOL			needScalarType = NO;
+    
+    if (qualifiers == nil)
     {
       qualifiers = [NSSet setWithObjects:
 	@"auto",
@@ -1333,8 +1331,8 @@ recheck:
 	{
 	  if ([self skipSpaces] < length && buffer[pos] == '(')
 	    {
-	      unsigned	start = pos;
-
+	      NSUInteger	start = pos;
+          
 	      [self skipBlock];	// Skip the attributes
 	      if (YES == verbose)
 		{
@@ -1580,8 +1578,8 @@ recheck:
     }
   else if ([a containsObject: @"long"] == YES)
     {
-      unsigned	c = [a count];
-
+      NSUInteger	c = [a count];
+      
       /*
        * There may be more than one 'long' in a type spec
        */
@@ -1678,8 +1676,8 @@ recheck:
 		       options: NSBackwardsSearch|NSLiteralSearch];
 	  if (r.length > 0)
 	    {
-	      unsigned	p = r.location;
-
+	      NSUInteger	p = r.location;
+          
 	      isPointer = YES;
 	      if (isTypedef == NO)
 		{
@@ -1712,8 +1710,8 @@ recheck:
 	    }
 	  while (buffer[pos] == '[')
 	    {
-	      unsigned	old = pos;
-
+	      NSUInteger	old = pos;
+          
 	      if ([self skipArray] == old)
 		{
 		  break;
@@ -1750,7 +1748,6 @@ recheck:
 	{
 	  if (buffer[pos] == ')' || buffer[pos] == ',')
 	    {
-	      [arp drain];
 	      return d;
 	    }
 	  else
@@ -1770,7 +1767,7 @@ recheck:
 		{
 		  if ([self skipSpaces] < length && buffer[pos] == '(')
 		    {
-		      unsigned	start = pos;
+		      NSUInteger	start = pos;
 		      NSString	*attr;
 
 		      [self skipBlock];	// Skip the attributes
@@ -1804,7 +1801,7 @@ recheck:
 		  [self skipSpaces];
 		  if (pos < length && buffer[pos] == '(')
 		    {
-		      unsigned	start = pos;
+		      NSUInteger	start = pos;
 		      NSString	*attr;
 
 		      [self skipBlock];
@@ -1882,8 +1879,7 @@ recheck:
 	  [self appendComment: comment to: d];
 	}
       DESTROY(comment);
-
-      [arp drain];
+      
       if (inArgList == NO)
 	{
 	  /*
@@ -1911,9 +1907,9 @@ recheck:
     {
       [self log: @"unexpected end of data parsing declaration"];
     }
-fail:
-  DESTROY(comment);
-  [arp drain];
+  fail:
+    DESTROY(comment);
+  }
   return nil;
 }
 
@@ -2148,16 +2144,16 @@ fail:
   NSDictionary		*methods = nil;
   NSMutableDictionary	*d;
   NSMutableDictionary	*dict = nil;
-  CREATE_AUTORELEASE_POOL(arp);
-
-  /*
-   * Record any class documentation for this class
-   */
-  nc = AUTORELEASE(comment);
-  comment = nil;
-
-  if ((name = [self parseIdentifier]) == nil
-    || [self parseSpace] >= length)
+  @autoreleasepool {
+    
+    /*
+     * Record any class documentation for this class
+     */
+    nc = AUTORELEASE(comment);
+    comment = nil;
+    
+    if ((name = [self parseIdentifier]) == nil
+        || [self parseSpace] >= length)
     {
       [self log: @"implementation with bad name"];
       goto fail;
@@ -2212,7 +2208,6 @@ fail:
        */
       [self skipUnit];
       DESTROY(comment);
-      [arp drain];
       return [NSMutableDictionary dictionary];
     }
   else
@@ -2246,19 +2241,18 @@ fail:
     {
       // [dict setObject: methods forKey: @"Methods"];
     }
-
-  // [self log: @"Found implementation %@", dict];
-
-  DESTROY(unitName);
-  DESTROY(comment);
-  [arp drain];
-  return dict;
-
-fail:
-  DESTROY(unitName);
-  DESTROY(comment);
-  [arp drain];
-  return nil;
+    
+    // [self log: @"Found implementation %@", dict];
+    
+    DESTROY(unitName);
+    DESTROY(comment);
+    return dict;
+    
+  fail:
+    DESTROY(unitName);
+    DESTROY(comment);
+    return nil;
+  }
 }
 
 - (NSMutableDictionary*) parseInterface
@@ -2269,14 +2263,13 @@ fail:
   NSDictionary		*methods = nil;
   NSMutableDictionary	*d;
   NSMutableDictionary	*dict;
-  CREATE_AUTORELEASE_POOL(arp);
-
-  dict = [NSMutableDictionary dictionaryWithCapacity: 8];
-
-  /*
-   * Record any class documentation for this class
-   */
-  if (comment != nil)
+  @autoreleasepool {
+    dict = [NSMutableDictionary dictionaryWithCapacity: 8];
+    
+    /*
+     * Record any class documentation for this class
+     */
+    if (comment != nil)
     {
       [self appendComment: comment to: dict];
       DESTROY(comment);
@@ -2401,20 +2394,19 @@ fail:
 	  RELEASE(d);
 	}
     }
-  [d setObject: dict forKey: unitName];
-
-  // [self log: @"Found interface %@", dict];
-
-  DESTROY(unitName);
-  DESTROY(comment);
-  [arp drain];
-  return dict;
-
-fail:
-  DESTROY(unitName);
-  DESTROY(comment);
-  [arp drain];
-  return nil;
+    [d setObject: dict forKey: unitName];
+    
+    // [self log: @"Found interface %@", dict];
+    
+    DESTROY(unitName);
+    DESTROY(comment);
+    return dict;
+    
+  fail:
+    DESTROY(unitName);
+    DESTROY(comment);
+    return nil;
+  }
 }
 
 /**
@@ -2427,7 +2419,7 @@ fail:
  */
 - (NSString*) parseIdentifier
 {
-  unsigned	start;
+  NSUInteger	start;
 
 try:
   [self parseSpace];
@@ -2629,7 +2621,7 @@ fail:
   [self parseSpace: spaces];
   while (pos < length)
     {
-      unsigned	c = buffer[pos];
+      NSUInteger	c = buffer[pos];
 
       if (c == '\n')
         {
@@ -2637,7 +2629,7 @@ fail:
 	}
       else if (c == '/')
 	{
-	  unsigned	save = pos;
+	  NSUInteger	save = pos;
 
 	  if ([self parseComment] == save)
 	    {
@@ -2686,9 +2678,7 @@ fail:
 
 - (NSMutableDictionary*) parseMethodIsDeclaration: (BOOL)flag
 {
-#if GS_WITH_GC == 0
-  CREATE_AUTORELEASE_POOL(arp);
-#endif
+  @autoreleasepool {
   NSMutableDictionary	*method;
   NSMutableString	*mname;
   NSString		*token;
@@ -2747,7 +2737,7 @@ fail:
 	{
 	  if ([self skipSpaces] < length && buffer[pos] == '(')
 	    {
-	      unsigned	start = pos;
+	      NSUInteger	start = pos;
 	      NSString	*attr;
 
 	      [self skipBlock];	// Skip the attributes
@@ -2848,7 +2838,7 @@ fail:
 	  [mname appendString: token];
 	  if (buffer[pos] != term)
 	    {
-	      unsigned	saved = pos;
+	      NSUInteger	saved = pos;
 
 	      /*
 	       * As a special case, try to cope with a method name separated
@@ -2877,7 +2867,7 @@ fail:
 	}
       else
 	{
-	  unsigned	saved = pos;
+	  NSUInteger	saved = pos;
 
 	  /*
 	   * As a special case, try to cope with a method name separated
@@ -2961,16 +2951,14 @@ fail:
     }
 
   DESTROY(itemName);
-  [arp drain];
-  IF_NO_GC([method autorelease];)
   return method;
 
 fail:
   DESTROY(itemName);
   DESTROY(comment);
-  [arp drain];
   RELEASE(method);
   return nil;
+  }
 }
 
 - (void) addOrderedSymbolDeclaration: (NSString *)aMethodOrFunc toUnit: (NSString *)aUnitName
@@ -3201,7 +3189,7 @@ fail:
 {
   unichar	*start;
   unichar	*ptr;
-  unsigned	nest = 0;
+  NSUInteger	nest = 0;
 
   pos++;
   if ([self parseSpace] >= length)
@@ -3305,7 +3293,7 @@ fail:
  * #ifdef and #ifndef with some well-known constants to tell
  * us which standards are currently supported.
  */
-- (unsigned) parsePreprocessor
+- (NSUInteger) parsePreprocessor
 {
   [self parseSpace: spaces];
   if (pos < length && buffer[pos] != '\n')
@@ -3577,18 +3565,18 @@ fail:
 
 - (NSMutableDictionary*) parseProtocol
 {
-  NSString		*name;
-  NSDictionary		*methods = nil;
-  NSMutableDictionary	*dict;
-  NSMutableDictionary	*d;
-  CREATE_AUTORELEASE_POOL(arp);
-
-  dict = [[NSMutableDictionary alloc] initWithCapacity: 8];
-
-  /*
-   * Record any protocol documentation for this protocol
-   */
-  if (comment != nil)
+  @autoreleasepool {
+    NSString		*name;
+    NSDictionary		*methods = nil;
+    NSMutableDictionary	*dict;
+    NSMutableDictionary	*d;
+    
+    dict = [[NSMutableDictionary alloc] initWithCapacity: 8];
+    
+    /*
+     * Record any protocol documentation for this protocol
+     */
+    if (comment != nil)
     {
       [dict setObject: comment forKey: @"Comment"];
       DESTROY(comment);
@@ -3661,26 +3649,25 @@ fail:
       [info setObject: d forKey: @"Protocols"];
       RELEASE(d);
     }
-  /*
-   * A protocol has no separate implementation, so mark it as implemented.
-   */
-  [dict setObject: @"YES" forKey: @"Implemented"];
-  [d setObject: dict forKey: unitName];
-
-  // [self log: @"Found protocol %@", dict];
-
-  DESTROY(unitName);
-  DESTROY(comment);
-  [arp drain];
-  IF_NO_GC([dict autorelease];)
-  return dict;
-
-fail:
-  DESTROY(unitName);
-  DESTROY(comment);
-  [arp drain];
-  RELEASE(dict);
-  return nil;
+    /*
+     * A protocol has no separate implementation, so mark it as implemented.
+     */
+    [dict setObject: @"YES" forKey: @"Implemented"];
+    [d setObject: dict forKey: unitName];
+    
+    // [self log: @"Found protocol %@", dict];
+    
+    DESTROY(unitName);
+    DESTROY(comment);
+    IF_NO_GC([dict autorelease];)
+    return dict;
+    
+  fail:
+    DESTROY(unitName);
+    DESTROY(comment);
+    RELEASE(dict);
+    return nil;
+  }
 }
 
 - (NSMutableArray*) parseProtocolList
@@ -3721,13 +3708,13 @@ fail:
  * Calls parseComment if neccesary, ensuring that any documentation
  * in comments is appended to our 'comment' ivar.
  */
-- (unsigned) parseSpace: (NSCharacterSet*)spaceSet
+- (NSUInteger) parseSpace: (NSCharacterSet*)spaceSet
 {
   BOOL		tryAgain;
 
   do
     {
-      unsigned	start;
+      NSUInteger	start;
 
       tryAgain = NO;
       while (pos < length)
@@ -3736,7 +3723,7 @@ fail:
 
 	  if (c == '/')
 	    {
-	      unsigned	old = pos;
+	      NSUInteger	old = pos;
 
 	      if ([self parseComment] > old)
 		{
@@ -3808,7 +3795,7 @@ fail:
   return pos;
 }
 
-- (unsigned) parseSpace
+- (NSUInteger) parseSpace
 {
   return [self parseSpace: spacenl];
 }
@@ -3816,7 +3803,7 @@ fail:
 - (NSString*) parseVersion
 {
   static NSDictionary   *known = nil;
-  unsigned	        i;
+  NSUInteger	        i;
   NSString	        *str;
   NSString	        *tmp;
 
@@ -3872,7 +3859,7 @@ fail:
     }
 
   i = [str intValue];
-  return [NSString stringWithFormat: @"%d.%d.%d",
+  return [NSString stringWithFormat: @"%ld.%ld.%lu",
     i/10000, (i/100)%100, i%100];
 }
 
@@ -4045,7 +4032,7 @@ fail:
   unichar		*inptr;
   unichar		*outptr;
   NSMutableArray	*a;
-  CREATE_AUTORELEASE_POOL(arp);
+  @autoreleasepool {
 
   contents = [NSString stringWithContentsOfFile: fileName];
   length = [contents length];
@@ -4096,7 +4083,7 @@ fail:
 		{
 		  inptr++;
 		  outptr--;
-		  [a addObject: [NSNumber numberWithInt: outptr - buffer]];
+		  [a addObject: [NSNumber numberWithInteger: outptr - buffer]];
 		}
 	      else if (inptr[1] == '\r')
 		{
@@ -4106,7 +4093,7 @@ fail:
 		    {
 		      inptr++;
 		    }
-		  [a addObject: [NSNumber numberWithInt: outptr - buffer]];
+		  [a addObject: [NSNumber numberWithInteger: outptr - buffer]];
 		}
 	    }
 	}
@@ -4127,20 +4114,19 @@ fail:
 	    {
 	      outptr--;		// Ignore trailing carriage return.
 	    }
-	  [a addObject: [NSNumber numberWithInt: outptr - buffer]];
+	  [a addObject: [NSNumber numberWithInteger: outptr - buffer]];
 	}
       else if (c == '\n')
 	{
-	  [a addObject: [NSNumber numberWithInt: outptr - buffer]];
+	  [a addObject: [NSNumber numberWithInteger: outptr - buffer]];
 	}
-    }
-  length = outptr - buffer;
-  [data setLength: length*sizeof(unichar)];
-  buffer = [data mutableBytes];
-  pos = 0;
-  ASSIGN(lines, [NSArray arrayWithArray: a]);
-  [arp drain];
-  IF_NO_GC([data autorelease];)
+      }
+    length = outptr - buffer;
+    [data setLength: length*sizeof(unichar)];
+    buffer = [data mutableBytes];
+    pos = 0;
+    ASSIGN(lines, [NSArray arrayWithArray: a]);
+  }
 }
 
 /**
@@ -4148,7 +4134,7 @@ fail:
  * Expect the current character position to be pointing to the
  * '[' at the start of an array.
  */
-- (unsigned) skipArray
+- (NSUInteger) skipArray
 {
   pos++;
   while ([self parseSpace] < length)
@@ -4184,12 +4170,12 @@ fail:
  * Expect the current character position to be pointing to the
  * bracket at the start of a block.
  */
-- (unsigned) skipBlock
+- (NSUInteger) skipBlock
 {
   return [self skipBlock: 0];
 }
 
-- (unsigned) skipBlock: (BOOL*)isEmpty
+- (NSUInteger) skipBlock: (BOOL*)isEmpty
 {
   unichar	term = '}';
   BOOL		empty = YES;
@@ -4257,7 +4243,7 @@ fail:
   return pos;
 }
 
-- (unsigned) skipLiteral
+- (NSUInteger) skipLiteral
 {
   unichar	term = buffer[pos++];
 
@@ -4277,7 +4263,7 @@ fail:
   return pos;
 }
 
-- (unsigned) skipRemainderOfLine
+- (NSUInteger) skipRemainderOfLine
 {
   while (pos < length)
     {
@@ -4289,7 +4275,7 @@ fail:
   return pos;
 }
 
-- (unsigned) skipSpaces
+- (NSUInteger) skipSpaces
 {
   while (pos < length)
     {
@@ -4309,7 +4295,7 @@ fail:
  * Strictly speaking, we don't skip all statements that way,
  * since we only skip part of an if...else statement.
  */
-- (unsigned) skipStatement
+- (NSUInteger) skipStatement
 {
   while ([self parseSpace] < length)
     {
@@ -4349,7 +4335,7 @@ fail:
  * line it was on, discarding any comments so they don't get used by
  * the next construct that actually needs documenting.
  */
-- (unsigned) skipStatementLine
+- (NSUInteger) skipStatementLine
 {
   [self skipStatement];
   if (buffer[pos-1] == ';' || buffer[pos-1] == '}')
@@ -4360,7 +4346,7 @@ fail:
   return pos;
 }
 
-- (unsigned) skipToEndOfLine
+- (NSUInteger) skipToEndOfLine
 {
   while (pos < length)
     {
@@ -4377,7 +4363,7 @@ fail:
  * Skip until we encounter an '@end' marking the end of an interface,
  * implementation, or protocol.
  */
-- (unsigned) skipUnit
+- (NSUInteger) skipUnit
 {
   while ([self parseSpace] < length)
     {

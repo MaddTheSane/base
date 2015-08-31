@@ -80,7 +80,7 @@ setup()
 static void
 PString(NSString *obj, NSMutableData *output)
 {
-  unsigned	length;
+  NSUInteger	length;
 
   if ((length = [obj length]) == 0)
     {
@@ -255,7 +255,7 @@ static const char	*indentStrings[] = {
  * dest is the output buffer.
  */
 static void
-OAppend(id obj, NSDictionary *loc, unsigned lev, unsigned step,
+OAppend(id obj, NSDictionary *loc, NSUInteger lev, NSUInteger step,
   NSMutableData *dest)
 {
   if ([obj isKindOfClass: NSStringClass])
@@ -332,7 +332,7 @@ OAppend(id obj, NSDictionary *loc, unsigned lev, unsigned step,
     {
       const char	*iBaseString;
       const char	*iSizeString;
-      unsigned	level = lev;
+      NSUInteger	level = lev;
 
       if (level*step < sizeof(indentStrings)/sizeof(id))
 	{
@@ -355,10 +355,10 @@ OAppend(id obj, NSDictionary *loc, unsigned lev, unsigned step,
 	}
 
       {
-	unsigned		count = [obj count];
-	unsigned		last = count - 1;
+	NSUInteger		count = [obj count];
+	NSUInteger		last = count - 1;
 	NSString		*plists[count];
-	unsigned		i;
+	NSUInteger		i;
 
 	if ([obj isProxy] == YES)
 	  {
@@ -416,14 +416,14 @@ OAppend(id obj, NSDictionary *loc, unsigned lev, unsigned step,
       const char	*iSizeString;
       SEL		objSel = @selector(objectForKey:);
       IMP		myObj = [obj methodForSelector: objSel];
-      unsigned		i;
+      NSUInteger		i;
       NSArray		*keyArray = [obj allKeys];
-      unsigned		numKeys = [keyArray count];
+      NSUInteger		numKeys = [keyArray count];
       NSString		*plists[numKeys];
       NSString		*keys[numKeys];
       BOOL		canCompare = YES;
       Class		lastClass = 0;
-      unsigned		level = lev;
+      NSUInteger		level = lev;
       BOOL		isProxy = [obj isProxy];
 
       if (level*step < sizeof(indentStrings)/sizeof(id))
@@ -488,7 +488,7 @@ OAppend(id obj, NSDictionary *loc, unsigned lev, unsigned step,
       if (canCompare == YES)
 	{
 	  #define STRIDE_FACTOR 3
-	  unsigned	c,d, stride;
+	  NSUInteger	c,d, stride;
 	  BOOL		found;
 	  NSComparisonResult	(*comp)(id, SEL, id) = 0;
 	  unsigned int	count = numKeys;
