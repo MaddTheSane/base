@@ -29,8 +29,8 @@
 
 #ifndef GNUSTEP_BASE_MAJOR_VERSION		
 #define GNUSTEP_BASE_MAJOR_VERSION		1
-#define GNUSTEP_BASE_MINOR_VERSION		6
-#define GNUSTEP_BASE_SUBMINOR_VERSION	0
+#define GNUSTEP_BASE_MINOR_VERSION		21
+#define GNUSTEP_BASE_SUBMINOR_VERSION	1
 #endif
 
 /* Define if Foundation implements KeyValueCoding.  */
