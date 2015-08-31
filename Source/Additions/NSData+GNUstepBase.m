@@ -42,7 +42,7 @@
 #endif
 
 static int
-randombytes(uint8_t *buf, unsigned len)
+randombytes(uint8_t *buf, NSUInteger len)
 {
 #if	defined(__MINGW32__)
 
@@ -102,7 +102,7 @@ randombytes(uint8_t *buf, unsigned len)
     {
       return nil;       // Not enough memory for random data
     }
-  if (randombytes(buf, (unsigned)length) < 0)
+  if (randombytes(buf, (NSUInteger)length) < 0)
     {
       free(buf);
       return nil;       // Unable to generate the random data
@@ -447,7 +447,7 @@ struct MD5Context
 };
 static void MD5Init (struct MD5Context *context);
 static void MD5Update (struct MD5Context *context, unsigned char const *buf,
-unsigned len);
+NSUInteger len);
 static void MD5Final (unsigned char digest[16], struct MD5Context *context);
 static void MD5Transform (uint32_t buf[4], uint32_t const in[16]);
 
@@ -471,7 +471,7 @@ static void MD5Transform (uint32_t buf[4], uint32_t const in[16]);
 /*
  * Ensure data is little-endian
  */
-static void littleEndian (void *buf, unsigned words)
+static void littleEndian (void *buf, NSUInteger words)
 {
   if (NSHostByteOrder() == NS_BigEndian)
     {
@@ -516,7 +516,7 @@ static void MD5Init (struct MD5Context *ctx)
  * of bytes.
  */
 static void MD5Update (struct MD5Context *ctx, unsigned char const *buf,
-  unsigned len)
+  NSUInteger len)
 {
   uint32_t t;
 
@@ -569,7 +569,7 @@ static void MD5Update (struct MD5Context *ctx, unsigned char const *buf,
  */
 static void MD5Final (unsigned char digest[16], struct MD5Context *ctx)
 {
-  unsigned count;
+  NSUInteger count;
   unsigned char *p;
 
   /* Compute number of bytes mod 64 */
@@ -746,9 +746,9 @@ static void MD5Transform (uint32_t buf[4], uint32_t const in[16])
 		 mode: (NSInteger*)modePtr
 {
   const unsigned char	*bytes = (const unsigned char*)[self bytes];
-  unsigned		length = [self length];
-  unsigned		decLength = [decoded length];
-  unsigned		pos = 0;
+  NSUInteger		length = [self length];
+  NSUInteger		decLength = [decoded length];
+  NSUInteger		pos = 0;
   NSString		*name = nil;
 
   if (namePtr != 0)
@@ -768,7 +768,7 @@ static void MD5Transform (uint32_t buf[4], uint32_t const in[16])
 	{
 	  if (name != nil)
 	    {
-	      unsigned		i = 0;
+	      NSUInteger		i = 0;
 	      int		lineLength;
 	      unsigned char	*decPtr;
 
@@ -839,8 +839,8 @@ static void MD5Transform (uint32_t buf[4], uint32_t const in[16])
 	    }
 	  else if (pos > 6 && strncmp((const char*)bytes, "begin ", 6) == 0)
 	    {
-	      unsigned	off = 6;
-	      unsigned	end = pos;
+	      NSUInteger	off = 6;
+	      NSUInteger	end = pos;
 	      int	mode = 0;
 	      NSData	*d;
 
@@ -894,9 +894,9 @@ static void MD5Transform (uint32_t buf[4], uint32_t const in[16])
 		 mode: (NSInteger)mode
 {
   const unsigned char	*bytes = (const unsigned char*)[self bytes];
-  int			length = [self length];
+  NSInteger			length = [self length];
   unsigned char		buf[64];
-  unsigned		i;
+  NSUInteger		i;
 
   name = [name stringByTrimmingSpaces];
   if ([name length] == 0)
@@ -916,7 +916,7 @@ static void MD5Transform (uint32_t buf[4], uint32_t const in[16])
   while (length > 0)
     {
       int	count;
-      unsigned	pos;
+      NSUInteger	pos;
 
       /*
        * We want up to 45 bytes in a line ... and we record the

@@ -96,8 +96,8 @@ typedef struct {
   gcInfo	gc;
   id		*_contents;
   BOOL		*_isGCObject;
-  unsigned	_count;
-  unsigned	_maxCount;	// Maximum number of content objects.
+  NSUInteger	_count;
+  NSUInteger	_maxCount;	// Maximum number of content objects.
 }
 @end
 

@@ -37,10 +37,10 @@
   NSString		*unit;		// Not retained
   NSString		*classname;	// Not retained
   NSString		*category;	// Not retained
-  unsigned		chap;
-  unsigned		sect;
-  unsigned		ssect;
-  unsigned		sssect;
+  NSUInteger		chap;
+  NSUInteger		sect;
+  NSUInteger		ssect;
+  NSUInteger		sssect;
 }
 - (NSString*) globalRef: (NSString*)ref type: (NSString*)type;
 - (void) makeRefs: (GSXMLNode*)node;

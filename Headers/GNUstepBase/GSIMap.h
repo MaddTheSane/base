@@ -567,7 +567,7 @@ GSIMapRemangleBuckets(GSIMapTable map,
 }
 
 GS_STATIC_INLINE void
-GSIMapMoreNodes(GSIMapTable map, unsigned required)
+GSIMapMoreNodes(GSIMapTable map, uintptr_t required)
 {
   GSIMapNode	*newArray;
 

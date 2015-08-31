@@ -132,7 +132,7 @@ UTF8Str(const unsigned char *bytes)
 }
 
 inline static NSString*
-UTF8StrLen(const unsigned char *bytes, unsigned length)
+UTF8StrLen(const unsigned char *bytes, NSUInteger length)
 {
   NSString	*str;
 
@@ -152,7 +152,7 @@ static BOOL cacheDone = NO;
 
 static char * xml_strdup(const char *from)
 {
-  unsigned	len;
+  NSUInteger	len;
   char		*to;
 
   if (0 == from) from = "";
@@ -523,7 +523,7 @@ static NSMapTable	*attrNames = 0;
  * Uses the -description method to produce a string representation of
  * the document and writes that to filename.
  */
-- (BOOL) writeToFile: (NSString*)filename atomically: (BOOL)useAuxilliaryFile
+- (BOOL) writeToFile: (NSString*)filename atomically: (BOOL)useAuxilliaryFile encoding:(NSStringEncoding)enc error:(NSError **)error
 {
   NSString	*s = [self description];
 
@@ -531,14 +531,19 @@ static NSMapTable	*attrNames = 0;
     {
       return NO;
     }
-  return [s writeToFile: filename atomically: useAuxilliaryFile];
+  return [s writeToFile: filename atomically: useAuxilliaryFile encoding: enc	error: error];
+}
+
+- (BOOL) writeToFile: (NSString*)filename atomically: (BOOL)useAuxilliaryFile
+{
+  return [self writeToFile: filename atomically: useAuxilliaryFile encoding: NSUTF8StringEncoding error: nil];
 }
 
 /**
  * Uses the -description method to produce a string representation of
  * the document and writes that to url.
  */
-- (BOOL) writeToURL: (NSURL*)url atomically: (BOOL)useAuxilliaryFile
+- (BOOL) writeToURL: (NSURL*)url atomically: (BOOL)useAuxilliaryFile encoding:(NSStringEncoding)enc error:(NSError **)error
 {
   NSString	*s = [self description];
 
@@ -546,7 +551,12 @@ static NSMapTable	*attrNames = 0;
     {
       return NO;
     }
-  return [s writeToURL: url atomically: useAuxilliaryFile];
+  return [s writeToURL: url atomically: useAuxilliaryFile encoding:enc error:error];
+}
+
+- (BOOL) writeToURL: (NSURL*)url atomically: (BOOL)useAuxilliaryFile
+{
+  return [self writeToURL: url atomically: useAuxilliaryFile encoding: NSUTF8StringEncoding error: nil];
 }
 
 @end
@@ -2318,11 +2328,11 @@ static NSString	*endMarker = @"At end of incremental parse";
 
   if ([src isKindOfClass: NSString_class])
     {
-      file = [src lossyCString];
+      file = [src fileSystemRepresentation];
     }
   else if ([src isKindOfClass: [NSURL class]])
     {
-      file = [[src absoluteString] lossyCString];
+      file = [[src absoluteString] UTF8String];
     }
   else
     {
@@ -2458,8 +2468,8 @@ loadEntityFunction(void *ctx,
   NSString			*location;
   NSArray			*components;
   NSMutableString		*local;
-  unsigned			count;
-  unsigned			index;
+  NSUInteger			count;
+  NSUInteger			index;
 
   NSCAssert(ctx, @"No Context");
   if (url == NULL)
@@ -2528,7 +2538,7 @@ loadEntityFunction(void *ctx,
 	  NSCharacterSet	*ws = [NSCharacterSet whitespaceCharacterSet];
 	  NSString		*found = nil;
 	  NSMutableString	*name;
-	  unsigned		len;
+	  NSUInteger		len;
 	  NSRange		r;
 
 	  /*
@@ -4091,8 +4101,8 @@ static BOOL warned = NO; if (warned == NO) { warned = YES; NSLog(@"WARNING, use 
 	      while (key != nil)
 		{
 		  NSString	*value = [params objectForKey: key];
-		  parameters[pNum++] = [key cString];
-		  parameters[pNum++] = [value cString];
+		  parameters[pNum++] = [key UTF8String];
+		  parameters[pNum++] = [value UTF8String];
 		  key = [keys nextObject];
 		}
 	    }
@@ -4247,10 +4257,10 @@ static BOOL warned = NO; if (warned == NO) { warned = YES; NSLog(@"WARNING, use 
 @implementation	NSString (GSXML)
 - (NSString*) stringByEscapingXML
 {
-  unsigned	length = [self length];
-  unsigned	output = 0;
+  NSUInteger	length = [self length];
+  NSUInteger	output = 0;
   unichar	*from;
-  unsigned	i = 0;
+  NSUInteger	i = 0;
   BOOL		escape = NO;
 
   from = NSZoneMalloc (NSDefaultMallocZone(), sizeof(unichar) * length);
@@ -4310,7 +4320,7 @@ static BOOL warned = NO; if (warned == NO) { warned = YES; NSLog(@"WARNING, use 
   if (escape == YES)
     {
       unichar	*to;
-      unsigned	j = 0;
+      NSUInteger	j = 0;
 
       to = NSZoneMalloc (NSDefaultMallocZone(), sizeof(unichar) * output);
 
@@ -4401,7 +4411,7 @@ static BOOL warned = NO; if (warned == NO) { warned = YES; NSLog(@"WARNING, use 
 
 - (NSString*) stringByUnescapingXML
 {
-  unsigned		length = [self length];
+  NSUInteger		length = [self length];
   NSRange		r = NSMakeRange(0, length);
 
   r = [self rangeOfString: @"&" options: NSLiteralSearch range: r];
@@ -4412,14 +4422,14 @@ static BOOL warned = NO; if (warned == NO) { warned = YES; NSLog(@"WARNING, use 
       while (r.length > 0)
 	{
 	  NSRange	e;
-	  unsigned	s0 = NSMaxRange(r);
+	  NSUInteger	s0 = NSMaxRange(r);
 
 	  e = [m rangeOfString: @";"
 		       options: NSLiteralSearch
 			 range: NSMakeRange(s0, length - s0)];
 	  if (e.length > 0)
 	    {
-	      unsigned	s1 = NSMaxRange(e);
+	      NSUInteger	s1 = NSMaxRange(e);
 	      NSString	*s = [m substringWithRange: NSMakeRange(s0, s1 - s0)];
 
 	      if ([s hasPrefix: @"&#"] == YES)
@@ -4428,18 +4438,18 @@ static BOOL warned = NO; if (warned == NO) { warned = YES; NSLog(@"WARNING, use 
 
 		  if ([s hasPrefix: @"&#x"] || [s hasPrefix: @"&#X"])
 		    {
-		      unsigned	val = 0;
+		      NSUInteger	val = 0;
 
 		      s = [s substringFromIndex: 3];
-		      sscanf([s UTF8String], "%x", &val);
+		      sscanf([s UTF8String], "%lx", &val);
 		      u = val;
 		    }
 		  else if ([s hasPrefix: @"&#0x"] || [s hasPrefix: @"&#0X"])
 		    {
-		      unsigned	val = 0;
+		      NSUInteger	val = 0;
 
 		      s = [s substringFromIndex: 4];
-		      sscanf([s UTF8String], "%x", &val);
+		      sscanf([s UTF8String], "%lx", &val);
 		      u = val;
 		    }
 		  else
@@ -4578,7 +4588,7 @@ static NSString	*indentations[] = {
   @"\t\t\t      ",
   @"\t\t\t\t"
 };
-static void indentation(unsigned level, NSMutableString *str)
+static void indentation(NSUInteger level, NSMutableString *str)
 {
   if (level > 0)
     {
@@ -4604,8 +4614,8 @@ static void indentation(unsigned level, NSMutableString *str)
 		 indent: (NSUInteger)indent
 		    for: (GSXMLRPC*)rpc
 {
-  unsigned 		i;
-  unsigned		c = [self count];
+  NSUInteger 		i;
+  NSUInteger		c = [self count];
   BOOL			compact = [rpc compact];
   
   INDENT(indent++);
@@ -5000,8 +5010,8 @@ static void indentation(unsigned level, NSMutableString *str)
                        params: (NSArray*)params
 {
   NSMutableString	*str = [NSMutableString stringWithCapacity: 1024];
-  unsigned		c = [params count];
-  unsigned		i;
+  NSUInteger		c = [params count];
+  NSUInteger		i;
   
   if ([method length] == 0)
     {
@@ -5103,8 +5113,8 @@ static void indentation(unsigned level, NSMutableString *str)
 - (NSString*) buildResponseWithParams: (NSArray*)params
 {
   NSMutableString	*str = [NSMutableString stringWithCapacity: 1024];
-  unsigned		c = [params count];
-  unsigned		i;
+  NSUInteger		c = [params count];
+  NSUInteger		i;
   
   [str appendString: @"<?xml version=\"1.0\"?>\n"];
   [str appendString: @"<methodResponse>"];

@@ -301,7 +301,7 @@ GSObjCMethodNames(id obj, BOOL recurse)
 
   while (class != Nil)
     {
-      unsigned	count;
+      NSUInteger	count;
       Method	*meth = class_copyMethodList(class, &count);
 
       while (count-- > 0)
@@ -356,7 +356,7 @@ GSObjCVariableNames(id obj, BOOL recurse)
 
   while (class != Nil)
     {
-      unsigned	count;
+      NSUInteger	count;
       Ivar	*ivar = class_copyIvarList(class, &count);
 
       while (count-- > 0)
@@ -1007,7 +1007,7 @@ GSObjCAddClassOverride(Class receiver, Class override)
  */
 id
 GSObjCGetVal(NSObject *self, const char *key, SEL sel,
-	       const char *type, unsigned size, int offset)
+	       const char *type, NSUInteger size, int offset)
 {
   NSMethodSignature	*sig = nil;
 
@@ -1444,7 +1444,7 @@ GSObjCGetVal(NSObject *self, const char *key, SEL sel,
  */
 id
 GSObjCGetValue(NSObject *self, NSString *key, SEL sel,
-	       const char *type, unsigned size, int offset)
+	       const char *type, NSUInteger size, int offset)
 {
   return GSObjCGetVal(self, [key UTF8String], sel, type, size, offset);
 }
@@ -1461,7 +1461,7 @@ GSObjCGetValue(NSObject *self, NSString *key, SEL sel,
  */
 void
 GSObjCSetVal(NSObject *self, const char *key, id val, SEL sel,
-  const char *type, unsigned size, int offset)
+  const char *type, NSUInteger size, int offset)
 {
   static NSNull		*null = nil;
   NSMethodSignature	*sig = nil;
@@ -1895,7 +1895,7 @@ GSObjCSetVal(NSObject *self, const char *key, id val, SEL sel,
  */
 void
 GSObjCSetValue(NSObject *self, NSString *key, id val, SEL sel,
-	       const char *type, unsigned size, int offset)
+	       const char *type, NSUInteger size, int offset)
 {
   GSObjCSetVal(self, [key UTF8String], val, sel, type, size, offset);
 }
@@ -1973,7 +1973,7 @@ NSArray *GSObjCDirectSubclassesOfClass(Class cls)
 @end
 
 void *
-GSAutoreleasedBuffer(unsigned size)
+GSAutoreleasedBuffer(NSUInteger size)
 {
 #if GS_WITH_GC || __OBJC_GC__
   return NSAllocateCollectable(size, NSScannedOption);
@@ -2049,7 +2049,7 @@ GSPrintf (FILE *fptr, NSString* format, ...)
 
   if (data != nil)
     {
-      unsigned int      length = [data length];
+      NSUInteger      length = [data length];
 
       if (length == 0 || fwrite([data bytes], 1, length, fptr) == length)
         {

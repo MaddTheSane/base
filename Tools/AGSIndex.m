@@ -29,8 +29,8 @@
 #import "GNUstepBase/NSString+GNUstepBase.h"
 #import "GNUstepBase/NSMutableString+GNUstepBase.h"
 
-static int      XML_ELEMENT_NODE;
-static int      XML_TEXT_NODE;
+static NSInteger      XML_ELEMENT_NODE;
+static NSInteger      XML_TEXT_NODE;
 
 static void
 mergeDictionaries(NSMutableDictionary *dst, NSDictionary *src, BOOL override)
@@ -297,8 +297,8 @@ setDirectory(NSMutableDictionary *dict, NSString *path)
 	      RELEASE(d);
 	    }
 
-          k = [NSString stringWithFormat: @"%03u%03u%03u%03u",
-	    chap, sect, ssect, sssect];
+          k = [NSString stringWithFormat: @"%03lu%03lu%03lu%03lu",
+	    (unsigned long)chap, (unsigned long)sect, (unsigned long)ssect, (unsigned long)sssect];
 	  c = [[children content] stringByTrimmingSpaces];
 	  if (c == nil) c = @"";
 	  [d setObject: c forKey: k];
@@ -539,10 +539,8 @@ setDirectory(NSMutableDictionary *dict, NSString *path)
 - (void) setDirectory: (NSString*)path
 {
   if (path != nil)
-    {
-      CREATE_AUTORELEASE_POOL(pool);
+    @autoreleasepool {
       setDirectory(refs, path);
-      [pool drain];
     }
 }
 
@@ -711,7 +709,7 @@ setDirectory(NSMutableDictionary *dict, NSString *path)
     {
       NSEnumerator	*e;
       NSString		*n;
-      unsigned		count = 0;
+      NSUInteger		count = 0;
 
       /**
        * If the method was given no unit to look in, then it will succeed
