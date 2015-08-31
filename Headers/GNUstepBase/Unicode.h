@@ -105,20 +105,20 @@ GS_EXPORT NSUInteger GSUnicode(const unichar *chars, NSUInteger length,
 /*
  * Options when converting strings.
  */
-	typedef NS_OPTIONS(unsigned int, GSUniFlags) {
+typedef NS_OPTIONS(unsigned int, GSUniFlags) {
 	GSUniTerminate	= 0x01,
 	GSUniTemporary	= 0x02,
 	GSUniStrict		= 0x04,
 	GSUniBOM		= 0x08,
 	GSUniShortOk	= 0x10
-	};
+};
 
 GS_EXPORT BOOL GSFromUnicode(unsigned char **dst, NSUInteger *size,
   const unichar *src, NSUInteger slen, NSStringEncoding enc, NSZone *zone,
-  NSUInteger options);
+  GSUniFlags options);
 GS_EXPORT BOOL GSToUnicode(unichar **dst, NSUInteger *size,
   const unsigned char *src, NSUInteger slen, NSStringEncoding enc,
-  NSZone *zone, NSUInteger options);
+  NSZone *zone, GSUniFlags options);
 
 #if	defined(__cplusplus)
 }

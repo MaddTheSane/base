@@ -946,7 +946,7 @@ else \
 BOOL
 GSToUnicode(unichar **dst, NSUInteger *size, const unsigned char *src,
   NSUInteger slen, NSStringEncoding enc, NSZone *zone,
-  NSUInteger options)
+  GSUniFlags options)
 {
   unichar	buf[BUFSIZ];
   unichar	*ptr;
@@ -1704,7 +1704,7 @@ static inline int chop(unichar c, _ucc_ *table, int hi)
 BOOL
 GSFromUnicode(unsigned char **dst, NSUInteger *size, const unichar *src,
   NSUInteger slen, NSStringEncoding enc, NSZone *zone,
-  NSUInteger options)
+  GSUniFlags options)
 {
   unsigned char	buf[BUFSIZ];
   unsigned char	*ptr;
