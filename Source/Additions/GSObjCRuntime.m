@@ -2097,6 +2097,9 @@ GSFinalize(void* object, void* data)
 }
 
 # endif	/* GS_WITH_GC */
+#else
+#   define	AADD(c, o)
+#   define	AREM(c, o)
 #endif	/* defined(GNUSTEP_BASE_LIBRARY) */
 
 void

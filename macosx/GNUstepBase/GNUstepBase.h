@@ -21,3 +21,6 @@
  Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  Boston, MA 02111 USA.
  */
+
+#import <Foundation/Foundation.h>
+#import <GNUstepBase/Additions.h>

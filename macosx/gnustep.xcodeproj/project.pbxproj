@@ -219,35 +219,35 @@
 		559A068D120493A7004BBA32 /* GNUstepBase.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = GNUstepBase.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		559A06A7120493A7004BBA32 /* autogsdoc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = autogsdoc; sourceTree = BUILT_PRODUCTS_DIR; };
 		559A06B6120493A8004BBA32 /* HTMLLinker */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = HTMLLinker; sourceTree = BUILT_PRODUCTS_DIR; };
-		559A075A12049FCF004BBA32 /* GCArray.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = GCArray.m; path = Additions/GCArray.m; sourceTree = "<group>"; };
-		559A075B12049FCF004BBA32 /* GCDictionary.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = GCDictionary.m; path = Additions/GCDictionary.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
-		559A075C12049FCF004BBA32 /* GCObject.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = GCObject.m; path = Additions/GCObject.m; sourceTree = "<group>"; };
-		559A075D12049FCF004BBA32 /* GSFunctions.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = GSFunctions.m; path = Additions/GSFunctions.m; sourceTree = "<group>"; };
-		559A075E12049FCF004BBA32 /* GSInsensitiveDictionary.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = GSInsensitiveDictionary.m; path = Additions/GSInsensitiveDictionary.m; sourceTree = "<group>"; };
-		559A075F12049FCF004BBA32 /* GSLock.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = GSLock.m; path = Additions/GSLock.m; sourceTree = "<group>"; };
-		559A076012049FCF004BBA32 /* GSMime.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = GSMime.m; path = Additions/GSMime.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
-		559A076112049FCF004BBA32 /* GSObjCRuntime.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = GSObjCRuntime.m; path = Additions/GSObjCRuntime.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
-		559A076212049FCF004BBA32 /* GSXML.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = GSXML.m; path = Additions/GSXML.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
-		559A076312049FCF004BBA32 /* NSArray+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSArray+GNUstepBase.m"; path = "Additions/NSArray+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A076412049FCF004BBA32 /* NSAttributedString+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSAttributedString+GNUstepBase.m"; path = "Additions/NSAttributedString+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A076512049FCF004BBA32 /* NSBundle+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSBundle+GNUstepBase.m"; path = "Additions/NSBundle+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A076612049FCF004BBA32 /* NSCalendarDate+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSCalendarDate+GNUstepBase.m"; path = "Additions/NSCalendarDate+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A076712049FCF004BBA32 /* NSData+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = "NSData+GNUstepBase.m"; path = "Additions/NSData+GNUstepBase.m"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
-		559A076812049FCF004BBA32 /* NSDebug+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSDebug+GNUstepBase.m"; path = "Additions/NSDebug+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A076912049FCF004BBA32 /* NSError+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSError+GNUstepBase.m"; path = "Additions/NSError+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A076A12049FCF004BBA32 /* NSFileHandle+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSFileHandle+GNUstepBase.m"; path = "Additions/NSFileHandle+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A076B12049FCF004BBA32 /* NSLock+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSLock+GNUstepBase.m"; path = "Additions/NSLock+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A076C12049FCF004BBA32 /* NSMutableString+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = "NSMutableString+GNUstepBase.m"; path = "Additions/NSMutableString+GNUstepBase.m"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
-		559A076D12049FCF004BBA32 /* NSNumber+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSNumber+GNUstepBase.m"; path = "Additions/NSNumber+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A076E12049FCF004BBA32 /* NSObject+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSObject+GNUstepBase.m"; path = "Additions/NSObject+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A076F12049FCF004BBA32 /* NSProcessInfo+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSProcessInfo+GNUstepBase.m"; path = "Additions/NSProcessInfo+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A077012049FCF004BBA32 /* NSPropertyList+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = "NSPropertyList+GNUstepBase.m"; path = "Additions/NSPropertyList+GNUstepBase.m"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
-		559A077112049FCF004BBA32 /* NSStream+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSStream+GNUstepBase.m"; path = "Additions/NSStream+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A077212049FCF004BBA32 /* NSString+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = "NSString+GNUstepBase.m"; path = "Additions/NSString+GNUstepBase.m"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
-		559A077312049FCF004BBA32 /* NSTask+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSTask+GNUstepBase.m"; path = "Additions/NSTask+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A077412049FCF004BBA32 /* NSThread+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSThread+GNUstepBase.m"; path = "Additions/NSThread+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A077512049FCF004BBA32 /* NSURL+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSURL+GNUstepBase.m"; path = "Additions/NSURL+GNUstepBase.m"; sourceTree = "<group>"; };
-		559A077612049FCF004BBA32 /* Unicode.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; name = Unicode.m; path = Additions/Unicode.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		559A075A12049FCF004BBA32 /* GCArray.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GCArray.m; sourceTree = "<group>"; };
+		559A075B12049FCF004BBA32 /* GCDictionary.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = GCDictionary.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		559A075C12049FCF004BBA32 /* GCObject.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GCObject.m; sourceTree = "<group>"; };
+		559A075D12049FCF004BBA32 /* GSFunctions.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GSFunctions.m; sourceTree = "<group>"; };
+		559A075E12049FCF004BBA32 /* GSInsensitiveDictionary.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GSInsensitiveDictionary.m; sourceTree = "<group>"; };
+		559A075F12049FCF004BBA32 /* GSLock.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GSLock.m; sourceTree = "<group>"; };
+		559A076012049FCF004BBA32 /* GSMime.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = GSMime.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		559A076112049FCF004BBA32 /* GSObjCRuntime.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = GSObjCRuntime.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		559A076212049FCF004BBA32 /* GSXML.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = GSXML.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		559A076312049FCF004BBA32 /* NSArray+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSArray+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A076412049FCF004BBA32 /* NSAttributedString+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSAttributedString+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A076512049FCF004BBA32 /* NSBundle+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSBundle+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A076612049FCF004BBA32 /* NSCalendarDate+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSCalendarDate+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A076712049FCF004BBA32 /* NSData+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = "NSData+GNUstepBase.m"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		559A076812049FCF004BBA32 /* NSDebug+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSDebug+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A076912049FCF004BBA32 /* NSError+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSError+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A076A12049FCF004BBA32 /* NSFileHandle+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSFileHandle+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A076B12049FCF004BBA32 /* NSLock+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSLock+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A076C12049FCF004BBA32 /* NSMutableString+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = "NSMutableString+GNUstepBase.m"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		559A076D12049FCF004BBA32 /* NSNumber+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSNumber+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A076E12049FCF004BBA32 /* NSObject+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSObject+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A076F12049FCF004BBA32 /* NSProcessInfo+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSProcessInfo+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A077012049FCF004BBA32 /* NSPropertyList+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = "NSPropertyList+GNUstepBase.m"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		559A077112049FCF004BBA32 /* NSStream+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSStream+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A077212049FCF004BBA32 /* NSString+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = "NSString+GNUstepBase.m"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		559A077312049FCF004BBA32 /* NSTask+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSTask+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A077412049FCF004BBA32 /* NSThread+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSThread+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A077512049FCF004BBA32 /* NSURL+GNUstepBase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSURL+GNUstepBase.m"; sourceTree = "<group>"; };
+		559A077612049FCF004BBA32 /* Unicode.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = Unicode.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
 		559A07981204A018004BBA32 /* GSNetwork.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = GSNetwork.h; path = ../Source/GSNetwork.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		559A07A31204A092004BBA32 /* GSInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GSInternal.h; path = ../Source/GSInternal.h; sourceTree = SOURCE_ROOT; };
 		559A07A51204A0A0004BBA32 /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = common.h; path = ../Source/common.h; sourceTree = SOURCE_ROOT; };
@@ -370,35 +370,7 @@
 		08FB77AEFE84172EC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
-				559A075A12049FCF004BBA32 /* GCArray.m */,
-				559A075B12049FCF004BBA32 /* GCDictionary.m */,
-				559A075C12049FCF004BBA32 /* GCObject.m */,
-				559A075D12049FCF004BBA32 /* GSFunctions.m */,
-				559A075E12049FCF004BBA32 /* GSInsensitiveDictionary.m */,
-				559A075F12049FCF004BBA32 /* GSLock.m */,
-				559A076012049FCF004BBA32 /* GSMime.m */,
-				559A076112049FCF004BBA32 /* GSObjCRuntime.m */,
-				559A076212049FCF004BBA32 /* GSXML.m */,
-				559A076312049FCF004BBA32 /* NSArray+GNUstepBase.m */,
-				559A076412049FCF004BBA32 /* NSAttributedString+GNUstepBase.m */,
-				559A076512049FCF004BBA32 /* NSBundle+GNUstepBase.m */,
-				559A076612049FCF004BBA32 /* NSCalendarDate+GNUstepBase.m */,
-				559A076712049FCF004BBA32 /* NSData+GNUstepBase.m */,
-				559A076812049FCF004BBA32 /* NSDebug+GNUstepBase.m */,
-				559A076912049FCF004BBA32 /* NSError+GNUstepBase.m */,
-				559A076A12049FCF004BBA32 /* NSFileHandle+GNUstepBase.m */,
-				559A076B12049FCF004BBA32 /* NSLock+GNUstepBase.m */,
-				559A076C12049FCF004BBA32 /* NSMutableString+GNUstepBase.m */,
-				559A076D12049FCF004BBA32 /* NSNumber+GNUstepBase.m */,
-				559A076E12049FCF004BBA32 /* NSObject+GNUstepBase.m */,
-				559A076F12049FCF004BBA32 /* NSProcessInfo+GNUstepBase.m */,
-				559A077012049FCF004BBA32 /* NSPropertyList+GNUstepBase.m */,
-				559A077112049FCF004BBA32 /* NSStream+GNUstepBase.m */,
-				559A077212049FCF004BBA32 /* NSString+GNUstepBase.m */,
-				559A077312049FCF004BBA32 /* NSTask+GNUstepBase.m */,
-				559A077412049FCF004BBA32 /* NSThread+GNUstepBase.m */,
-				559A077512049FCF004BBA32 /* NSURL+GNUstepBase.m */,
-				559A077612049FCF004BBA32 /* Unicode.m */,
+				55FBAA821B93D08400A513B7 /* Additions */,
 			);
 			name = Source;
 			path = ../Source;
@@ -572,6 +544,42 @@
 				55AB58E90408EA8100000001 /* indextemplate.gsdoc */,
 			);
 			name = DocTemplates;
+			sourceTree = "<group>";
+		};
+		55FBAA821B93D08400A513B7 /* Additions */ = {
+			isa = PBXGroup;
+			children = (
+				559A075A12049FCF004BBA32 /* GCArray.m */,
+				559A075B12049FCF004BBA32 /* GCDictionary.m */,
+				559A075C12049FCF004BBA32 /* GCObject.m */,
+				559A075D12049FCF004BBA32 /* GSFunctions.m */,
+				559A075E12049FCF004BBA32 /* GSInsensitiveDictionary.m */,
+				559A075F12049FCF004BBA32 /* GSLock.m */,
+				559A076012049FCF004BBA32 /* GSMime.m */,
+				559A076112049FCF004BBA32 /* GSObjCRuntime.m */,
+				559A076212049FCF004BBA32 /* GSXML.m */,
+				559A076312049FCF004BBA32 /* NSArray+GNUstepBase.m */,
+				559A076412049FCF004BBA32 /* NSAttributedString+GNUstepBase.m */,
+				559A076512049FCF004BBA32 /* NSBundle+GNUstepBase.m */,
+				559A076612049FCF004BBA32 /* NSCalendarDate+GNUstepBase.m */,
+				559A076712049FCF004BBA32 /* NSData+GNUstepBase.m */,
+				559A076812049FCF004BBA32 /* NSDebug+GNUstepBase.m */,
+				559A076912049FCF004BBA32 /* NSError+GNUstepBase.m */,
+				559A076A12049FCF004BBA32 /* NSFileHandle+GNUstepBase.m */,
+				559A076B12049FCF004BBA32 /* NSLock+GNUstepBase.m */,
+				559A076C12049FCF004BBA32 /* NSMutableString+GNUstepBase.m */,
+				559A076D12049FCF004BBA32 /* NSNumber+GNUstepBase.m */,
+				559A076E12049FCF004BBA32 /* NSObject+GNUstepBase.m */,
+				559A076F12049FCF004BBA32 /* NSProcessInfo+GNUstepBase.m */,
+				559A077012049FCF004BBA32 /* NSPropertyList+GNUstepBase.m */,
+				559A077112049FCF004BBA32 /* NSStream+GNUstepBase.m */,
+				559A077212049FCF004BBA32 /* NSString+GNUstepBase.m */,
+				559A077312049FCF004BBA32 /* NSTask+GNUstepBase.m */,
+				559A077412049FCF004BBA32 /* NSThread+GNUstepBase.m */,
+				559A077512049FCF004BBA32 /* NSURL+GNUstepBase.m */,
+				559A077612049FCF004BBA32 /* Unicode.m */,
+			);
+			path = Additions;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -890,10 +898,13 @@
 		559A0689120493A7004BBA32 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1.21.1;
+				ENABLE_STRICT_OBJC_MSGSEND = NO;
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -922,10 +933,13 @@
 		559A068A120493A7004BBA32 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1.21.1;
+				ENABLE_STRICT_OBJC_MSGSEND = NO;
 				FRAMEWORK_VERSION = A;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = config.h;
