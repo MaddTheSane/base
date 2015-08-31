@@ -101,6 +101,7 @@ static NSString		*mainFont = nil;
     }
 }
 
+#if !__has_feature(objc_arc)
 - (void) dealloc
 {
   RELEASE(project);
@@ -110,6 +111,7 @@ static NSString		*mainFont = nil;
   RELEASE(indent);
   [super dealloc];
 }
+#endif
 
 - (void) decIndent
 {

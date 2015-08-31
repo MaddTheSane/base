@@ -179,6 +179,7 @@ static BOOL snuggleStart(NSString *t)
   return comment;
 }
 
+#if !__has_feature(objc_arc)
 - (void) dealloc
 {
   DESTROY(identifier);
@@ -188,6 +189,7 @@ static BOOL snuggleStart(NSString *t)
   DESTROY(informalProtocols);
   [super dealloc];
 }
+#endif
 
 - (NSUInteger) fitWords: (NSArray*)a
 		 from: (NSUInteger)start
