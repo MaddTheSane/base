@@ -240,7 +240,7 @@ GSObjCVersion(Class cls)
  */
 BOOL
 GSObjCFindVariable(id obj, const char *name,
-  const char **type, unsigned int *size, int *offset)
+  const char **type, size_t *size, ptrdiff_t *offset)
 {
   Class		class = object_getClass(obj);
   Ivar		ivar = class_getInstanceVariable(class, name);
@@ -301,7 +301,7 @@ GSObjCMethodNames(id obj, BOOL recurse)
 
   while (class != Nil)
     {
-      NSUInteger	count;
+      unsigned	count;
       Method	*meth = class_copyMethodList(class, &count);
 
       while (count-- > 0)
@@ -356,7 +356,7 @@ GSObjCVariableNames(id obj, BOOL recurse)
 
   while (class != Nil)
     {
-      NSUInteger	count;
+      unsigned	count;
       Ivar	*ivar = class_copyIvarList(class, &count);
 
       while (count-- > 0)
@@ -1987,7 +1987,7 @@ GSAutoreleasedBuffer(NSUInteger size)
   static Class	autorelease_class;
   static SEL	autorelease_sel;
   static IMP	autorelease_imp;
-  static int	instance_size;
+  static size_t	instance_size;
   static int	offset;
   NSObject	*o;
 
