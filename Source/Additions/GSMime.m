@@ -6687,7 +6687,7 @@ static void makeBase64(GSMimeDocument *doc)
     }
 }
 
-@interface	GSMimeSMTPClient (Private)
+@interface	GSMimeSMTPClient () <NSStreamDelegate>
 - (NSError*) _commsEnd;
 - (NSError*) _commsError;
 - (void) _doMessage;
@@ -6950,10 +6950,6 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
 
   [self _performIO];
 }
-
-@end
-
-@implementation	GSMimeSMTPClient (Private)
 
 - (NSError*) _commsEnd
 {
