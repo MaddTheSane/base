@@ -3845,6 +3845,11 @@ transmute(GSStr self, NSString *aString)
 		      freeWhenDone: flag];
 }
 
+- (BOOL) makeImmutable
+{
+  return YES;
+}
+
 - (NSUInteger) sizeInBytesExcluding: (NSHashTable*)exclude
 {
   NSUInteger    size = GSPrivateMemorySize(self, exclude);
@@ -5296,6 +5301,20 @@ NSAssert(_flags.owned == 1 && _zone != 0, NSInternalInconsistencyException);
   return [super lowercaseString];
 }
 
+- (BOOL) makeImmutable
+{
+NSAssert(_flags.owned == 1 && _zone != 0, NSInternalInconsistencyException);
+  if (_flags.wide == 1)
+    {
+      GSClassSwizzle(self, [GSUnicodeBufferString class]);
+    }
+  else
+    {
+      GSClassSwizzle(self, [GSCBufferString class]);
+    }
+  return YES;
+}
+
 - (id) makeImmutableCopyOnFail: (BOOL)force
 {
 NSAssert(_flags.owned == 1 && _zone != 0, NSInternalInconsistencyException);
@@ -5899,13 +5918,14 @@ literalIsEqual(NXConstantString *self, id anObject)
       unsigned	i = 0;
       unichar	n = 0;
       uint8_t	*b;
+      uint8_t	*p;
 
       /* If all the characters are latin1 we can copy them efficiently.
        */
-      b = NSAllocateCollectable(length, 0);
-      while (i < length)
+      p = b = NSAllocateCollectable(length, 0);
+      while (i < nxcslen)
         {
-          b[i] = nextUTF8((const uint8_t *)nxcsptr, nxcslen, &i, &n);
+          *p++ = (uint8_t)nextUTF8((const uint8_t *)nxcsptr, nxcslen, &i, &n);
         }
       return [NSDataClass dataWithBytesNoCopy: (void*)b
                                        length: length
@@ -6267,12 +6287,8 @@ GSPrivateStrAppendUnichars(GSStr s, const unichar *u, unsigned l)
    */
   if (s->_flags.wide == 1)
     {
-      unsigned 	i;
-
-      for (i = 0; i < l; i++)
-	{
-	  s->_contents.u[s->_count++] = u[i];
-	}
+      memcpy(s->_contents.u + s->_count, u, l * sizeof(unichar));
+      s->_count += l;
     }
   else
     {

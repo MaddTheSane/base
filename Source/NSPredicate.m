@@ -141,7 +141,24 @@ extern void     GSPropertyListMake(id,NSDictionary*,BOOL,BOOL,unsigned,id*);
 }
 @end
 
-
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
+@interface GSBlockPredicate : NSPredicate
+{
+  GSBlockPredicateBlock _block;
+}
+
+- (instancetype) initWithBlock: (GSBlockPredicateBlock)block;
+@end
+
+
+@interface GSBoundBlockPredicate : GSBlockPredicate
+{
+  GS_GENERIC_CLASS(NSDictionary,NSString*,id)* _bindings;
+}
+- (instancetype) initWithBlock: (GSBlockPredicateBlock)block
+                      bindings: (GS_GENERIC_CLASS(NSDictionary,NSString*,id)*)bindings;
+@end
+#endif
 
 @implementation NSPredicate
 
@@ -343,6 +360,14 @@ extern void     GSPropertyListMake(id,NSDictionary*,BOOL,BOOL,unsigned,id*);
   return AUTORELEASE([self copy]);  
 }
 
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_5, GS_API_LATEST)
+- (BOOL) evaluateWithObject: (id)object
+	  substitutionVariables: (GS_GENERIC_CLASS(NSDictionary, NSString*, id)*)variables
+{
+  return [[self predicateWithSubstitutionVariables: variables]
+		   evaluateWithObject: object];
+}
+#endif
 - (Class) classForCoder
 {
   return [NSPredicate class];
@@ -361,6 +386,12 @@ extern void     GSPropertyListMake(id,NSDictionary*,BOOL,BOOL,unsigned,id*);
   return self;
 }
 
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
++ (NSPredicate*)predicateWithBlock: (GSBlockPredicateBlock)block
+{
+  return [[[GSBlockPredicate alloc] initWithBlock: block] autorelease];
+}
+#endif
 @end
 
 @implementation GSTruePredicate
@@ -1694,7 +1725,7 @@ GSICUStringMatchesRegex(NSString *string, NSString *regex, NSStringCompareOption
           [result addObject: object];  // passes filter
         }
     }
-  return [result makeImmutableCopyOnFail: NO];
+  return GS_IMMUTABLE(result);
 }
 
 @end
@@ -1734,7 +1765,7 @@ GSICUStringMatchesRegex(NSString *string, NSString *regex, NSStringCompareOption
           [result addObject: object];  // passes filter
         }
     }
-  return [result makeImmutableCopyOnFail: NO];
+  return GS_IMMUTABLE(result);
 }
 
 @end
@@ -2591,5 +2622,82 @@ GSICUStringMatchesRegex(NSString *string, NSString *regex, NSStringCompareOption
         }
     }
 }
-
 @end
+
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
+
+
+@implementation GSBlockPredicate
+
+- (instancetype) initWithBlock: (GSBlockPredicateBlock)block
+{
+  if (nil == (self = [super init]))
+    {
+      return nil;
+    }
+  _block = (GSBlockPredicateBlock)[(id)block retain];
+  return self;
+}
+
+- (instancetype) predicateWithSubstitutionVariables: 
+  (GS_GENERIC_CLASS(NSDictionary,NSString*,id)*)variables
+{
+  return [[[GSBoundBlockPredicate alloc] initWithBlock: _block
+                                              bindings: variables] autorelease];
+}
+
+- (BOOL) evaluateWithObject: (id)object
+      substitutionVariables: (GS_GENERIC_CLASS(NSDictionary,
+                                               NSString*,id)*)variables
+{
+  return CALL_BLOCK(_block, object, variables);
+}
+
+- (BOOL) evaluateWithObject: (id)object
+{
+  return [self evaluateWithObject: object
+            substitutionVariables: nil];
+}
+
+- (void) dealloc
+{
+  [(id)_block release];
+  _block = NULL;
+  [super dealloc];
+}
+
+- (NSString*) predicateFormat
+{
+  return [NSString stringWithFormat: @"BLOCKPREDICATE(%p)", (void*)_block];
+}
+@end
+
+@implementation GSBoundBlockPredicate
+
+- (instancetype) initWithBlock: (GSBlockPredicateBlock)block
+                      bindings: (GS_GENERIC_CLASS(NSDictionary,
+                                                   NSString*,id)*)bindings
+{
+  if (nil == (self = [super initWithBlock: block]))
+    {
+      return nil;
+    }
+  ASSIGN(_bindings, bindings);
+  return self;
+}
+
+- (BOOL) evaluateWithObject: (id)object
+{
+  return [self evaluateWithObject: object
+            substitutionVariables: _bindings];
+}
+
+- (void) dealloc
+{
+  DESTROY(_bindings);
+  [super dealloc];
+}
+@end
+
+#endif

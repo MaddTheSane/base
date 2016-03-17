@@ -30,13 +30,17 @@ int main()
   PASS(ret, "NSRecursiveLock lockBeforeDate: with NSRecursiveLock returns YES");
 
 #if     defined(GNUSTEP_BASE_LIBRARY)
+  START_SET("mutex ownership extension")
+#if     defined(_WIN32)
+  SKIP("mutex ownership feature not available on windows")
+#endif
   NS_DURING
     {
       PASS([lock isLockedByCurrentThread] == NO,
         "NSRecursiveLock isLockedByCurrentThread returns NO when not locked");
       [lock lock];
       PASS([lock isLockedByCurrentThread] == YES,
-        "NSRecursiveLock isLockedByCurrentThread returns YES when not locked");
+        "NSRecursiveLock isLockedByCurrentThread returns YES when locked");
       [lock unlock];
       PASS([lock isLockedByCurrentThread] == NO,
         "NSRecursiveLock isLockedByCurrentThread returns NO when unlocked");
@@ -46,6 +50,7 @@ int main()
       NSLog(@"-isLockedByCurrentThread not supported");
     }
   NS_ENDHANDLER
+  END_SET("mutex ownership extension")
 #endif
 
   [arp release]; arp = nil;

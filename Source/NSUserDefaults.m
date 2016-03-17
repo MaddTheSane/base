@@ -56,7 +56,7 @@
 #import "GNUstepBase/NSProcessInfo+GNUstepBase.h"
 #import "GNUstepBase/NSString+GNUstepBase.h"
 
-#if	defined(__MINGW__)
+#if	defined(_WIN32)
 @class	NSUserDefaultsWin32;
 #endif
 
@@ -88,8 +88,10 @@ static NSString		*GSPrimaryDomain = @"GSPrimaryDomain";
 static NSString		*defaultsFile = @".GNUstepDefaults";
 
 static NSUserDefaults	*sharedDefaults = nil;
+static NSDictionary     *argumentsDictionary = nil;
 static NSMutableString	*processName = nil;
 static NSRecursiveLock	*classLock = nil;
+static NSLock	        *syncLock = nil;
 
 /* Flag to say whether the sharedDefaults variable has been set up by a
  * call to the +standardUserDefaults method.  If this is YES but the variable
@@ -97,10 +99,10 @@ static NSRecursiveLock	*classLock = nil;
  * have no defaults available.
  */
 static BOOL		hasSharedDefaults = NO;
-/*
- * Caching some defaults.
+
+/* Caching some default flag values.  Until the standard defaults have
+ * been loaded, these values are taken from the process arguments.
  */
-static BOOL     parsingArguments = NO;
 static BOOL	flags[GSUserDefaultMaxFlag] = { 0 };
 
 /* An instance of the GSPersistentDomain class is used to encapsulate
@@ -244,6 +246,8 @@ updateCache(NSUserDefaults *self)
 	    }
 	}
 
+      /* NB the following flags are first set up, in the +initialize method.
+       */
       flags[GSMacOSXCompatible]
 	= [self boolForKey: @"GSMacOSXCompatible"];
       flags[GSOldStyleGeometry]
@@ -429,7 +433,7 @@ newLanguages(NSArray *oldNames)
  *** Private method definitions
  *************************************************************************/
 @interface NSUserDefaults (Private)
-- (NSDictionary*) _createArgumentDictionary;
++ (void) _createArgumentDictionary: (NSArray*)args;
 - (void) _changePersistentDomain: (NSString*)domainName;
 - (NSString*) _directory;
 - (BOOL) _lockDefaultsFile: (BOOL*)wasLocked;
@@ -547,13 +551,20 @@ newLanguages(NSArray *oldNames)
 {
   DESTROY(sharedDefaults);
   DESTROY(processName);
+  DESTROY(argumentsDictionary);
   DESTROY(classLock);
+  DESTROY(syncLock);
 }
 
 + (void) initialize
 {
   if (self == [NSUserDefaults class])
     {
+      CREATE_AUTORELEASE_POOL(pool);
+      NSEnumerator      *enumerator;
+      NSArray           *args;
+      NSString          *key;
+
       nextObjectSel = @selector(nextObject);
       objectForKeySel = @selector(objectForKey:);
       addSel = @selector(addEntriesFromDictionary:);
@@ -567,8 +578,72 @@ newLanguages(NSArray *oldNames)
       NSNumberClass = [NSNumber class];
       NSMutableDictionaryClass = [NSMutableDictionary class];
       NSStringClass = [NSString class];
-      classLock = [GSLazyRecursiveLock new];
+      argumentsDictionary = [NSDictionary new];
       [self registerAtExit];
+
+      /* Initialise the defaults flags to take values from the
+       * process arguments.  These are otherwise set in updateCache()
+       * We do this early on so that the boolean argument settings can
+       * be used while parsing property list values of other args in
+       * the +_createArgumentDictionary: method.
+       */
+      args = [[NSProcessInfo processInfo] arguments];
+      enumerator = [[[NSProcessInfo processInfo] arguments] objectEnumerator];
+      [enumerator nextObject];	// Skip process name.
+      while (nil != (key = [enumerator nextObject]))
+        {
+          if ([key hasPrefix: @"-"] == YES && [key isEqual: @"-"] == NO)
+	    {
+              id        val;
+
+	      /* Anything beginning with a '-' is a defaults key and we
+               * must strip the '-' from it.
+               */
+	      key = [key substringFromIndex: 1];
+	      while (nil != (val = [enumerator nextObject]))
+                {
+                  if ([val hasPrefix: @"-"] == YES && [val isEqual: @"-"] == NO)
+                    {
+                      key = val;
+                    }
+                  else if ([key isEqualToString: @"GSMacOSXCompatible"])
+                    {
+                      flags[GSMacOSXCompatible] = [val boolValue];
+                    }
+                  else if ([key isEqualToString: @"GSOldStyleGeometry"])
+                    {
+                      flags[GSOldStyleGeometry] = [val boolValue];
+                    }
+                  else if ([key isEqualToString: @"GSLogSyslog"])
+                    {
+                      flags[GSLogSyslog] = [val boolValue];
+                    }
+                  else if ([key isEqualToString: @"GSLogThread"])
+                    {
+                      flags[GSLogThread] = [val boolValue];
+                    }
+                  else if ([key isEqualToString: @"GSLogOffset"])
+                    {
+                      flags[GSLogOffset] = [val boolValue];
+                    }
+                  else if ([key isEqual: @"NSWriteOldStylePropertyLists"])
+                    {
+                      flags[NSWriteOldStylePropertyLists] = [val boolValue];
+                    }
+	        }
+	    }
+        }
+      /* The classLock must be created after setting up the flags[] array,
+       * so once it exists we know we can used them safely.
+       */
+      classLock = [NSRecursiveLock new];
+
+      /* This lock protects locking the defaults file.
+       */
+      syncLock = [NSLock new];
+
+      [self _createArgumentDictionary: args];
+      DESTROY(pool);
     }
 }
 
@@ -733,7 +808,6 @@ newLanguages(NSArray *oldNames)
   BOOL		added_lang;
   BOOL		added_locale;
   BOOL		setup;
-  BOOL		flag;
   id		lang;
   NSArray	*nL;
   NSArray	*uL;
@@ -761,7 +835,7 @@ newLanguages(NSArray *oldNames)
        * instance locked ourselves at the point when it first becomes
        * visible to other threads.
        */
-#if	defined(__MINGW__)
+#if	defined(_WIN32)
       {
         NSString	*path = GSDefaultsRootForUser(NSUserName());
         NSRange		r = [path rangeOfString: @":REGISTRY:"];
@@ -804,75 +878,25 @@ newLanguages(NSArray *oldNames)
 
       if (nil == defs)
 	{
+	  const unsigned        retryCount = 100;
+	  const NSTimeInterval  retryInterval = 0.1;
+	  unsigned              i;
+
+	  for (i = 0; i < retryCount; i++)
+	    {
+	      [NSThread sleepForTimeInterval: retryInterval];
+	      [classLock lock];
+	      defs = RETAIN(sharedDefaults);
+	      setup = hasSharedDefaults;
+	      [classLock unlock];
+	      if (YES == setup)
+		{
+		  NS_VALRETURN(AUTORELEASE(defs));
+		}
+              RELEASE(defs);
+	    }
 	  NSLog(@"WARNING - unable to create shared user defaults!\n");
 	  NS_VALRETURN(nil);
-	}
-
-      if (NO == [defs _readOnly]
-	&& YES == [defs _lockDefaultsFile: &flag])
-	{
-	  NSFileManager	*mgr = [NSFileManager defaultManager];
-	  NSString	*path;
-
-	  path = [defs _directory];
-	  path = [path stringByAppendingPathComponent: defaultsFile];
-	  if (YES == [mgr isReadableFileAtPath: path])
-	    {
-	      NSString	*bck = [path stringByAppendingPathExtension: @"bck"];
-
-	      if (NO == [mgr isReadableFileAtPath: bck])
-		{
-		  NSData	*data;
-		  NSDictionary	*d = nil;
-
-		  /* An old style defaults file was found,
-		   * and no backup had been made of it, so
-		   * we make a backup and convert it to a
-		   * new style collection of files.
-		   */
-		  data = [NSData dataWithContentsOfFile: path];
-		  if (nil != data)
-		    {
-		      d = [NSPropertyListSerialization
-			propertyListWithData: data
-			options: NSPropertyListImmutable
-			format: 0
-			error: 0];
-		    }
-		  if ([d isKindOfClass: [NSDictionary class]])
-		    {
-		      NSEnumerator	*e;
-		      NSString	*name;
-
-		      [mgr movePath: path toPath: bck handler: nil];
-		      e = [d keyEnumerator];
-		      while (nil != (name = [e nextObject]))
-			{
-			  NSDictionary	*domain = [d objectForKey: name];
-
-			  path = [[defs _directory]
-			    stringByAppendingPathComponent: name];
-			  path = [path
-			    stringByAppendingPathExtension: @"plist"];
-			  if ([domain isKindOfClass: [NSDictionary class]]
-			    && [domain count] > 0
-			    && NO == [mgr fileExistsAtPath: path])
-			    {
-			      writeDictionary(domain, path);
-			    }
-			}
-		    }
-		  else
-		    {
-		      fprintf(stderr, "Found unparseable file at '%s'\n",
-			[path UTF8String]);
-		    }
-		}
-	    }
-	  if (NO == flag)
-	    {
-	      [defs _unlockDefaultsFile];
-	    }
 	}
 
       /*
@@ -1121,7 +1145,7 @@ newLanguages(NSArray *oldNames)
     }
 
   r = [path rangeOfString: @":INTERNAL:"];
-#if	defined(__MINGW__)
+#if	defined(_WIN32)
   if (r.length == 0)
     {
       r = [path rangeOfString: @":REGISTRY:"];
@@ -1158,8 +1182,7 @@ newLanguages(NSArray *oldNames)
 
   // Create volatile defaults and add the Argument and the Registration domains
   _tempDomains = [[NSMutableDictionaryClass alloc] initWithCapacity: 10];
-  [_tempDomains setObject: [self _createArgumentDictionary]
-		   forKey: NSArgumentDomain];
+  [_tempDomains setObject: argumentsDictionary forKey: NSArgumentDomain];
   [_tempDomains
     setObject: [NSMutableDictionaryClass dictionaryWithCapacity: 10]
     forKey: NSRegistrationDomain];
@@ -2042,10 +2065,9 @@ static BOOL isPlistObject(id o)
                   (*addImp)(dictRep, addSel, dict);
                 }
 	    }
-          [dictRep makeImmutableCopyOnFail: NO];
-          _dictionaryRep = dictRep;
+          _dictionaryRep = GS_IMMUTABLE(dictRep);
         }
-      rep = [[_dictionaryRep retain] autorelease];
+      rep = AUTORELEASE(RETAIN(_dictionaryRep));
       [_lock unlock];
     }
   NS_HANDLER
@@ -2111,9 +2133,18 @@ static BOOL isPlistObject(id o)
 BOOL
 GSPrivateDefaultsFlag(GSUserDefaultFlagType type)
 {
-  if (nil == sharedDefaults && NO == parsingArguments)
+  if (nil == classLock)
     {
-      [NSUserDefaults standardUserDefaults];
+      /* The order of +initialise of NSUserDefaults is such that our
+       * flags[] array is set up directly from the process arguments
+       * before classLock is created, so once * that variable exists
+       * this function may be used safely.
+       */
+      [NSUserDefaults class];
+      if (NO == hasSharedDefaults)
+        {
+          [NSUserDefaults standardUserDefaults];
+        }
     }
   return flags[type];
 }
@@ -2129,7 +2160,7 @@ NSDictionary *GSPrivateDefaultLocale()
   NSDictionary	        *locale = nil;
   NSUserDefaults        *defs = nil;
 
-  if (classLock == nil)
+  if (nil == classLock)
     {
       [NSUserDefaults standardUserDefaults];
     }
@@ -2156,24 +2187,16 @@ NSDictionary *GSPrivateDefaultLocale()
 
 @implementation NSUserDefaults (Private)
 
-- (NSDictionary*) _createArgumentDictionary
++ (void) _createArgumentDictionary: (NSArray*)args
 {
-  NSArray	*args;
   NSEnumerator	*enumerator;
   NSMutableDictionary *argDict = nil;
   BOOL		done;
   id		key, val;
 
-  [_lock lock];
-  if (YES == parsingArguments)
-    {
-      [_lock unlock];
-      return nil;       // Prevent recursion
-    }
-  parsingArguments = YES;
+  [classLock lock];
   NS_DURING
     {
-      args = [[NSProcessInfo processInfo] arguments];
       enumerator = [args objectEnumerator];
       argDict = [NSMutableDictionaryClass dictionaryWithCapacity: 2];
       [enumerator nextObject];	// Skip process name.
@@ -2181,40 +2204,35 @@ NSDictionary *GSPrivateDefaultLocale()
 
       while (done == NO)
         {
-          if ([key hasPrefix: @"-"] == YES && [key isEqual: @"-"] == NO)
+          /* Any value with a leading '-' may be the name of a default
+           * in the argument domain.
+           * NB. Testing on OSX shows that this includes a single '-'
+           * (where the key is an empty string), but GNUstep disallows
+           * en empty string as a key (so it can be a value).
+           */
+          if ([key hasPrefix: @"-"] == YES
+            && [key isEqual: @"-"] == NO)
 	    {
-	      NSString	*old = nil;
-
-	      /* anything beginning with a '-' is a defaults key and we
-               * must strip the '-' from it.
-               * As a special case, we leave the '- in place for '-GS...'
-               * and '--GS...' for backward compatibility.
+	      /* Strip the '-' before the defaults key, and get the
+               * corresponding value (the next argument).
                */
-	      if ([key hasPrefix: @"-GS"] == YES
-                || [key hasPrefix: @"--GS"] == YES)
-	        {
-	          old = key;
-	        }
 	      key = [key substringFromIndex: 1];
 	      val = [enumerator nextObject];
-	      if (val == nil)
-	        {            // No more args
-	          [argDict setObject: @"" forKey: key];		// arg is empty.
-	          if (old != nil)
-		    {
-		      [argDict setObject: @"" forKey: old];
-		    }
+	      if (nil == val)
+	        {
+                  /* No more arguments and no value ... arg is not set.
+                   */
 	          done = YES;
 	          continue;
 	        }
 	      else if ([val hasPrefix: @"-"] == YES
                 && [val isEqual: @"-"] == NO)
-	        {  // Yet another argument
-	          [argDict setObject: @"" forKey: key];		// arg is empty.
-	          if (old != nil)
-		    {
-		      [argDict setObject: @"" forKey: old];
-		    }
+	        {
+                  /* Value is actually an argument key ...
+                   * current key is not used (behavior matches OSX).
+                   * NB. GNUstep allows a '-' as the value for a default,
+                   * but OSX does not.
+                   */
 	          key = val;
 	          continue;
 	        }
@@ -2227,15 +2245,26 @@ NSDictionary *GSPrivateDefaultLocale()
 		     foreign environment. */
 	          NSObject *plist_val;
 
-	          NS_DURING
-		    {
-		      plist_val = [val propertyList];
-		    }
-	          NS_HANDLER
-		    {
-		      plist_val = val;
-		    }
-	          NS_ENDHANDLER
+                  NS_DURING
+                    {
+                      NSData		        *data;
+
+                      data = [val dataUsingEncoding: NSUTF8StringEncoding];
+                      plist_val = [NSPropertyListSerialization
+                        propertyListFromData: data
+                        mutabilityOption: NSPropertyListMutableContainers
+                        format: 0
+                        errorDescription: 0];
+                      if (nil == plist_val)
+                        {
+                          plist_val = val;
+                        }
+                    }
+                  NS_HANDLER
+                    {
+                      plist_val = val;
+                    }
+                  NS_ENDHANDLER
 
 	          /* Make sure we don't crash being caught adding nil to
                      a dictionary. */
@@ -2245,25 +2274,19 @@ NSDictionary *GSPrivateDefaultLocale()
 		    }
 
 	          [argDict setObject: plist_val  forKey: key];
-	          if (old != nil)
-		    {
-		      [argDict setObject: plist_val  forKey: old];
-		    }
 	        }
 	    }
           done = ((key = [enumerator nextObject]) == nil);
         }
-      parsingArguments = NO;
-      [_lock unlock];
+      ASSIGNCOPY(argumentsDictionary, argDict);
+      [classLock unlock];
     }
   NS_HANDLER
     {
-      parsingArguments = NO;
-      [_lock unlock];
+      [classLock unlock];
       [localException raise];
     }
   NS_ENDHANDLER
-  return argDict;
 }
 
 - (void) _changePersistentDomain: (NSString*)domainName
@@ -2303,52 +2326,65 @@ NSDictionary *GSPrivateDefaultLocale()
 static BOOL isLocked = NO;
 - (BOOL) _lockDefaultsFile: (BOOL*)wasLocked
 {
-  *wasLocked = isLocked;
-  if (isLocked == NO && _fileLock != nil)
+  [syncLock lock];
+  NS_DURING
     {
-      NSDate	*started = [NSDateClass date];
+      *wasLocked = isLocked;
+      if (NO == isLocked && _fileLock != nil)
+        {
+          NSDate	*started = [NSDateClass date];
 
-      while ([_fileLock tryLock] == NO)
-	{
-	  NSAutoreleasePool	*arp = [NSAutoreleasePool new];
-	  NSDate		*when;
-	  NSDate		*lockDate;
+          while ([_fileLock tryLock] == NO)
+            {
+              CREATE_AUTORELEASE_POOL(arp);
+              NSDate		*when;
+              NSDate		*lockDate;
 
-	  lockDate = [_fileLock lockDate];
-	  when = [NSDateClass dateWithTimeIntervalSinceNow: 0.1];
+              lockDate = [_fileLock lockDate];
+              when = [NSDateClass dateWithTimeIntervalSinceNow: 0.1];
 
-	  /*
-	   * In case we have tried and failed to break the lock,
-	   * we give up after a while ... 16 seconds should give
-	   * us three lock breaks if we do them at 5 second
-	   * intervals.
-	   */
-	  if ([when timeIntervalSinceDate: started] > 16.0)
-	    {
-	      NSLog(@"Failed to lock user defaults database even after "
-		@"breaking old locks!");
-	      [arp drain];
-	      return NO;
-	    }
+              /*
+               * In case we have tried and failed to break the lock,
+               * we give up after a while ... 16 seconds should give
+               * us three lock breaks if we do them at 5 second
+               * intervals.
+               */
+              if ([when timeIntervalSinceDate: started] > 16.0)
+                {
+                  fprintf(stderr, "Failed to lock user defaults database even after "
+                    "breaking old locks!\n");
+                  RELEASE(arp);
+                  break;
+                }
 
-	  /*
-	   * If lockDate is nil, we should be able to lock again ... but we
-	   * wait a little anyway ... so that in the case of a locking
-	   * problem we do an idle wait rather than a busy one.
-	   */
-	  if (lockDate != nil && [when timeIntervalSinceDate: lockDate] > 5.0)
-	    {
-	      [_fileLock breakLock];
-	    }
-	  else
-	    {
-	      [NSThread sleepUntilDate: when];
-	    }
-	  [arp drain];
-	}
-      isLocked = YES;
+              /* If lockDate is nil, we should be able to lock again ... but we
+               * wait a little anyway ... so that in the case of a locking
+               * problem we do an idle wait rather than a busy one.
+               */
+              if (lockDate != nil
+                && [when timeIntervalSinceDate: lockDate] > 5.0)
+                {
+                  NSLog(@"NSUserdefaults file lock at %@ is dated %@ ... break",
+                    _fileLock, lockDate);
+                  [_fileLock breakLock];
+                }
+              else
+                {
+                  [NSThread sleepUntilDate: when];
+                }
+              RELEASE(arp);
+            }
+          isLocked = YES;
+        }
+      [syncLock unlock];
     }
-   return YES;
+  NS_HANDLER
+    {
+      [syncLock unlock];
+      [localException raise];
+    }
+  NS_ENDHANDLER
+  return isLocked;
 }
 
 - (BOOL) _readDefaults
@@ -2418,18 +2454,23 @@ static BOOL isLocked = NO;
 
 - (void) _unlockDefaultsFile
 {
+  [syncLock lock];
   NS_DURING
     {
-      [_fileLock unlock];
+      if (YES == isLocked)
+        {  
+          [_fileLock unlock];
+        }
     }
   NS_HANDLER
     {
-      NSLog(@"Warning ... someone broke our lock (%@) ... and may have"
-        @" interfered with updating defaults data in file.",
-        lockPath(_defaultsDatabase, NO));
+      fprintf(stderr, "Warning ... someone broke our lock (%s) ... and may have"
+        " interfered with updating defaults data in file.",
+        [lockPath(_defaultsDatabase, NO) UTF8String]);
     }
   NS_ENDHANDLER
   isLocked = NO;
+  [syncLock unlock];
 }
 
 @end

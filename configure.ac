@@ -105,6 +105,26 @@ else
 fi
 AC_SUBST(BASE_NONFRAGILE_ABI)
 
+MAKECPPFLAGS=`gnustep-config --variable=CPPFLAGS`
+if test "$CPPFLAGS" = ""; then
+  CPPFLAGS=$MAKECPPFLAGS
+  export CPPFLAGS
+else
+  if test "$CPPFLAGS" != "$MAKECPPFLAGS"; then
+    AC_MSG_WARN([You are running configure with the preprocessor options ($CPPFLAGS) set to a different value from that used by gnustep-make ($MAKECPPFLAGS).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use CPPFLAGS=$CPPFLAGS or run the gnustep-base configure again with your CPPFLAGS environment variable set to $MAKECPPFLAGS])
+  fi
+fi
+
+MAKELDFLAGS=`gnustep-config --variable=LDFLAGS`
+if test "$LDFLAGS" = ""; then
+  LDFLAGS=$MAKELDFLAGS
+  export LDFLAGS
+else
+  if test "$LDFLAGS" != "$MAKELDFLAGS"; then
+    AC_MSG_WARN([You are running configure with the link options ($LDFLAGS) set to a different value from that used by gnustep-make ($MAKELDFLAGS).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use LDFLAGS=$LDFLAGS or run the gnustep-base configure again with your LDFLAGS environment variable set to $MAKELDFLAGS])
+  fi
+fi
+
 # We shouldn't be loading GNUstep.sh here.  It would load in a lot of
 # variables which might get confused with the ones that will be used
 # at runtime.  We will load it later once we have determined (and
@@ -1061,7 +1081,7 @@ if test "$CC" = ""; then
   export CC
 else
   if test "$CC" != "$MAKECC"; then
-    AC_MSG_WARN([You are running configure with the compiler ($CC) set to a different value from that used by gnustep-make ($MAKECC).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use $CC or run the gnustep-base configure again with your CC environment variable set to $MAKECC])
+    AC_MSG_WARN([You are running configure with the compiler ($CC) set to a different value from that used by gnustep-make ($MAKECC).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use CC=$CC or run the gnustep-base configure again with your CC environment variable set to $MAKECC])
   fi
 fi
 if test "$CPP" = ""; then
@@ -1069,7 +1089,7 @@ if test "$CPP" = ""; then
   export CPP
 else
   if test "$CPP" != "$MAKECPP"; then
-    AC_MSG_WARN([You are running configure with the preprocessor ($CPP) set to a different value from that used by gnustep-make ($MAKECPP).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use $CPP or run the gnustep-base configure again with your CPP environment variable set to $MAKECPP])
+    AC_MSG_WARN([You are running configure with the preprocessor ($CPP) set to a different value from that used by gnustep-make ($MAKECPP).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use CPP=$CPP or run the gnustep-base configure again with your CPP environment variable set to $MAKECPP])
   fi
 fi
 if test "$CXX" = ""; then
@@ -1077,7 +1097,7 @@ if test "$CXX" = ""; then
   export CXX
 else
   if test "$CXX" != "$MAKECXX"; then
-    AC_MSG_WARN([You are running configure with the compiler ($CXX) set to a different value from that used by gnustep-make ($MAKECXX).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use $CXX or run the gnustep-base configure again with your CXX environment variable set to $MAKECXX])
+    AC_MSG_WARN([You are running configure with the compiler ($CXX) set to a different value from that used by gnustep-make ($MAKECXX).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use CXX=$CXX or run the gnustep-base configure again with your CXX environment variable set to $MAKECXX])
   fi
 fi
 AC_PROG_CC
@@ -1781,42 +1801,34 @@ CFLAGS=$saved_CFLAGS
 # Check if we can name pthreads
 #--------------------------------------------------------------------
 
-AC_CHECK_FUNCS(pthread_set_name_np)
-if test $ac_cv_func_pthread_set_name_np = yes; then
-  AC_DEFINE(PTHREAD_SETNAME(a), (pthread_set_name_np(pthread_self(), a), 0),
-    [Description: Define set name function for pthread returning void])
-else
-  AC_CACHE_CHECK(
-    [for pthread_setname_np() variant],
-    [gs_cv_pthread_setname_np],
+AC_CACHE_CHECK([for pthread_setname_np()], gs_cv_pthread_setname_np,
+[AC_LINK_IFELSE(
+  [AC_LANG_PROGRAM([#include <pthread.h>],
+    [pthread_setname_np("name");])],
+  [gs_cv_pthread_setname_np=darwin],
+  [AC_LINK_IFELSE(
+    [AC_LANG_PROGRAM([#include <pthread.h>],
+      [pthread_setname_np(pthread_self(), "name");])],
+    [gs_cv_pthread_setname_np=glibc],
     [AC_LINK_IFELSE(
       [AC_LANG_PROGRAM([#include <pthread.h>],
-        [pthread_setname_np("name");])],
-      [gs_cv_pthread_setname_np=darwin],
-      [AC_LINK_IFELSE(
-     	[AC_LANG_PROGRAM([#include <pthread.h>],
-     	  [pthread_setname_np(pthread_self(), "name");])],
-     	[gs_cv_pthread_setname_np=glibc],
-     	[AC_LINK_IFELSE(
-     	  [AC_LANG_PROGRAM([#include <pthread.h>],
-     	    [pthread_setname_np(pthread_self(), "%s", "name");])],
-     	  [gs_cv_pthread_setname_np=netbsd],
-     	  [gs_cv_pthread_setname_np=none])])])])
-  case $gs_cv_pthread_setname_np in
-    darwin)
-      AC_DEFINE(PTHREAD_SETNAME(a), pthread_setname_np(a),
-        [Description: Define set name function for pthread with one arg])
-      ;;
-    glibc)
-      AC_DEFINE(PTHREAD_SETNAME(a), pthread_setname_np(pthread_self(),a),
-        [Description: Define setname function for pthread with two args])
-      ;;
-    netbsd)
-      AC_DEFINE(PTHREAD_SETNAME(a), pthread_setname_np(pthread_self(),"%s",a),
-        [Description: Define setname function for pthread with three args])
-      ;;
-  esac
-fi
+        [pthread_setname_np(pthread_self(), "%s", "name");])],
+      [gs_cv_pthread_setname_np=netbsd],
+      [gs_cv_pthread_setname_np=none])])])])
+case $gs_cv_pthread_setname_np in
+  darwin)
+    AC_DEFINE(PTHREAD_SETNAME(a), pthread_setname_np(a),
+      [Description: Define set name function for pthread with one arg])
+    ;;
+  glibc)
+    AC_DEFINE(PTHREAD_SETNAME(a), pthread_setname_np(pthread_self(),a),
+      [Description: Define setname function for pthread with two args])
+    ;;
+  netbsd)
+    AC_DEFINE(PTHREAD_SETNAME(a), pthread_setname_np(pthread_self(),"%s",a),
+      [Description: Define setname function for pthread with three args])
+    ;;
+esac
 
 #--------------------------------------------------------------------
 # Check whether we can get the system thread ID
@@ -1943,6 +1955,9 @@ if test $ac_cv_func_objc_sync_enter = yes ; then
   OBJCSYNC=1
 else
   OBJCSYNC=0
+  if test "$OBJC_RUNTIME_LIB" = "ng"; then
+    AC_MSG_ERROR([The objc runtime library does not appear to have synchronisation support.  Try re-configuring gnustep-make with a CPPFLAGS variable containing a -L point to specify the directory containing the correct libobjc, or using the --with-objc-lib-flag=... option.])
+  fi
 fi
 AC_SUBST(OBJCSYNC)
 
@@ -1960,6 +1975,9 @@ else
     OBJC2RUNTIME=1
   else
     OBJC2RUNTIME=0
+    if test "$OBJC_RUNTIME_LIB" = "ng"; then
+      AC_MSG_ERROR([The objc runtime library does not appear to have property support.  Try re-configuring gnustep-make with a CPPFLAGS variable containing a -L point to specify the directory containing the correct libobjc, or using the --with-objc-lib-flag=... option.])
+    fi
   fi
 fi
 AC_SUBST(OBJC2RUNTIME)
@@ -1972,6 +1990,9 @@ if test $ac_cv_func__Block_copy = yes ; then
   HAVE_BLOCKS=1
 else
   HAVE_BLOCKS=0
+  if test "$OBJC_RUNTIME_LIB" = "ng"; then
+    AC_MSG_ERROR([The objc runtime library does not appear to have blocks support.  Try re-configuring gnustep-make with a CPPFLAGS variable containing a -L point to specify the directory containing the correct libobjc, or using the --with-objc-lib-flag=... option.])
+  fi
 fi
 AC_SUBST(HAVE_BLOCKS)
 
@@ -1991,13 +2012,15 @@ if test "$nonfragile" = "yes"; then
   if test $non_fragile = yes; then
     OBJCLIBS="$OBJLIBS -fobjc-nonfragile-abi"
     GS_NONFRAGILE=1
-    AC_ARG_ENABLE(mixedabi,
-      [  --disable-mixedabi
+    if test "$OBJC_RUNTIME_LIB" != "ng"; then
+      AC_ARG_ENABLE(mixedabi,
+        [  --disable-mixedabi
 	    Disables the combined use of fragile and nonfragile ABI so that base
 	    can be built taking full advantage of the nonfragile ABI.],,
-      enable_mixedabi=yes)
-    if test $enable_mixedabi = yes; then
-      GS_MIXEDABI=1
+        enable_mixedabi=yes)
+      if test $enable_mixedabi = yes; then
+        GS_MIXEDABI=1
+      fi
     fi
   fi
   AC_MSG_RESULT($non_fragile)
@@ -2267,11 +2290,16 @@ AC_ARG_ENABLE(bfd,
 
 if test $enable_bfd = yes; then
   AC_CHECK_HEADERS(bfd.h)
+  AC_CHECK_LIB(intl, libintl_fprintf)
   AC_CHECK_LIB(iberty, dyn_string_append)
   AC_CHECK_LIB(bfd, bfd_openr)
 else
-  AC_CHECK_HEADERS(execinfo.h)
-  AC_CHECK_FUNCS(backtrace)
+  if test $ismingw = yes ; then
+    AC_CHECK_HEADERS(dbghelp.h)
+  else
+    AC_CHECK_HEADERS(execinfo.h)
+    AC_CHECK_FUNCS(backtrace)
+  fi
 fi
 AC_CHECK_FUNCS(__builtin_extract_return_address)
 
@@ -3305,7 +3333,7 @@ AC_ARG_WITH(icu-library,
 
 if test $enable_icu = yes; then
   if test "$enable_icu_config" = "yes"; then
-    AC_CHECK_ICU(4.0, have_icu=yes, have_icu=no)
+    AC_CHECK_ICU(4.6, have_icu=yes, have_icu=no)
   else
     have_icu=no;
     AC_CHECKING([for libicu (icu-config disabled)])
