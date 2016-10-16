@@ -1278,18 +1278,18 @@ recheck:
 {
   NSMutableDictionary	*d = [NSMutableDictionary dictionary];
   @autoreleasepool {
-	static NSSet		*qualifiers = nil;
-    static NSSet		*keep = nil;
-    NSMutableString	*t = nil;
-    NSMutableArray	*a;
-    NSString		*s;
-    BOOL			isTypedef = NO;
-    BOOL			isPointer = NO;
-    BOOL			isFunction = NO;
-    BOOL			baseConstant = NO;
-    BOOL			needScalarType = NO;
-    
-    if (qualifiers == nil)
+  static NSSet		*qualifiers = nil;
+  static NSSet		*keep = nil;
+  NSMutableString	*t = nil;
+  NSMutableArray	*a;
+  NSString		*s;
+  BOOL			isTypedef = NO;
+  BOOL			isPointer = NO;
+  BOOL			isFunction = NO;
+  BOOL			baseConstant = NO;
+  BOOL			needScalarType = NO;
+
+  if (qualifiers == nil)
     {
       qualifiers = [NSSet setWithObjects:
 	@"auto",
@@ -1329,7 +1329,8 @@ recheck:
 	  [self skipStatementLine];
 	  goto fail;
 	}
-      if ([s isEqual: @"__attribute__"] == YES)
+      if (([s isEqual: @"__attribute__"] == YES)
+          || ([s isEqual: @"__asm__"] == YES))
 	{
 	  if ([self skipSpaces] < length && buffer[pos] == '(')
 	    {
@@ -1342,12 +1343,12 @@ recheck:
 
 		  attr = [NSString stringWithCharacters: buffer + start
 						 length: pos - start];
-		  [self log: @"skip __attribute__ %@", attr];
+		  [self log: @"skip %@ %@", s, attr];
 		}
 	    }
 	  else
 	    {
-	      [self log: @"strange format __attribute__"];
+	      [self log: @"strange format %@", s];
 	    }
 	  continue;
 	}
@@ -2106,7 +2107,7 @@ recheck:
 
 			    if ([a1 isEqual: a2] == NO)
 			      {
-				[self log: @"Function %@ args missmatch - "
+				[self log: @"Function %@ args mismatch - "
 				  @"%@ %@", name, a1, a2];
 			      }
 			    /*
@@ -2418,6 +2419,7 @@ recheck:
  * whitespace and try again.
  * If we read end of data, or anything which is invalid inside an
  * identifier, we return nil.
+ * If we read a GS_GENERIC... macro, we return its first argument.
  */
 - (NSString*) parseIdentifier
 {
@@ -2439,6 +2441,28 @@ try:
 
 	  tmp = [[NSString alloc] initWithCharacters: &buffer[start]
 					      length: pos - start];
+          if ([tmp isEqual: @"GS_GENERIC_CLASS"]
+            || [tmp isEqual: @"GS_GENERIC_TYPE"])
+            {
+              [self skipSpaces];
+              if (pos < length && buffer[pos] == '(')
+                {
+                  pos++;
+                  /* Found a GS_GENERIC_ macro ... the first
+                   * identifier inside the macro arguments is the 
+                   * name we want to return.
+                   */
+                  RELEASE(tmp);
+                  tmp = RETAIN([self parseIdentifier]);
+                  while (pos < length)
+                    {
+                      if (buffer[pos++] == ')')
+                        {
+                          break;
+                        }
+                    }
+                }
+            }
 	  val = [wordMap objectForKey: tmp];
 	  if (val == nil)
 	    {

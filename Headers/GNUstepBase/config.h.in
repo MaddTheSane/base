@@ -171,15 +171,6 @@
 /* Built in default value for GNUstep user_dir web apps */
 #undef GNUSTEP_TARGET_USER_DIR_WEB_APPS
 
-/* Build in/use quicksort */
-#undef GS_USE_QUICKSORT
-
-/* Build in/use shellsort */
-#undef GS_USE_SHELLSORT
-
-/* Build in/use timsort */
-#undef GS_USE_TIMSORT
-
 /* Define to 1 if you have the <alloca.h> header file. */
 #undef HAVE_ALLOCA_H
 
@@ -215,8 +206,15 @@
 /* Define to 1 if you have the <dispatch/dispatch.h> header file. */
 #undef HAVE_DISPATCH_DISPATCH_H
 
+/* Define to 1 if you have the `dispatch_get_main_queue_handle_np' function.
+   */
+#undef HAVE_DISPATCH_GET_MAIN_QUEUE_HANDLE_NP
+
 /* Define to 1 if you have the <dispatch.h> header file. */
 #undef HAVE_DISPATCH_H
+
+/* Define to 1 if you have the `dispatch_main_queue_drain_np' function. */
+#undef HAVE_DISPATCH_MAIN_QUEUE_DRAIN_NP
 
 /* Define to 1 if you have the `dladdr' function. */
 #undef HAVE_DLADDR
@@ -241,15 +239,6 @@
 
 /* Define to 1 if fseeko (and presumably ftello) exists and is declared. */
 #undef HAVE_FSEEKO
-
-/* Define if GC_allow_register_threads function is available */
-#undef HAVE_GC_ALLOW_REGISTER_THREADS
-
-/* Define to 1 if you have the <gc/gc.h> header file. */
-#undef HAVE_GC_GC_H
-
-/* Define if GC_register_my_thread function is available */
-#undef HAVE_GC_REGISTER_MY_THREAD
 
 /* Define to 1 if you have the `getaddrinfo' function. */
 #undef HAVE_GETADDRINFO
@@ -313,6 +302,9 @@
 
 /* Define to 1 if you have the `gnutls_transport_set_errno' function. */
 #undef HAVE_GNUTLS_TRANSPORT_SET_ERRNO
+
+/* Define to 1 if you have the `gnutls_x509_privkey_import2' function. */
+#undef HAVE_GNUTLS_X509_PRIVKEY_IMPORT2
 
 /* Define to 1 if you have the `grantpt' function. */
 #undef HAVE_GRANTPT
@@ -844,6 +836,9 @@
 /* Define if the compiler provides builtins for atomic operations */
 #undef USE_ATOMIC_BUILTINS
 
+/* Define to use bfd library for stack traces */
+#undef USE_BFD
+
 /* Define if using the ffcall library for invocations */
 #undef USE_FFCALL
 
@@ -888,11 +883,6 @@
 # ifndef WORDS_BIGENDIAN
 #  undef WORDS_BIGENDIAN
 # endif
-#endif
-
-/* Enable large inode numbers on Mac OS X 10.5.  */
-#ifndef _DARWIN_USE_64_BIT_INODE
-# define _DARWIN_USE_64_BIT_INODE 1
 #endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */

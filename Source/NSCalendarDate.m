@@ -84,6 +84,12 @@ static NSString* (*abrIMP)(id, SEL, id);
 static NSString* (*absAbrIMP)(id, SEL, id);
 static NSString* (*dstAbrIMP)(id, SEL, id);
 
+/* Do not fetch the default locale unless we actually need it.
+ * Tries to avoid recursion when loading NSUserDefaults containing dates.
+ * This is also a little more efficient with many date formats.
+ */
+#define LOCALE  (nil == locale ? (locale = GSPrivateDefaultLocale()) : locale)
+
 
 /*
  * Return the offset from GMT for a date in a timezone ...
@@ -732,13 +738,9 @@ static inline int getDigits(const char *from, char *to, int limit, BOOL *error)
     }
   source = [description cString];
   sourceLen = strlen(source);
-  if (locale == nil)
-    {
-      locale = GSPrivateDefaultLocale();
-    }
   if (fmt == nil)
     {
-      fmt = [locale objectForKey: NSTimeDateFormatString];
+      fmt = [LOCALE objectForKey: NSTimeDateFormatString];
       if (fmt == nil)
 	{
 	  fmt = @"";
@@ -781,7 +783,7 @@ static inline int getDigits(const char *from, char *to, int limit, BOOL *error)
 
 	      if (c == 'c')
 		{
-		  sub = [locale objectForKey: NSTimeDateFormatString];
+		  sub = [LOCALE objectForKey: NSTimeDateFormatString];
 		  if (sub == nil)
 		    {
 		      sub = @"%X %x";
@@ -805,7 +807,7 @@ static inline int getDigits(const char *from, char *to, int limit, BOOL *error)
 	        }
 	      else if (c == 'X')
 		{
-		  sub = [locale objectForKey: NSTimeFormatString];
+		  sub = [LOCALE objectForKey: NSTimeFormatString];
 		  if (sub == nil)
 		    {
 		      sub = @"%H-%M-%S";
@@ -813,7 +815,7 @@ static inline int getDigits(const char *from, char *to, int limit, BOOL *error)
 		}
 	      else if (c == 'x')
 		{
-		  sub = [locale objectForKey: NSShortDateFormatString];
+		  sub = [LOCALE objectForKey: NSShortDateFormatString];
 		  if (sub == nil)
 		    {
 		      sub = @"%y-%m-%d";
@@ -955,7 +957,7 @@ static inline int getDigits(const char *from, char *to, int limit, BOOL *error)
 		      NSArray	*dayNames;
 
 		      currDay = [[NSString alloc] initWithCString: tmpStr];
-		      dayNames = [locale objectForKey: NSShortWeekDayNameArray];
+		      dayNames = [LOCALE objectForKey: NSShortWeekDayNameArray];
 		      for (tmpIdx = 0; tmpIdx < 7; tmpIdx++)
 			{
 			  if ([[dayNames objectAtIndex: tmpIdx] isEqual:
@@ -1007,7 +1009,7 @@ static inline int getDigits(const char *from, char *to, int limit, BOOL *error)
 		      NSArray	*dayNames;
 
 		      currDay = [[NSString alloc] initWithCString: tmpStr];
-		      dayNames = [locale objectForKey: NSWeekDayNameArray];
+		      dayNames = [LOCALE objectForKey: NSWeekDayNameArray];
 		      for (tmpIdx = 0; tmpIdx < 7; tmpIdx++)
 			{
 			  if ([[dayNames objectAtIndex: tmpIdx] isEqual:
@@ -1051,7 +1053,7 @@ static inline int getDigits(const char *from, char *to, int limit, BOOL *error)
 		      NSArray	*monthNames;
 
 		      currMonth = [[NSString alloc] initWithCString: tmpStr];
-		      monthNames = [locale objectForKey: NSShortMonthNameArray];
+		      monthNames = [LOCALE objectForKey: NSShortMonthNameArray];
 
 		      for (tmpIdx = 0; tmpIdx < 12; tmpIdx++)
 			{
@@ -1104,7 +1106,7 @@ static inline int getDigits(const char *from, char *to, int limit, BOOL *error)
 		      NSArray	*monthNames;
 
 		      currMonth = [[NSString alloc] initWithCString: tmpStr];
-		      monthNames = [locale objectForKey: NSMonthNameArray];
+		      monthNames = [LOCALE objectForKey: NSMonthNameArray];
 
 		      for (tmpIdx = 0; tmpIdx < 12; tmpIdx++)
 			{
@@ -1210,7 +1212,7 @@ static inline int getDigits(const char *from, char *to, int limit, BOOL *error)
 		      NSArray	*amPMNames;
 
 		      currAMPM = [NSString stringWithUTF8String: tmpStr];
-		      amPMNames = [locale objectForKey: NSAMPMDesignation];
+		      amPMNames = [LOCALE objectForKey: NSAMPMDesignation];
 
 		      /*
 		       * The time addition is handled below because this
@@ -1939,6 +1941,7 @@ static void outputValueWithFormat(int v, char *fldfmt, DescriptionInfo *info)
 
   while (i < lf)
     {
+      NSString  *str;
       BOOL	mtag = NO;
       BOOL	dtag = NO;
       BOOL	ycent = NO;
@@ -1954,8 +1957,9 @@ static void outputValueWithFormat(int v, char *fldfmt, DescriptionInfo *info)
       if (f[i] == '%')
 	{
           i++;
-	  fldfmt[fmtlen++] = '%'; // start format with %
-          while (fmtlen < 5 && f[i] >= '0' && f[i] <= '9') // field width specified
+	  fldfmt[fmtlen++] = '%';
+          // field width specified
+          while (fmtlen < 5 && f[i] >= '0' && f[i] <= '9')
 	    {
 	      fldfmt[fmtlen++] = f[i];
 	      width = 10 * width + f[i] - '0';
@@ -1963,8 +1967,12 @@ static void outputValueWithFormat(int v, char *fldfmt, DescriptionInfo *info)
 	    }
 	  if (fmtlen >= 5 || width > MAX_FLD_WIDTH)
 	    {
-	      // ignore formats that specify field width greater than the max allowed
-	      i -= fmtlen; // set i back so all ignored characters will be copied
+	      /* ignore formats that specify field width
+               * greater than the max allowed.
+               * set i back so all ignored characters will
+               * be copied
+               */
+	      i -= fmtlen;
 	    }
 
 	  // check the character that comes after
@@ -1994,26 +2002,22 @@ static void outputValueWithFormat(int v, char *fldfmt, DescriptionInfo *info)
 		break;
 
 	      case 'c':
-		[self _format: [locale objectForKey: NSTimeFormatString]
-		       locale: locale
-			 info: info];
+		str = (NSString*)[LOCALE objectForKey: NSTimeFormatString];
+		[self _format: str locale: locale info: info];
 		Grow(info, 1);
 		info->t[info->offset++] = ' ';
-		[self _format: [locale objectForKey: NSDateFormatString]
-		       locale: locale
-			 info: info];
+		str = (NSString*)[LOCALE objectForKey: NSDateFormatString];
+		[self _format: str locale: locale info: info];
 		break;
 
 	      case 'X':
-		[self _format: [locale objectForKey: NSTimeFormatString]
-		       locale: locale
-			 info: info];
+		str = (NSString*)[LOCALE objectForKey: NSTimeFormatString];
+		[self _format: str locale: locale info: info];
 		break;
 
 	      case 'x':
-		[self _format: [locale objectForKey: NSDateFormatString]
-		       locale: locale
-			 info: info];
+		str = (NSString*)[LOCALE objectForKey: NSDateFormatString];
+		[self _format: str locale: locale info: info];
 		break;
 
 		// is it the year
@@ -2057,9 +2061,9 @@ static void outputValueWithFormat(int v, char *fldfmt, DescriptionInfo *info)
 		    NSArray	*months;
 
 		    if (mname)
-		      months = [locale objectForKey: NSShortMonthNameArray];
+		      months = [LOCALE objectForKey: NSShortMonthNameArray];
 		    else
-		      months = [locale objectForKey: NSMonthNameArray];
+		      months = [LOCALE objectForKey: NSMonthNameArray];
 		    if (info->md > [months count])
 		      {
 			mtag = NO;
@@ -2153,9 +2157,9 @@ static void outputValueWithFormat(int v, char *fldfmt, DescriptionInfo *info)
 		      NSArray	*days;
 
 		      if (dname)
-			days = [locale objectForKey: NSShortWeekDayNameArray];
+			days = [LOCALE objectForKey: NSShortWeekDayNameArray];
 		      else
-			days = [locale objectForKey: NSWeekDayNameArray];
+			days = [LOCALE objectForKey: NSWeekDayNameArray];
 		      if (v < [days count])
 			{
 			  NSString	*name;
@@ -2258,7 +2262,7 @@ static void outputValueWithFormat(int v, char *fldfmt, DescriptionInfo *info)
 		// Is it the am/pm indicator
 	      case 'p':
 		{
-		  NSArray	*a = [locale objectForKey: NSAMPMDesignation];
+		  NSArray	*a = [LOCALE objectForKey: NSAMPMDesignation];
 		  NSString	*ampm;
 
 		  if (info->hd >= 12)
@@ -2440,10 +2444,8 @@ static void outputValueWithFormat(int v, char *fldfmt, DescriptionInfo *info)
   NSString		*result;
   DescriptionInfo	info;
 
-  if (locale == nil)
-    locale = GSPrivateDefaultLocale();
   if (format == nil)
-    format = [locale objectForKey: NSTimeDateFormatString];
+    format = [LOCALE objectForKey: NSTimeDateFormatString];
 
   GSBreakTime(_seconds_since_ref + offset(_time_zone, self),
     &info.yd, &info.md, &info.dom, &info.hd, &info.mnd, &info.sd, &info.mil);

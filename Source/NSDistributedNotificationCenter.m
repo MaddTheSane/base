@@ -736,7 +736,7 @@ static NSDistributedNotificationCenter	*netCenter = nil;
 	    }
 	  [NSTask launchedTaskWithLaunchPath: cmd arguments: args];
 
-	  limit = [NSDate dateWithTimeIntervalSinceNow: 5.0];
+	  limit = [NSDate dateWithTimeIntervalSinceNow: 10.0];
 	  while (_remote == nil && [limit timeIntervalSinceNow] > 0)
 	    {
               NSAutoreleasePool	*pool = [NSAutoreleasePool new];
@@ -756,12 +756,10 @@ static NSDistributedNotificationCenter	*netCenter = nil;
 		@"I attempted to start it at '%@'\n", cmd];
 	    }
 	}
-#if	!GS_WITH_GC
       else
         {
           [_remote retain];
         }
-#endif
 
       c = [_remote connectionForProxy];
       [_remote setProtocolForProxy: p];

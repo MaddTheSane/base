@@ -1357,16 +1357,16 @@ static BOOL snuggleStart(NSString *t)
 		   to: (NSMutableString*)buf
 {
   @autoreleasepool {
-    NSUInteger	l = [str length];
-    NSRange	r = [str rangeOfString: @"<example"];
-    NSUInteger	i = 0;
-    NSArray	*a;
-    
-    /*
-     * Split out <example>...</example> sequences and output them literally.
-     * All other text has reformatting applied as necessary.
-     */
-    while (r.length > 0)
+  NSUInteger	l = [str length];
+  NSRange	r = [str rangeOfString: @"<example"];
+  NSUInteger	i = 0;
+  NSArray	*a;
+
+  /*
+   * Split out <example>...</example> sequences and output them literally.
+   * All other text has reformatting applied as necessary.
+   */
+  while (r.length > 0)
     {
       NSString	*tmp;
 

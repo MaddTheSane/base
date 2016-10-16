@@ -1747,7 +1747,7 @@ NSHomeDirectoryForUser(NSString *loginName)
   char buf[BUFSIZ*10];
 
   if (getpwnam_r([loginName cString], &pw, buf, sizeof(buf), &p) == 0
-    && pw.pw_dir != 0)
+    && p != 0 && pw.pw_dir != 0 && pw.pw_dir[0] != '\0')
     {
       s = [NSString stringWithUTF8String: pw.pw_dir];
     }
@@ -1757,7 +1757,7 @@ NSHomeDirectoryForUser(NSString *loginName)
 
   [gnustep_global_lock lock];
   pw = getpwnam ([loginName cString]);
-  if (pw != 0  && pw->pw_dir != NULL)
+  if (pw != 0 && pw->pw_dir != 0 && pw->pw_dir[0] != '\0')
     {
       s = [NSString stringWithUTF8String: pw->pw_dir];
     }
@@ -2521,8 +2521,8 @@ L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\GNUstep",
 	  if ([gnustep_is_flattened boolValue] == NO
 	    && gnustep_target_cpu != nil && gnustep_target_os != nil)
 	    {
-	      part = [gnustep_target_cpu stringByAppendingPathComponent:
-		gnustep_target_os];
+	      part = [NSString stringWithFormat: @"%@-%@",
+                gnustep_target_cpu, gnustep_target_os];
 	      if (library_combo != nil)
 		{
 		  full = [part stringByAppendingPathComponent: library_combo];
@@ -2563,8 +2563,8 @@ L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\GNUstep",
 	  if ([gnustep_is_flattened boolValue] == NO
 	    && gnustep_target_cpu != nil && gnustep_target_os != nil)
 	    {
-	      part = [gnustep_target_cpu stringByAppendingPathComponent:
-		gnustep_target_os];
+	      part = [NSString stringWithFormat: @"%@-%@",
+                gnustep_target_cpu, gnustep_target_os];
 	      if (library_combo != nil)
 		{
 		  full = [part stringByAppendingPathComponent: library_combo];
@@ -2605,8 +2605,8 @@ L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\GNUstep",
 	  if ([gnustep_is_flattened boolValue] == NO
 	    && gnustep_target_cpu != nil && gnustep_target_os != nil)
 	    {
-	      part = [gnustep_target_cpu stringByAppendingPathComponent:
-		gnustep_target_os];
+	      part = [NSString stringWithFormat: @"%@-%@",
+                gnustep_target_cpu, gnustep_target_os];
 	      if (library_combo != nil)
 		{
 		  full = [part stringByAppendingPathComponent: library_combo];

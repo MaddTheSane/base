@@ -51,12 +51,15 @@
 
 #ifdef _WIN32
 #define close closesocket
+#define	OPTLEN	int
 #else
+#define	OPTLEN	socklen_t
 #include <sys/param.h>		/* for MAXHOSTNAMELEN */
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>		/* for inet_ntoa() */
 #endif /* !_WIN32 */
+
 #include <ctype.h>		/* for strchr() */
 
 #if	defined(HAVE_SYS_FCNTL_H)
@@ -659,7 +662,7 @@ static Class	runLoopClass;
       int	status = 1;
 
       setsockopt(desc, SOL_SOCKET, SO_KEEPALIVE, (char*)&status,
-	sizeof(status));
+	(OPTLEN)sizeof(status));
       addrNum = 0;
       caller = YES;
       [aPort addHandle: self forSend: YES];
@@ -757,7 +760,7 @@ static Class	runLoopClass;
   if (recvPort == nil)
     return nil;
   else
-    return GS_GC_UNHIDE(recvPort);
+    return recvPort;
 }
 
 - (void) receivedEventRead
@@ -1102,7 +1105,8 @@ static Class	runLoopClass;
       int	res = 0;
       socklen_t len = sizeof(res);
 
-      if (getsockopt(desc, SOL_SOCKET, SO_ERROR, (char*)&res, &len) != 0)
+      if (getsockopt(desc, SOL_SOCKET, SO_ERROR, (char*)&res,
+	(OPTLEN*)&len) != 0)
         {
           state = GS_H_UNCON;
           NSLog(@"connect attempt failed - %@", [NSError _last]);
@@ -1456,9 +1460,9 @@ static Class	runLoopClass;
   if (sendPort == nil)
     return nil;
   else if (caller == YES)
-    return GS_GC_UNHIDE(sendPort);	// We called, so port is not retained.
+    return sendPort;	// We called, so port is not retained.
   else
-    return sendPort;			// Retained port.
+    return sendPort;	// Retained port.
 }
 
 - (void) setState: (GSHandleState)s
@@ -1640,7 +1644,7 @@ static Class		tcpPortClass;
 	   * We don't want that broken behavior!
 	   */
 	  else if (setsockopt(desc, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse,
-	    sizeof(reuse)) < 0)
+	    (OPTLEN)sizeof(reuse)) < 0)
 	    {
 	      (void) close(desc);
               NSLog(@"unable to set reuse on socket - %@",
@@ -1662,8 +1666,8 @@ static Class		tcpPortClass;
 	      (void) close(desc);
 	      DESTROY(port);
 	    }
-	  else if (getsockname(desc, (struct sockaddr*)&sockaddr, &slen)
-	    == SOCKET_ERROR)
+	  else if (getsockname(desc, (struct sockaddr*)&sockaddr,
+	    (OPTLEN*)&slen) == SOCKET_ERROR)
 	    {
 	      NSLog(@"unable to get socket name - %@", [NSError _last]);
 	      (void) close(desc);
@@ -1760,13 +1764,13 @@ static Class		tcpPortClass;
   if (send == YES)
     {
       if (handle->caller == YES)
-	handle->sendPort = GS_GC_HIDE(self);
+	handle->sendPort = self;
       else
 	ASSIGN(handle->sendPort, self);
     }
   else
     {
-      handle->recvPort = GS_GC_HIDE(self);
+      handle->recvPort = self;
     }
   NSMapInsert(handles, (void*)(uintptr_t)[handle descriptor], (void*)handle);
 #if	defined(_WIN32)
@@ -1842,7 +1846,7 @@ static Class		tcpPortClass;
    */
   if (eventListener != WSA_INVALID_EVENT)
     {
-      *count++;
+      (*count)++;
       if (pos < limit)
         {
           fds[pos++] = (uintptr_t)eventListener;
@@ -1853,7 +1857,7 @@ static Class		tcpPortClass;
    * Enumerate all our socket handles, and put them in as long as they
    * are to be used for receiving.
    */
-  recvSelf = GS_GC_HIDE(self);
+  recvSelf = self;
   me = NSEnumerateMapTable(events);
   while (NSNextMapEnumeratorPair(&me, &event, (void**)&fd))
     {
@@ -1897,7 +1901,7 @@ static Class		tcpPortClass;
    * Enumerate all our socket handles, and put them in as long as they
    * are to be used for receiving.
    */
-  recvSelf = GS_GC_HIDE(self);
+  recvSelf = self;
   me = NSEnumerateMapTable(handles);
   while (NSNextMapEnumeratorPair(&me, &sock, (void**)&handle))
     {
@@ -1985,7 +1989,7 @@ static Class		tcpPortClass;
    * We don't want that broken behavior!
    */
   else if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&opt,
-    sizeof(opt)) < 0)
+    (OPTLEN)sizeof(opt)) < 0)
     {
       (void)close(sock);
       NSLog(@"unable to set reuse on socket - %@", [NSError _last]);
@@ -2154,7 +2158,7 @@ static Class		tcpPortClass;
       struct sockaddr	sockAddr;
       socklen_t size = sizeof(sockAddr);
 
-      desc = accept(listener, (struct sockaddr*)&sockAddr, &size);
+      desc = accept(listener, (struct sockaddr*)&sockAddr, (OPTLEN*)&size);
       if (desc == INVALID_SOCKET)
         {
 	  NSDebugMLLog(@"NSPort", @"accept failed - handled in other thread?");
@@ -2164,7 +2168,7 @@ static Class		tcpPortClass;
 	  int	status = 1;
 
 	  setsockopt(desc, SOL_SOCKET, SO_KEEPALIVE, (char*)&status,
-	    sizeof(status));
+	    (OPTLEN)sizeof(status));
 #if	defined(_WIN32)
 	  // reset associated event with new socket
 	  WSAEventSelect(desc, eventListener, 0);

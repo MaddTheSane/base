@@ -58,6 +58,9 @@
 #ifdef _WIN32
 extern const char *inet_ntop(int, const void *, char *, size_t);
 extern int inet_pton(int , const char *, void *);
+#define	OPTLEN	int
+#else
+#define	OPTLEN	socklen_t
 #endif
 
 unsigned
@@ -1444,7 +1447,7 @@ setNonBlocking(SOCKET fd)
 
 - (void) dealloc
 {
-  if ([self _isOpened])
+  if (_sock != INVALID_SOCKET)
     {
       [self close];
     }
@@ -1492,14 +1495,14 @@ setNonBlocking(SOCKET fd)
       memset(&sin, '\0', size);
       if ([key isEqualToString: GSStreamLocalAddressKey])
 	{
-	  if (getsockname(s, (struct sockaddr*)&sin, &size) != -1)
+	  if (getsockname(s, (struct sockaddr*)&sin, (OPTLEN*)&size) != -1)
 	    {
 	      result = GSPrivateSockaddrHost(&sin);
 	    }
 	}
       else if ([key isEqualToString: GSStreamLocalPortKey])
 	{
-	  if (getsockname(s, (struct sockaddr*)&sin, &size) != -1)
+	  if (getsockname(s, (struct sockaddr*)&sin, (OPTLEN*)&size) != -1)
 	    {
 	      result = [NSString stringWithFormat: @"%d",
 		(int)GSPrivateSockaddrPort(&sin)];
@@ -1507,14 +1510,14 @@ setNonBlocking(SOCKET fd)
 	}
       else if ([key isEqualToString: GSStreamRemoteAddressKey])
 	{
-	  if (getpeername(s, (struct sockaddr*)&sin, &size) != -1)
+	  if (getpeername(s, (struct sockaddr*)&sin, (OPTLEN*)&size) != -1)
 	    {
 	      result = GSPrivateSockaddrHost(&sin);
 	    }
 	}
       else if ([key isEqualToString: GSStreamRemotePortKey])
 	{
-	  if (getpeername(s, (struct sockaddr*)&sin, &size) != -1)
+	  if (getpeername(s, (struct sockaddr*)&sin, (OPTLEN*)&size) != -1)
 	    {
 	      result = [NSString stringWithFormat: @"%d",
 		(int)GSPrivateSockaddrPort(&sin)];
@@ -1714,6 +1717,11 @@ setNonBlocking(SOCKET fd)
   // could be opened because of sibling
   if ([self _isOpened])
     return;
+  if (_sibling && [_sibling streamStatus] == NSStreamStatusError)
+    {
+      [self _setStatus: NSStreamStatusError];
+      return;
+    }
   if (_passive || (_sibling && [_sibling _isOpened]))
     goto open_ok;
   // check sibling status, avoid double connect
@@ -1747,27 +1755,30 @@ setNonBlocking(SOCKET fd)
             }
         }
 
-      if (_handler == nil)
+      if (nil == _handler)
         {
           [GSTLSHandler tryInput: self output: _sibling];
         }
+
       result = connect([self _sock], &_address.s,
         GSPrivateSockaddrLength(&_address.s));
       if (socketError(result))
         {
-          if (!socketWouldBlock())
+          if (socketWouldBlock())
             {
-              [self _recordError];
-              [self _setHandler: nil];
-              [_sibling _setHandler: nil];
-              return;
+              /* Need to set the status first, so that the run loop can tell
+               * it needs to add the stream as waiting on writable, as an
+               * indication of opened
+               */
+              [self _setStatus: NSStreamStatusOpening];
             }
-          /*
-           * Need to set the status first, so that the run loop can tell
-           * it needs to add the stream as waiting on writable, as an
-           * indication of opened
-           */
-          [self _setStatus: NSStreamStatusOpening];
+          else
+            {
+              /* Had an immediate connect error.
+               */
+              [self _recordError];
+              [_sibling _recordError];
+            }
 #if	defined(_WIN32)
           WSAEventSelect(_sock, _loopID, FD_ALL_EVENTS);
 #endif
@@ -1776,7 +1787,7 @@ setNonBlocking(SOCKET fd)
 	      [self _schedule];
 	      return;
 	    }
-          else
+          else if (NSStreamStatusOpening == _currentStatus)
             {
               NSRunLoop *r;
               NSDate    *d;
@@ -1810,17 +1821,24 @@ setNonBlocking(SOCKET fd)
 
 - (void) close
 {
-  if (_currentStatus == NSStreamStatusNotOpen)
+  /* If the socket descriptor is still present, we need to close it to
+   * avoid a leak no matter what the nominal state of the stream is.
+   * The descriptor is created before the stream is formally opened.
+   */
+  if (INVALID_SOCKET == _sock)
     {
-      NSDebugMLLog(@"NSStream",
-        @"Attempt to close unopened stream %@", self);
-      return;
-    }
-  if (_currentStatus == NSStreamStatusClosed)
-    {
-      NSDebugMLLog(@"NSStream",
-        @"Attempt to close already closed stream %@", self);
-      return;
+      if (_currentStatus == NSStreamStatusNotOpen)
+        {
+          NSDebugMLLog(@"NSStream",
+            @"Attempt to close unopened stream %@", self);
+          return;
+        }
+      if (_currentStatus == NSStreamStatusClosed)
+        {
+          NSDebugMLLog(@"NSStream",
+            @"Attempt to close already closed stream %@", self);
+          return;
+        }
     }
   [_handler bye];
 #if	defined(_WIN32)
@@ -1965,6 +1983,10 @@ setNonBlocking(SOCKET fd)
 	@"Received event for closed stream");
       [_sibling _dispatch];
     }
+  else if ([self streamStatus] == NSStreamStatusError)
+    {
+      [self _sendEvent: NSStreamEventErrorOccurred];
+    }
   else
     {
       WSANETWORKEVENTS events;
@@ -1985,7 +2007,7 @@ setNonBlocking(SOCKET fd)
 	      socklen_t len = sizeof(error);
 
 	      getReturn = getsockopt(_sock, SOL_SOCKET, SO_ERROR,
-		(char*)&error, &len);
+		(char*)&error, (OPTLEN*)&len);
 	    }
 
 	  if (getReturn >= 0 && error == 0
@@ -2067,7 +2089,8 @@ setNonBlocking(SOCKET fd)
 
       IF_NO_GC([[self retain] autorelease];)
       [self _unschedule];
-      result = getsockopt([self _sock], SOL_SOCKET, SO_ERROR, &error, &len);
+      result = getsockopt([self _sock], SOL_SOCKET, SO_ERROR,
+	&error, (OPTLEN*)&len);
 
       if (result >= 0 && !error)
         { // finish up the opening
@@ -2091,6 +2114,10 @@ setNonBlocking(SOCKET fd)
   else if ([self streamStatus] == NSStreamStatusAtEnd)
     {
       myEvent = NSStreamEventEndEncountered;
+    }
+  else if ([self streamStatus] == NSStreamStatusError)
+    {
+      myEvent = NSStreamEventErrorOccurred;
     }
   else
     {
@@ -2185,6 +2212,11 @@ setNonBlocking(SOCKET fd)
   // could be opened because of sibling
   if ([self _isOpened])
     return;
+  if (_sibling && [_sibling streamStatus] == NSStreamStatusError)
+    {
+      [self _setStatus: NSStreamStatusError];
+      return;
+    }
   if (_passive || (_sibling && [_sibling _isOpened]))
     goto open_ok;
   // check sibling status, avoid double connect
@@ -2218,7 +2250,7 @@ setNonBlocking(SOCKET fd)
             }
         }
 
-      if (_handler == nil)
+      if (nil == _handler)
         {
           [GSTLSHandler tryInput: _sibling output: self];
         }
@@ -2227,19 +2259,22 @@ setNonBlocking(SOCKET fd)
         GSPrivateSockaddrLength(&_address.s));
       if (socketError(result))
         {
-          if (!socketWouldBlock())
+          if (socketWouldBlock())
             {
-              [self _recordError];
-              [self _setHandler: nil];
-              [_sibling _setHandler: nil];
-              return;
+              /*
+               * Need to set the status first, so that the run loop can tell
+               * it needs to add the stream as waiting on writable, as an
+               * indication of opened
+               */
+              [self _setStatus: NSStreamStatusOpening];
             }
-          /*
-           * Need to set the status first, so that the run loop can tell
-           * it needs to add the stream as waiting on writable, as an
-           * indication of opened
-           */
-          [self _setStatus: NSStreamStatusOpening];
+          else
+            {
+              /* Had an immediate connect error.
+               */
+              [self _recordError];
+              [_sibling _recordError];
+            }
 #if	defined(_WIN32)
           WSAEventSelect(_sock, _loopID, FD_ALL_EVENTS);
 #endif
@@ -2248,7 +2283,7 @@ setNonBlocking(SOCKET fd)
 	      [self _schedule];
 	      return;
 	    }
-          else
+          else if (NSStreamStatusOpening == _currentStatus)
             {
               NSRunLoop *r;
               NSDate    *d;
@@ -2278,23 +2313,29 @@ setNonBlocking(SOCKET fd)
   WSAEventSelect(_sock, _loopID, FD_ALL_EVENTS);
 #endif
   [super open];
-
 }
 
 
 - (void) close
 {
-  if (_currentStatus == NSStreamStatusNotOpen)
+  /* If the socket descriptor is still present, we need to close it to
+   * avoid a leak no matter what the nominal state of the stream is.
+   * The descriptor is created before the stream is formally opened.
+   */
+  if (INVALID_SOCKET == _sock)
     {
-      NSDebugMLLog(@"NSStream",
-        @"Attempt to close unopened stream %@", self);
-      return;
-    }
-  if (_currentStatus == NSStreamStatusClosed)
-    {
-      NSDebugMLLog(@"NSStream",
-        @"Attempt to close already closed stream %@", self);
-      return;
+      if (_currentStatus == NSStreamStatusNotOpen)
+        {
+          NSDebugMLLog(@"NSStream",
+            @"Attempt to close unopened stream %@", self);
+          return;
+        }
+      if (_currentStatus == NSStreamStatusClosed)
+        {
+          NSDebugMLLog(@"NSStream",
+            @"Attempt to close already closed stream %@", self);
+          return;
+        }
     }
   [_handler bye];
 #if	defined(_WIN32)
@@ -2387,6 +2428,10 @@ setNonBlocking(SOCKET fd)
 	@"Received event for closed stream");
       [_sibling _dispatch];
     }
+  else if ([self streamStatus] == NSStreamStatusError)
+    {
+      [self _sendEvent: NSStreamEventErrorOccurred];
+    }
   else
     {
       WSANETWORKEVENTS events;
@@ -2407,7 +2452,7 @@ setNonBlocking(SOCKET fd)
 	      socklen_t len = sizeof(error);
 
 	      getReturn = getsockopt(_sock, SOL_SOCKET, SO_ERROR,
-		(char*)&error, &len);
+		(char*)&error, (OPTLEN*)&len);
 	    }
 
 	  if (getReturn >= 0 && error == 0
@@ -2487,8 +2532,8 @@ setNonBlocking(SOCKET fd)
 
       IF_NO_GC([[self retain] autorelease];)
       [self _schedule];
-      result
-	= getsockopt((intptr_t)_loopID, SOL_SOCKET, SO_ERROR, &error, &len);
+      result = getsockopt((intptr_t)_loopID, SOL_SOCKET, SO_ERROR,
+	&error, (OPTLEN*)&len);
       if (result >= 0 && !error)
         { // finish up the opening
           myEvent = NSStreamEventOpenCompleted;
@@ -2511,6 +2556,10 @@ setNonBlocking(SOCKET fd)
   else if ([self streamStatus] == NSStreamStatusAtEnd)
     {
       myEvent = NSStreamEventEndEncountered;
+    }
+  else if ([self streamStatus] == NSStreamStatusError)
+    {
+      myEvent = NSStreamEventErrorOccurred;
     }
   else
     {
@@ -2603,7 +2652,7 @@ setNonBlocking(SOCKET fd)
       int	status = 1;
 
       setsockopt([self _sock], SOL_SOCKET, SO_REUSEADDR,
-        (char *)&status, sizeof(status));
+        (char *)&status, (OPTLEN)sizeof(status));
     }
 #endif
 
@@ -2671,7 +2720,7 @@ setNonBlocking(SOCKET fd)
   socklen_t		len = sizeof(buf);
   int			acceptReturn;
 
-  acceptReturn = accept([self _sock], addr, &len);
+  acceptReturn = accept([self _sock], addr, (OPTLEN*)&len);
   _events &= ~NSStreamEventHasBytesAvailable;
   if (socketError(acceptReturn))
     { // test for real error
