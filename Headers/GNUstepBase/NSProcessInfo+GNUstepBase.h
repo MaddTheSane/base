@@ -61,6 +61,8 @@ extern "C" {
  */
 - (void) setDebugLoggingEnabled: (BOOL)flag;
 
+@property (class) BOOL debugLoggingEnabled;
+
 @end
 
 #endif	/* OS_API_VERSION */

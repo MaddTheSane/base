@@ -40,7 +40,7 @@ extern "C" {
 
 /** Builds a URL from components as returned by the methods of the same names.
  */
-- (id) initWithScheme: (NSString*)scheme
+- (instancetype) initWithScheme: (NSString*)scheme
 		 user: (NSString*)user
 	     password: (NSString*)password
 		 host: (NSString*)host

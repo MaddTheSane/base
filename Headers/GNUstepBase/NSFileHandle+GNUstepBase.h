@@ -37,9 +37,9 @@ extern "C" {
 #if	OS_API_VERSION(GS_API_NONE,GS_API_LATEST)
 
 @interface NSFileHandle(GNUstepBase)
-+ (id) fileHandleAsServerAtAddress: (NSString*)address
-                           service: (NSString*)service
-                          protocol: (NSString*)protocol;
++ (instancetype) fileHandleAsServerAtAddress: (NSString*)address
+                                     service: (NSString*)service
+                                    protocol: (NSString*)protocol;
 - (NSString*) socketAddress;
 @end
 

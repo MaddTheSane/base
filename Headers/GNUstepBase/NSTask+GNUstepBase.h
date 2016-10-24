@@ -39,7 +39,9 @@ extern "C" {
 /** Returns the set of extensions known to indicate an executable file
  * type on systems which require that (currently mswindows).
  */
-+ (NSSet*) executableExtensions;
++ (NSSet<NSString*>*) executableExtensions;
+
+@property (class, readonly) NSSet<NSString*> *executableExtensions;
 
 /** Checks the specified file to see if it is executable or if by
  * appending one of the +executableExtensions it can be made executable.

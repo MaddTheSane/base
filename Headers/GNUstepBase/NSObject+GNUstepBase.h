@@ -225,6 +225,8 @@ extern "C" {
  */
 + (BOOL) shouldCleanUp;
 
+@property (class) BOOL shouldCleanUp;
+
 @end
 
 /* Macro to take an autoreleased object and either make it immutable or
