@@ -202,7 +202,7 @@
 		558311BE133AC8C700A54B19 /* NSCalendarDate+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSCalendarDate+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSCalendarDate+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
 		558311BF133AC8C700A54B19 /* NSData+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSData+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSData+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
 		558311C0133AC8C700A54B19 /* NSDebug+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSDebug+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSDebug+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311C1133AC8C700A54B19 /* NSFileHandle+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSFileHandle+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSFileHandle+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
+		558311C1133AC8C700A54B19 /* NSFileHandle+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSFileHandle+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSFileHandle+GNUstepBase.h"; sourceTree = SOURCE_ROOT; usesTabs = 0; };
 		558311C2133AC8C700A54B19 /* NSLock+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSLock+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSLock+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
 		558311C3133AC8C700A54B19 /* NSMutableString+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSMutableString+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSMutableString+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
 		558311C4133AC8C700A54B19 /* NSNetServices+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSNetServices+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSNetServices+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
@@ -346,6 +346,7 @@
 			);
 			name = gnustep;
 			sourceTree = "<group>";
+			usesTabs = 0;
 		};
 		0867D69AFE84028FC02AAC07 /* External Frameworks and Libraries */ = {
 			isa = PBXGroup;

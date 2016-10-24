@@ -36,7 +36,7 @@ extern "C" {
 
 #if	OS_API_VERSION(GS_API_NONE,GS_API_LATEST)
 
-@interface NSArray (GNUstepBase)
+@interface NSArray<ElementT> (GNUstepBase)
 
 /** <p>Method for working with sorted arrays - use a binary chop
  * to determine the insertion location for an object.  If equal objects
@@ -50,8 +50,8 @@ extern "C" {
  * if it is greater, and NSOrderedSame if it is equal.
  * </p>
  */
-- (NSUInteger) insertionPosition: (id)item
-		   usingFunction: (NSComparisonResult (*)(id, id, void *))sorter
+- (NSUInteger) insertionPosition: (ElementT)item
+		   usingFunction: (NSComparisonResult (*)(ElementT, ElementT, void *))sorter
 		         context: (void *)context;
 
 /* <p>Method for working with sorted arrays - use a binary chop
@@ -64,7 +64,7 @@ extern "C" {
  * it is greate.
  * </p>
  */
-- (NSUInteger) insertionPosition: (id)item
+- (NSUInteger) insertionPosition: (ElementT)item
 		   usingSelector: (SEL)comp;
 @end
 

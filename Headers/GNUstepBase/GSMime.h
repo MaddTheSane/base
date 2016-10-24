@@ -86,9 +86,9 @@ extern "C" {
   @private id _internal GS_UNUSED_IVAR;
 #endif
 }
-+ (GSMimeHeader*) headerWithName: (NSString*)n
-                           value: (NSString*)v
-                      parameters: (NSDictionary*)p;
++ (instancetype) headerWithName: (NSString*)n
+                          value: (NSString*)v
+                     parameters: (NSDictionary*)p;
 + (NSString*) makeQuoted: (NSString*)v always: (BOOL)flag;
 + (NSString*) makeToken: (NSString*)t preservingCase: (BOOL)preserve;
 + (NSString*) makeToken: (NSString*)t;
@@ -97,11 +97,11 @@ extern "C" {
  */
 - (NSUInteger) estimatedSize;
 - (NSString*) fullValue;
-- (id) initWithName: (NSString*)n
-	      value: (NSString*)v;
-- (id) initWithName: (NSString*)n
-	      value: (NSString*)v
-	 parameters: (NSDictionary*)p;
+- (instancetype) initWithName: (NSString*)n
+                        value: (NSString*)v;
+- (instancetype) initWithName: (NSString*)n
+                        value: (NSString*)v
+                   parameters: (NSDictionary*)p;
 - (NSString*) name;
 - (NSString*) namePreservingCase: (BOOL)preserve;
 - (id) objectForKey: (NSString*)k;
@@ -377,9 +377,14 @@ extern "C" {
  */
 - (BOOL) use8bit;
 
+@property BOOL use8Bit;
+@property (copy) NSString *textEncoding;
+@property NSUInteger foldAt;
+@property (copy) NSString *dataEncoding;
+
 @end
 
-
+@protocol GSMimeSMTPClientDelegate;
 
 /** The error domain for the GSMime system.
  */
@@ -387,13 +392,13 @@ GS_EXPORT NSString* const GSMimeErrorDomain;
 
 /** The error codes used in the GSMimeErrorDomain
  */
-typedef enum {
+typedef NS_ENUM(NSInteger, GSMimeErrorCode) {
   GSMimeSMTPAbort,
   GSMimeSMTPTimeout,
   GSMimeSMTPCommsEnd,
   GSMimeSMTPCommsError,
   GSMimeSMTPServerResponse
-} GSMimeErrorCode;
+};
 
 @class	NSError;
 @class	NSStream;
@@ -493,12 +498,15 @@ GS_GSMimeSMTPClient_IVARS;
  */
 - (NSString*) stateDesc;
 
+@property (assign) id delegate;
+
+
 @end
 
 /** Informal protocol for delegates of the GSMimeSMTPClient class.
  * The default implementations of these methods do nothing.
  */
-@interface	NSObject (GSMimeSMTPClient)
+@protocol GSMimeSMTPClientDelegate <NSObject>
 - (void) smtpClient: (GSMimeSMTPClient*)client
 	 mimeFailed: (GSMimeDocument*)doc;	/* Failed to send */
 - (void) smtpClient: (GSMimeSMTPClient*)client

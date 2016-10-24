@@ -45,7 +45,7 @@ extern "C" {
  * Alternate way to invoke <code>stringWithFormat</code> if you have or wish
  * to build an explicit <code>va_list</code> structure.
  */
-+ (id) stringWithFormat: (NSString*)format
++ (instancetype) stringWithFormat: (NSString*)format
 	      arguments: (va_list)argList NS_FORMAT_FUNCTION(1,0);
 
 /**
