@@ -397,7 +397,7 @@
 		1837D9CB1652D0FF00197E53 /* AGSOutput.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AGSOutput.h; sourceTree = "<group>"; };
 		1837D9CC1652D0FF00197E53 /* AGSOutput.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AGSOutput.m; sourceTree = "<group>"; };
 		1837D9CD1652D0FF00197E53 /* AGSParser.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AGSParser.h; sourceTree = "<group>"; };
-		1837D9CE1652D0FF00197E53 /* AGSParser.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AGSParser.m; sourceTree = "<group>"; };
+		1837D9CE1652D0FF00197E53 /* AGSParser.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AGSParser.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
 		1837D9CF1652D0FF00197E53 /* BaseTools.gsdoc */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = BaseTools.gsdoc; sourceTree = "<group>"; };
 		1837D9D01652D0FF00197E53 /* DocMakefile */ = {isa = PBXFileReference; lastKnownFileType = text; path = DocMakefile; sourceTree = "<group>"; };
 		1837D9D11652D0FF00197E53 /* GNUmakefile */ = {isa = PBXFileReference; lastKnownFileType = text; path = GNUmakefile; sourceTree = "<group>"; };
@@ -406,7 +406,7 @@
 		1837D9D41652D0FF00197E53 /* Makefile.postamble */ = {isa = PBXFileReference; lastKnownFileType = text; path = Makefile.postamble; sourceTree = "<group>"; };
 		1837D9D51652D0FF00197E53 /* Makefile.preamble */ = {isa = PBXFileReference; lastKnownFileType = text; path = Makefile.preamble; sourceTree = "<group>"; };
 		1837D9D61652D0FF00197E53 /* autogsdoc.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = autogsdoc.1; sourceTree = "<group>"; };
-		1837D9D71652D0FF00197E53 /* autogsdoc.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = autogsdoc.m; sourceTree = "<group>"; };
+		1837D9D71652D0FF00197E53 /* autogsdoc.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = autogsdoc.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
 		1837D9D81652D0FF00197E53 /* cvtenc.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = cvtenc.1; sourceTree = "<group>"; };
 		1837D9D91652D0FF00197E53 /* cvtenc.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = cvtenc.m; sourceTree = "<group>"; };
 		1837D9DA1652D0FF00197E53 /* defaults.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = defaults.1; sourceTree = "<group>"; };
@@ -684,9 +684,9 @@
 		18906EDC1610BF3C0003C892 /* .cvsignore */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .cvsignore; sourceTree = "<group>"; };
 		18906EDD1610BF3C0003C892 /* Additions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Additions.h; sourceTree = "<group>"; };
 		18906EDE1610BF3C0003C892 /* CXXException.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CXXException.h; sourceTree = "<group>"; };
-		18906EDF1610BF3C0003C892 /* DistributedObjects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DistributedObjects.h; sourceTree = "<group>"; };
-		18906EE01610BF3C0003C892 /* GCObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GCObject.h; sourceTree = "<group>"; };
-		18906EE11610BF3C0003C892 /* GNUstep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GNUstep.h; sourceTree = "<group>"; };
+		18906EDF1610BF3C0003C892 /* DistributedObjects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DistributedObjects.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		18906EE01610BF3C0003C892 /* GCObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GCObject.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		18906EE11610BF3C0003C892 /* GNUstep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GNUstep.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		18906EE21610BF3C0003C892 /* GSBlocks.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSBlocks.h; sourceTree = "<group>"; };
 		18906EE31610BF3C0003C892 /* GSConfig.h.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = GSConfig.h.in; sourceTree = "<group>"; };
 		18906EE41610BF3C0003C892 /* GSFunctions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSFunctions.h; sourceTree = "<group>"; };
@@ -694,8 +694,8 @@
 		18906EE61610BF3C0003C892 /* GSIMap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSIMap.h; sourceTree = "<group>"; };
 		18906EE71610BF3C0003C892 /* GSLocale.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSLocale.h; sourceTree = "<group>"; };
 		18906EE81610BF3C0003C892 /* GSLock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSLock.h; sourceTree = "<group>"; };
-		18906EE91610BF3C0003C892 /* GSMime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSMime.h; sourceTree = "<group>"; };
-		18906EEA1610BF3C0003C892 /* GSObjCRuntime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSObjCRuntime.h; sourceTree = "<group>"; };
+		18906EE91610BF3C0003C892 /* GSMime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSMime.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		18906EEA1610BF3C0003C892 /* GSObjCRuntime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSObjCRuntime.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		18906EEB1610BF3C0003C892 /* GSUnion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSUnion.h; sourceTree = "<group>"; };
 		18906EEC1610BF3C0003C892 /* GSVersionMacros.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSVersionMacros.h; sourceTree = "<group>"; };
 		18906EED1610BF3C0003C892 /* GSXML.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSXML.h; sourceTree = "<group>"; };
