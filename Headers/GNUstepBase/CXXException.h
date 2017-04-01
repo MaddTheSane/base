@@ -1,3 +1,4 @@
+#import <Foundation/NSObject.h>
 
 struct _Unwind_Exception;
 /**

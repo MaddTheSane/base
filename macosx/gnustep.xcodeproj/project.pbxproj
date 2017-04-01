@@ -172,6 +172,7 @@
 
 /* Begin PBXFileReference section */
 		089C1667FE841158C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		554D99291E9037E700E79BFA /* GNUstepBase.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = GNUstepBase.modulemap; sourceTree = "<group>"; };
 		554DDE830431106D00000001 /* HTMLLinker.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = HTMLLinker.m; sourceTree = "<group>"; };
 		554DDE85043110AA00000001 /* HTMLLinker.html */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.html; path = HTMLLinker.html; sourceTree = "<group>"; };
 		555BA0811235608F00C64C1D /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
@@ -364,6 +365,7 @@
 		089C1665FE841158C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				554D99291E9037E700E79BFA /* GNUstepBase.modulemap */,
 				55AB58E50408EA4D00000001 /* DocTemplates */,
 				55AB588D0408D85E00000001 /* DTDs */,
 				089C1666FE841158C02AAC07 /* InfoPlist.strings */,
@@ -914,6 +916,7 @@
 				);
 				INFOPLIST_FILE = "Info-gnustep__Upgraded_.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				MODULEMAP_FILE = GNUstepBase.modulemap;
 				OTHER_LDFLAGS = (
 					"-seg1addr",
 					0x58000000,
@@ -946,6 +949,7 @@
 				);
 				INFOPLIST_FILE = "Info-gnustep__Upgraded_.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				MODULEMAP_FILE = GNUstepBase.modulemap;
 				OTHER_LDFLAGS = (
 					"-seg1addr",
 					0x58000000,

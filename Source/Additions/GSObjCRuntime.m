@@ -391,7 +391,7 @@ GSObjCVariableNames(id obj, BOOL recurse)
  * and you know that the data area provided is the correct size.
  */
 void
-GSObjCGetVariable(id obj, int offset, unsigned int size, void *data)
+GSObjCGetVariable(id obj, ptrdiff_t offset, size_t size, void *data)
 {
   memcpy(data, ((void*)obj) + offset, size);
 }
@@ -403,7 +403,7 @@ GSObjCGetVariable(id obj, int offset, unsigned int size, void *data)
  * and you know that the data area provided is the correct size.
  */
 void
-GSObjCSetVariable(id obj, int offset, unsigned int size, const void *data)
+GSObjCSetVariable(id obj, ptrdiff_t offset, size_t size, const void *data)
 {
   memcpy(((void*)obj) + offset, data, size);
 }

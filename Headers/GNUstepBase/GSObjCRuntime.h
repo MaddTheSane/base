@@ -141,10 +141,10 @@ GSObjCFindVariable(id obj, const char *name,
 		   const char **type, size_t *size, ptrdiff_t *offset);
 
 GS_EXPORT void
-GSObjCGetVariable(id obj, int offset, unsigned int size, void *data);
+GSObjCGetVariable(id obj, ptrdiff_t offset, size_t size, void *data);
 
 GS_EXPORT void
-GSObjCSetVariable(id obj, int offset, unsigned int size, const void *data);
+GSObjCSetVariable(id obj, ptrdiff_t offset, size_t size, const void *data);
 
 GS_EXPORT NSArray *
 GSObjCMethodNames(id obj, BOOL recurse);

@@ -1,0 +1,27 @@
+framework module GNUstepBase {
+  umbrella header "GNUstepBase.h"
+
+  export *
+  module * { export * }
+  
+  module CXXException {
+      header "CXXException.h"
+      export *
+  }
+  
+  module DistributedObjects {
+      header "DistributedObjects.h"
+      export *
+  }
+  
+  
+  module GCObject {
+      header "GCObject.h"
+      export *
+  }
+  
+  module GSUnion {
+      header "GSUnion.h"
+      export *
+  }
+}
