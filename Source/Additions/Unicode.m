@@ -1571,7 +1571,7 @@ else if (zone == 0) \
   } \
 else \
   { \
-    NSUInteger	grow = slen; \
+    size_t	grow = slen; \
 \
     if (grow < bsize + BUFSIZ) \
       { \
@@ -2343,14 +2343,14 @@ tables:
 		 */
 		ptr[dpos++] = (unsigned char)u;
 	      }
-	    else if (table != 0 && (i = chop(u, table, tsize)) >= 0)
+	    else if (table != 0 && (i = chop(u, table, (int)tsize)) >= 0)
 	      {
 		/*
 		 * The character mapping is found in a basic table.
 		 */
 		ptr[dpos++] = table[i].to;
 	      }
-	    else if (etable != 0 && (i = chop(u, etable, etsize)) >= 0)
+	    else if (etable != 0 && (i = chop(u, etable, (int)etsize)) >= 0)
 	      {
 		/*
 		 * The character mapping is found in a table of simple
@@ -2364,7 +2364,7 @@ tables:
 		  }
 		ptr[dpos++] = etable[i].to;
 	      }
-	    else if (ltable != 0 && (i = chop(u, ltable, ltsize)) >= 0)
+	    else if (ltable != 0 && (i = chop(u, ltable, (int)ltsize)) >= 0)
 	      {
 		/*
 		 * The character is found in a lossy mapping table.

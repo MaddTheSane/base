@@ -1442,8 +1442,8 @@ static BOOL snuggleStart(NSString *t)
 	}
       else
 	{
-	  unsigned	size = 70 - ind - [str length];
-	  unsigned	end;
+	  NSUInteger	size = 70 - ind - [str length];
+	  NSUInteger	end;
 
 	  for (j = 0; j < ind; j++)
 	    {
@@ -2324,7 +2324,7 @@ static BOOL snuggleStart(NSString *t)
    */
   if ([mgr isReadableFileAtPath: file] == YES)
     {
-      str = [NSMutableString stringWithContentsOfFile: file];
+      str = [NSMutableString stringWithContentsOfFile: file usedEncoding: NULL error: NULL];
     }
   else
     {
@@ -2332,7 +2332,7 @@ static BOOL snuggleStart(NSString *t)
 
       if ([mgr isReadableFileAtPath: tmp] == YES)
 	{
-	  str = [NSMutableString stringWithContentsOfFile: tmp];
+	  str = [NSMutableString stringWithContentsOfFile: tmp usedEncoding: NULL error: NULL];
 	}
       else
 	{
