@@ -171,7 +171,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		089C1667FE841158C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		089C1667FE841158C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		554DDE830431106D00000001 /* HTMLLinker.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = HTMLLinker.m; sourceTree = "<group>"; };
 		554DDE85043110AA00000001 /* HTMLLinker.html */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.html; path = HTMLLinker.html; sourceTree = "<group>"; };
 		555BA0811235608F00C64C1D /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
@@ -340,7 +340,7 @@
 				32C88DFF0371C24200C91783 /* Other Sources */,
 				089C1665FE841158C02AAC07 /* Resources */,
 				554DDE790430F9DB00000001 /* Tools */,
-				0867D69AFE84028FC02AAC07 /* External Frameworks and Libraries */,
+				0867D69AFE84028FC02AAC07 /* Frameworks */,
 				034768DFFF38A50411DB9C8B /* Products */,
 				559A068C120493A7004BBA32 /* Info-gnustep__Upgraded_.plist */,
 			);
@@ -348,13 +348,17 @@
 			sourceTree = "<group>";
 			usesTabs = 0;
 		};
-		0867D69AFE84028FC02AAC07 /* External Frameworks and Libraries */ = {
+		0867D69AFE84028FC02AAC07 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				1058C7B0FEA5585E11CA2CBB /* Linked Frameworks */,
+				555BA0831235609D00C64C1D /* Foundation.framework */,
+				555BA0811235608F00C64C1D /* libz.dylib */,
+				559A08121204A228004BBA32 /* libiconv.dylib */,
+				559A08141204A228004BBA32 /* libxml2.dylib */,
+				559A08161204A228004BBA32 /* libxslt.dylib */,
 				1058C7B2FEA5585E11CA2CBB /* Other Frameworks */,
 			);
-			name = "External Frameworks and Libraries";
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		089C1665FE841158C02AAC07 /* Resources */ = {
@@ -376,18 +380,6 @@
 			name = Source;
 			path = ../Source;
 			sourceTree = SOURCE_ROOT;
-		};
-		1058C7B0FEA5585E11CA2CBB /* Linked Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				555BA0831235609D00C64C1D /* Foundation.framework */,
-				555BA0811235608F00C64C1D /* libz.dylib */,
-				559A08121204A228004BBA32 /* libiconv.dylib */,
-				559A08141204A228004BBA32 /* libxml2.dylib */,
-				559A08161204A228004BBA32 /* libxslt.dylib */,
-			);
-			name = "Linked Frameworks";
-			sourceTree = "<group>";
 		};
 		1058C7B2FEA5585E11CA2CBB /* Other Frameworks */ = {
 			isa = PBXGroup;
@@ -845,6 +837,7 @@
 		559A06301204937D004BBA32 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
@@ -874,6 +867,7 @@
 		559A06311204937D004BBA32 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;

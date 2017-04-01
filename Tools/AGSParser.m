@@ -1438,7 +1438,9 @@ recheck:
           if (NO == isEnum)
             {
               [self log: @"messed up NS_ENUM/NS_OPTIONS declaration"];
+#if	!__has_feature(objc_arc)
               [arp drain];
+#endif
               return nil;
             }
         }
