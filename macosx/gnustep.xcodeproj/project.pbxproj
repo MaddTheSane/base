@@ -94,7 +94,7 @@
 		559A079112049FCF004BBA32 /* NSThread+GNUstepBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 559A077412049FCF004BBA32 /* NSThread+GNUstepBase.m */; };
 		559A079212049FCF004BBA32 /* NSURL+GNUstepBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 559A077512049FCF004BBA32 /* NSURL+GNUstepBase.m */; };
 		559A079312049FCF004BBA32 /* Unicode.m in Sources */ = {isa = PBXBuildFile; fileRef = 559A077612049FCF004BBA32 /* Unicode.m */; };
-		559A07991204A018004BBA32 /* GSNetwork.h in Headers */ = {isa = PBXBuildFile; fileRef = 559A07981204A018004BBA32 /* GSNetwork.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		559A07991204A018004BBA32 /* GSNetwork.h in Headers */ = {isa = PBXBuildFile; fileRef = 559A07981204A018004BBA32 /* GSNetwork.h */; };
 		559A07A41204A092004BBA32 /* GSInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 559A07A31204A092004BBA32 /* GSInternal.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		559A07A61204A0A0004BBA32 /* common.h in Headers */ = {isa = PBXBuildFile; fileRef = 559A07A51204A0A0004BBA32 /* common.h */; };
 		559A07E41204A196004BBA32 /* GSConfig.h in Headers */ = {isa = PBXBuildFile; fileRef = 559A07E31204A196004BBA32 /* GSConfig.h */; settings = {ATTRIBUTES = (Public, ); }; };

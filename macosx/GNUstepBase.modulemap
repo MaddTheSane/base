@@ -24,4 +24,8 @@ framework module GNUstepBase {
       header "GSUnion.h"
       export *
   }
+  
+  exclude header "GSIMap.h"
+  exclude header "GSIArray.h"
+  exclude header "GSBlocks.h"
 }
