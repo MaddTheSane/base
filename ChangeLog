@@ -1,3 +1,94 @@
+2017-04-01 Riccardo Mottola <rm@gnu.org>
+
+	* Source/NSConnection.m
+	Correct format specifier to char*
+
+2017-03-17 Riccardo Mottola <rm@gnu.org>
+
+	* Source/NSFileManager.m:(nextObject of Enumerator)
+	Skip file if no valid filename could be retrieved most probably due to Charset mismatches, this is is more a last resort: probably a lossy conversion should be attempted before.
+
+2017-03-17  Richard Frith-Macdonald <rfm@gnu.org>
+
+	* Source/NSTimeZones/NSTimeZones.tar: Updated with latest information.
+
+2017-03-17  Richard Frith-Macdonald <rfm@gnu.org>
+
+	* Source/Additions/Unicode.m: Implement NSNonLossyASCIIStringEncoding
+	in a manner compatible with OSX.  Added regression tests.
+
+2017-02-11  Wolfgang Lux  <wolfgang.lux@gmail.com>
+
+	* Source/GSICUString.m (UTextNSStringAccess,
+	UTextInitWithNSMutableString, UTextInitWithNSString):
+	Fix a serious misunderstanding of the icu string access API: The
+	value of nativeIndexingLimit must not exceed the length of the
+	current chunk. Otherwise icu library macros could miss to properly
+	reinitialize chunks, which, for instance, could lead to returning
+	regular expression matches outside the selected range.
+
+2017-01-06  Richard Frith-Macdonald <rfm@gnu.org>
+
+	* Tools/gdomap.c: Use getaddrinfo rather than gethostbyname if 
+	available (bug #50032).
+
+2016-12-06  Richard Frith-Macdonald <rfm@gnu.org>
+
+	* Tools/AGSParser.m: Fix missing line preventing documentation of
+	enumeration constants.
+
+2016-11-28  Wolfgang Lux  <wolfgang.lux@gmail.com>
+
+	* Source/Additions/NSCalendarDate+GNUstepBase.m (weekOfYear): Fix
+	an off by 1 calculation which meant that weekOfYear would return 2
+	for the first week of a year whenever the first Thursday of that
+	year is 7 Jan, for instance 2016.
+
+2016-11-10  Richard Frith-Macdonald <rfm@gnu.org>
+
+	* Source/NSPortCoder.m:
+	* Source/NSUnarchiver.m:
+	Fix for logic error decoding archives created by a machine with a
+	different word size.  Was checking the size of the encoded scalar
+	item, but not against the *local* size of the same type.
+
+2016-11-08  Richard Frith-Macdonald <rfm@gnu.org>
+
+	* Source/NSObject.m: Fix error in last mod ... was calculating opbject
+	layout incorrectly when fast-ARC moce used on 64bit system.
+	Also simplified by removing special case optimising for single-threaded
+	programs and use inline decrement to improve performance of release.
+
+2016-10-28  Niels Grewe <niels.grewe@halbordnung.de>
+
+	* Source/NSObject.m: Re-enable fast-ARC mode when memory layout
+	and atomic operations support permit. This changes the size of the
+	field where the reference count is stored to the size of a pointer
+	in some configurations.
+	The effective maximum reference count is still 2^24 - 1.
+
+2016-10-27  Wolfgang Lux  <wolfgang.lux@gmail.com>
+
+	* Source/NSObject.m: Comment out _ARCCompliantRetainRelease for
+	now because the retain count representation in gnustep-base and
+	libobjc2 differs causing space leaks on 64-bit architectures.
+
+2016-10-24  Richard Frith-Macdonald <rfm@gnu.org>
+
+	* Source/NSData.m: Only atempt to read regular files into NSData,
+	* Source/NSMessagePortNameServer.m: Ignore lock directories in the
+	'names' directory.
+	* Source/NSTask.m Increase files to close from 256 to 2048 to better
+	reflect typical modern system limits.
+	All changes for problems spotted by Wolfgang.
+
+2016-10-21  Richard Frith-Macdonald <rfm@gnu.org>
+
+	* Headers/Foundation/NSDate.h: Add documentation
+	* Source/NSDate.m: Tidy up and remove a little redundant code.
+	* Source/NSRunLoop.m: Tidy up and empty autorelease pool more often.
+	* Source/NSTimer.m: Tidy a little and improvde -description
+
 2016-10-14  Richard Frith-Macdonald <rfm@gnu.org>
 
 	* Headers/GNUstepBase/GSTLS.h:
