@@ -4103,7 +4103,7 @@ fail:
   NSMutableArray	*a;
   @autoreleasepool {
 
-  contents = [NSString stringWithContentsOfFile: fileName];
+  contents = [NSString stringWithContentsOfFile: fileName usedEncoding: NULL error: NULL];
   length = [contents length];
   data = [[NSMutableData alloc] initWithLength: length * sizeof(unichar)];
   buffer = [data mutableBytes];

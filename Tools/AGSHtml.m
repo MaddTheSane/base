@@ -1315,8 +1315,8 @@ static NSString		*mainFont = nil;
 	      [buf appendString: @"<"];
 	      [buf appendString: heading];
 	      [buf appendString: @">"];
-	      [buf appendFormat: @"<a name=\"%03u%03u%03u%03u\">",
-		chap, sect, ssect, sssect];
+          [buf appendFormat: @"<a name=\"%03lu%03lu%03lu%03lu\">",
+           (unsigned long)chap, (unsigned long)sect, (unsigned long)ssect, (unsigned long)sssect];
 	      [self outputText: children to: buf];
 	      [buf appendString: @"</a></"];
 	      [buf appendString: heading];

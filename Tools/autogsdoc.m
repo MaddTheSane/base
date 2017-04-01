@@ -1101,7 +1101,7 @@ main(int argc, char **argv, char **env)
 		  NSString		*k;
 		  NSUInteger		length;
 
-		  ms = [[NSMutableString alloc] initWithContentsOfFile: path];
+		  ms = [[NSMutableString alloc] initWithContentsOfFile: path usedEncoding: NULL error: NULL];
 		  if (ms == nil)
 		    {
 		      NSLog(@"Cleaning ... failed to read '%@'", path);
@@ -1131,7 +1131,7 @@ main(int argc, char **argv, char **env)
 		    }
 		  if ([ms length] != length)
 		    {
-		      if ([ms writeToFile: path atomically: YES] == NO)
+		      if ([ms writeToFile: path atomically: YES encoding: NSUTF8StringEncoding error: NULL] == NO)
 			{
 			  NSLog(@"Cleaning ... failed to write '%@'", path);
 			}
@@ -1935,7 +1935,8 @@ main(int argc, char **argv, char **env)
               [contents writeToFile:
                   [documentationDirectory stringByAppendingPathComponent:
                                             gsdocFile]
-                         atomically: YES];
+                         atomically: YES
+			   encoding: NSUTF8StringEncoding error: NULL];
               [gFiles addObject: gsdocFile];
               [idxIndex appendFormat:
                   @"    <A HREF=\"%@\" TARGET=\"packageFrame\">%@</A><BR/>\n",
@@ -1953,11 +1954,13 @@ main(int argc, char **argv, char **env)
       [idxIndex appendString: @"    </FONT>\n  </BODY>\n</HTML>\n"];
       [idxIndex writeToFile:
         [documentationDirectory stringByAppendingPathComponent: idxIndexFile]
-                 atomically: YES];
+                 atomically: YES
+	   encoding: NSUTF8StringEncoding error: NULL];
 
       [frameset writeToFile:
         [documentationDirectory stringByAppendingPathComponent: framesetFile]
-                 atomically: YES];
+                 atomically: YES
+	   encoding: NSUTF8StringEncoding error: NULL];
 
       // it is possible that <project>.gsdoc does not exist; if that is the
       // case, generate one now as a placeholder
@@ -1992,7 +1995,8 @@ main(int argc, char **argv, char **env)
           [prjFileContents replaceString: @"[prjName]" withString: project];
           [prjFileContents writeToFile:
             [documentationDirectory stringByAppendingPathComponent: prjFile]
-                            atomically: YES];
+                            atomically: YES
+		   encoding: NSUTF8StringEncoding error: NULL];
           [gFiles addObject: prjFile];
         }
     }
@@ -2158,7 +2162,7 @@ main(int argc, char **argv, char **env)
 	      [html setLocalRefs: nil];
               [html setInstanceVariablesAtEnd: instanceVarsAtEnd];
 
-	      s = [NSMutableString stringWithContentsOfFile: src];
+	      s = [NSMutableString stringWithContentsOfFile: src usedEncoding: NULL error: NULL];
 	      l = [s length];
 	      p = 0;
 	      r = NSMakeRange(p, l);

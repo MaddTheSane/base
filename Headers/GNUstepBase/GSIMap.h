@@ -396,7 +396,7 @@ typedef struct _GSIMapEnumerator GSIMapEnumerator_t;
 typedef GSIMapEnumerator_t	*GSIMapEnumerator;
 
 GS_STATIC_INLINE GSIMapBucket
-GSIMapPickBucket(unsigned hash, GSIMapBucket buckets, uintptr_t bucketCount)
+GSIMapPickBucket(NSUInteger hash, GSIMapBucket buckets, uintptr_t bucketCount)
 {
   return buckets + hash % bucketCount;
 }

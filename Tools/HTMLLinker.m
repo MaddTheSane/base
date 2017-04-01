@@ -809,7 +809,7 @@ static int verbose = 0;
 
   /* Now, read the mappings in the file.  */
   {
-    NSString *file = [NSString stringWithContentsOfFile: pathOnDisk];
+    NSString *file = [NSString stringWithContentsOfFile: pathOnDisk usedEncoding: NULL error: NULL];
     NSString *path = [pathOnDisk stringByDeletingLastPathComponent];
     NSDictionary *d = [file propertyList];
     NSEnumerator *e = [d keyEnumerator];
@@ -913,7 +913,7 @@ static int verbose = 0;
 
   /* Now, read all the names from the file.  */
   {
-    NSString *file = [NSString stringWithContentsOfFile: pathOnDisk];
+    NSString *file = [NSString stringWithContentsOfFile: pathOnDisk usedEncoding: NULL error: NULL];
     HTMLParser *p = [[HTMLParser alloc] initWithCode: file];
     NSArray *names = [p names];
     NSUInteger i, count;
@@ -1076,7 +1076,7 @@ build_relocation_table_for_directory (NSString *dir)
 
 	  fullPath = [dir stringByAppendingPathComponent: filename];	  
 
-	  file = [NSString stringWithContentsOfFile: fullPath];
+	  file = [NSString stringWithContentsOfFile: fullPath usedEncoding: NULL error: NULL];
 	  
 	  p = [[HTMLParser alloc] initWithCode: file];
 	  names = [p names];
@@ -1344,7 +1344,7 @@ int main (int argc, char** argv, char** env)
       inputFile = [inputFiles objectAtIndex: i];
       if (verbose)
         GSPrintf(stdout, @"  %@\n", inputFile);
-      inputFileContents = [NSString stringWithContentsOfFile: inputFile];
+      inputFileContents = [NSString stringWithContentsOfFile: inputFile usedEncoding: NULL error: NULL];
       
       parser = [[HTMLParser alloc] initWithCode: inputFileContents];
       inputFileContents = [parser resolveLinksUsingHTMLLinker: linker
