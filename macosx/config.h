@@ -60,6 +60,14 @@
 #define HAVE_LIBXML 1
 #endif
 
+#ifndef HAVE_LIBXML_SAX2_H
+#define HAVE_LIBXML_SAX2_H 1
+#endif
+
+#ifndef HAVE_LIBXSLT
+#define HAVE_LIBXSLT 1
+#endif
+
 #ifndef HAVE_ICONV
 #define HAVE_ICONV 1
 #endif

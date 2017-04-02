@@ -1084,7 +1084,7 @@ GSToUnicode(unichar **dst, NSUInteger *size, const unsigned char *src,
                     }
                   else
                     {
-                      unsigned	grow = (dpos + count) * sizeof(unichar);
+                      size_t	grow = (dpos + count) * sizeof(unichar);
                       unichar	*tmp;
 
                       tmp = NSZoneMalloc(zone, grow + extra * sizeof(unichar));
