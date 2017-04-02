@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		5542BEED1208923300DA804D /* GNUstepBase.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 559A068D120493A7004BBA32 /* GNUstepBase.framework */; };
+		554D9A6A1E9089DA00E79BFA /* GSTypeEncoding.h in Headers */ = {isa = PBXBuildFile; fileRef = 554D9A691E9089DA00E79BFA /* GSTypeEncoding.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		554D9A6C1E908A7E00E79BFA /* GSTypeEncoding.c in Sources */ = {isa = PBXBuildFile; fileRef = 554D9A6B1E908A7E00E79BFA /* GSTypeEncoding.c */; };
 		555BA0821235608F00C64C1D /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 555BA0811235608F00C64C1D /* libz.dylib */; };
 		555BA0841235609D00C64C1D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 555BA0831235609D00C64C1D /* Foundation.framework */; };
 		555BA104123560A800C64C1D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 555BA0831235609D00C64C1D /* Foundation.framework */; };
@@ -17,7 +19,6 @@
 		558311D2133AC8C700A54B19 /* DistributedObjects.h in Headers */ = {isa = PBXBuildFile; fileRef = 558311AB133AC8C700A54B19 /* DistributedObjects.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		558311D3133AC8C700A54B19 /* GCObject.h in Headers */ = {isa = PBXBuildFile; fileRef = 558311AC133AC8C700A54B19 /* GCObject.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		558311D4133AC8C700A54B19 /* GNUstep.h in Headers */ = {isa = PBXBuildFile; fileRef = 558311AD133AC8C700A54B19 /* GNUstep.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		558311D5133AC8C700A54B19 /* GSBlocks.h in Headers */ = {isa = PBXBuildFile; fileRef = 558311AE133AC8C700A54B19 /* GSBlocks.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		558311D8133AC8C700A54B19 /* GSFunctions.h in Headers */ = {isa = PBXBuildFile; fileRef = 558311B1133AC8C700A54B19 /* GSFunctions.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		558311D9133AC8C700A54B19 /* GSIArray.h in Headers */ = {isa = PBXBuildFile; fileRef = 558311B2133AC8C700A54B19 /* GSIArray.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		558311DA133AC8C700A54B19 /* GSIMap.h in Headers */ = {isa = PBXBuildFile; fileRef = 558311B3133AC8C700A54B19 /* GSIMap.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -173,48 +174,50 @@
 /* Begin PBXFileReference section */
 		089C1667FE841158C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		554D99291E9037E700E79BFA /* GNUstepBase.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = GNUstepBase.modulemap; sourceTree = "<group>"; };
+		554D9A691E9089DA00E79BFA /* GSTypeEncoding.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSTypeEncoding.h; sourceTree = "<group>"; };
+		554D9A6B1E908A7E00E79BFA /* GSTypeEncoding.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = GSTypeEncoding.c; sourceTree = "<group>"; };
 		554DDE830431106D00000001 /* HTMLLinker.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = HTMLLinker.m; sourceTree = "<group>"; };
 		554DDE85043110AA00000001 /* HTMLLinker.html */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.html; path = HTMLLinker.html; sourceTree = "<group>"; };
 		555BA0811235608F00C64C1D /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
 		555BA0831235609D00C64C1D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		5566CC2804324D9F00000002 /* README */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = README; path = ../macosx/README; sourceTree = "<group>"; };
 		556FFD8A03EC36E500000001 /* preface.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = preface.h; path = GNUstepBase/preface.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
-		558311A8133AC8C700A54B19 /* Additions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Additions.h; path = ../Headers/GNUstepBase/Additions.h; sourceTree = SOURCE_ROOT; };
-		558311A9133AC8C700A54B19 /* config.h.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; lineEnding = 0; name = config.h.in; path = ../Headers/GNUstepBase/config.h.in; sourceTree = SOURCE_ROOT; };
-		558311AA133AC8C700A54B19 /* CXXException.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CXXException.h; path = ../Headers/GNUstepBase/CXXException.h; sourceTree = SOURCE_ROOT; };
-		558311AB133AC8C700A54B19 /* DistributedObjects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = DistributedObjects.h; path = ../Headers/GNUstepBase/DistributedObjects.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
-		558311AC133AC8C700A54B19 /* GCObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = GCObject.h; path = ../Headers/GNUstepBase/GCObject.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
-		558311AD133AC8C700A54B19 /* GNUstep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = GNUstep.h; path = ../Headers/GNUstepBase/GNUstep.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
-		558311AE133AC8C700A54B19 /* GSBlocks.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GSBlocks.h; path = ../Headers/GNUstepBase/GSBlocks.h; sourceTree = SOURCE_ROOT; };
-		558311AF133AC8C700A54B19 /* GSConfig.h.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; lineEnding = 0; name = GSConfig.h.in; path = ../Headers/GNUstepBase/GSConfig.h.in; sourceTree = SOURCE_ROOT; };
-		558311B1133AC8C700A54B19 /* GSFunctions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GSFunctions.h; path = ../Headers/GNUstepBase/GSFunctions.h; sourceTree = SOURCE_ROOT; };
-		558311B2133AC8C700A54B19 /* GSIArray.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = GSIArray.h; path = ../Headers/GNUstepBase/GSIArray.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
-		558311B3133AC8C700A54B19 /* GSIMap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = GSIMap.h; path = ../Headers/GNUstepBase/GSIMap.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
-		558311B4133AC8C700A54B19 /* GSLocale.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GSLocale.h; path = ../Headers/GNUstepBase/GSLocale.h; sourceTree = SOURCE_ROOT; };
-		558311B5133AC8C700A54B19 /* GSLock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GSLock.h; path = ../Headers/GNUstepBase/GSLock.h; sourceTree = SOURCE_ROOT; };
-		558311B6133AC8C700A54B19 /* GSMime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = GSMime.h; path = ../Headers/GNUstepBase/GSMime.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
-		558311B7133AC8C700A54B19 /* GSObjCRuntime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = GSObjCRuntime.h; path = ../Headers/GNUstepBase/GSObjCRuntime.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
-		558311B8133AC8C700A54B19 /* GSUnion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GSUnion.h; path = ../Headers/GNUstepBase/GSUnion.h; sourceTree = SOURCE_ROOT; };
-		558311B9133AC8C700A54B19 /* GSVersionMacros.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GSVersionMacros.h; path = ../Headers/GNUstepBase/GSVersionMacros.h; sourceTree = SOURCE_ROOT; };
-		558311BA133AC8C700A54B19 /* GSXML.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GSXML.h; path = ../Headers/GNUstepBase/GSXML.h; sourceTree = SOURCE_ROOT; };
-		558311BB133AC8C700A54B19 /* NSArray+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSArray+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSArray+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311BC133AC8C700A54B19 /* NSAttributedString+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSAttributedString+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSAttributedString+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311BD133AC8C700A54B19 /* NSBundle+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSBundle+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSBundle+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311BE133AC8C700A54B19 /* NSCalendarDate+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSCalendarDate+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSCalendarDate+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311BF133AC8C700A54B19 /* NSData+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSData+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSData+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311C0133AC8C700A54B19 /* NSDebug+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSDebug+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSDebug+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311C1133AC8C700A54B19 /* NSFileHandle+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSFileHandle+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSFileHandle+GNUstepBase.h"; sourceTree = SOURCE_ROOT; usesTabs = 0; };
-		558311C2133AC8C700A54B19 /* NSLock+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSLock+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSLock+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311C3133AC8C700A54B19 /* NSMutableString+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSMutableString+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSMutableString+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311C4133AC8C700A54B19 /* NSNetServices+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSNetServices+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSNetServices+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311C5133AC8C700A54B19 /* NSNumber+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = "NSNumber+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSNumber+GNUstepBase.h"; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
-		558311C6133AC8C700A54B19 /* NSObject+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSObject+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSObject+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311C7133AC8C700A54B19 /* NSProcessInfo+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSProcessInfo+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSProcessInfo+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311C8133AC8C700A54B19 /* NSStream+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSStream+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSStream+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311C9133AC8C700A54B19 /* NSString+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSString+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSString+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311CA133AC8C700A54B19 /* NSTask+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSTask+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSTask+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311CB133AC8C700A54B19 /* NSThread+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSThread+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSThread+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
-		558311CC133AC8C700A54B19 /* NSURL+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSURL+GNUstepBase.h"; path = "../Headers/GNUstepBase/NSURL+GNUstepBase.h"; sourceTree = SOURCE_ROOT; };
+		558311A8133AC8C700A54B19 /* Additions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Additions.h; sourceTree = "<group>"; };
+		558311A9133AC8C700A54B19 /* config.h.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; lineEnding = 0; path = config.h.in; sourceTree = "<group>"; };
+		558311AA133AC8C700A54B19 /* CXXException.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CXXException.h; sourceTree = "<group>"; };
+		558311AB133AC8C700A54B19 /* DistributedObjects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = DistributedObjects.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		558311AC133AC8C700A54B19 /* GCObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = GCObject.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		558311AD133AC8C700A54B19 /* GNUstep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = GNUstep.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		558311AE133AC8C700A54B19 /* GSBlocks.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSBlocks.h; sourceTree = "<group>"; };
+		558311AF133AC8C700A54B19 /* GSConfig.h.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; lineEnding = 0; path = GSConfig.h.in; sourceTree = "<group>"; };
+		558311B1133AC8C700A54B19 /* GSFunctions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSFunctions.h; sourceTree = "<group>"; };
+		558311B2133AC8C700A54B19 /* GSIArray.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = GSIArray.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		558311B3133AC8C700A54B19 /* GSIMap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = GSIMap.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		558311B4133AC8C700A54B19 /* GSLocale.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSLocale.h; sourceTree = "<group>"; };
+		558311B5133AC8C700A54B19 /* GSLock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSLock.h; sourceTree = "<group>"; };
+		558311B6133AC8C700A54B19 /* GSMime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = GSMime.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		558311B7133AC8C700A54B19 /* GSObjCRuntime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = GSObjCRuntime.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		558311B8133AC8C700A54B19 /* GSUnion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSUnion.h; sourceTree = "<group>"; };
+		558311B9133AC8C700A54B19 /* GSVersionMacros.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSVersionMacros.h; sourceTree = "<group>"; };
+		558311BA133AC8C700A54B19 /* GSXML.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSXML.h; sourceTree = "<group>"; };
+		558311BB133AC8C700A54B19 /* NSArray+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSArray+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311BC133AC8C700A54B19 /* NSAttributedString+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSAttributedString+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311BD133AC8C700A54B19 /* NSBundle+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSBundle+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311BE133AC8C700A54B19 /* NSCalendarDate+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSCalendarDate+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311BF133AC8C700A54B19 /* NSData+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSData+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311C0133AC8C700A54B19 /* NSDebug+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSDebug+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311C1133AC8C700A54B19 /* NSFileHandle+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSFileHandle+GNUstepBase.h"; sourceTree = "<group>"; usesTabs = 0; };
+		558311C2133AC8C700A54B19 /* NSLock+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSLock+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311C3133AC8C700A54B19 /* NSMutableString+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSMutableString+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311C4133AC8C700A54B19 /* NSNetServices+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSNetServices+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311C5133AC8C700A54B19 /* NSNumber+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = "NSNumber+GNUstepBase.h"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		558311C6133AC8C700A54B19 /* NSObject+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSObject+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311C7133AC8C700A54B19 /* NSProcessInfo+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSProcessInfo+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311C8133AC8C700A54B19 /* NSStream+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSStream+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311C9133AC8C700A54B19 /* NSString+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSString+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311CA133AC8C700A54B19 /* NSTask+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSTask+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311CB133AC8C700A54B19 /* NSThread+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSThread+GNUstepBase.h"; sourceTree = "<group>"; };
+		558311CC133AC8C700A54B19 /* NSURL+GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSURL+GNUstepBase.h"; sourceTree = "<group>"; };
 		558311CE133AC8C700A54B19 /* Unicode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = Unicode.h; path = ../Headers/GNUstepBase/Unicode.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		559A068C120493A7004BBA32 /* Info-gnustep__Upgraded_.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-gnustep__Upgraded_.plist"; sourceTree = "<group>"; };
 		559A068D120493A7004BBA32 /* GNUstepBase.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = GNUstepBase.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -436,6 +439,7 @@
 		556FFD2E03EC36E500000001 /* GNUstepBase */ = {
 			isa = PBXGroup;
 			children = (
+				554D9A691E9089DA00E79BFA /* GSTypeEncoding.h */,
 				558311A8133AC8C700A54B19 /* Additions.h */,
 				558311A9133AC8C700A54B19 /* config.h.in */,
 				558311AA133AC8C700A54B19 /* CXXException.h */,
@@ -477,8 +481,7 @@
 				559A07E31204A196004BBA32 /* GSConfig.h */,
 				556FFD8A03EC36E500000001 /* preface.h */,
 			);
-			name = GNUstepBase;
-			path = Additions/GNUstepBase;
+			path = GNUstepBase;
 			sourceTree = "<group>";
 		};
 		556FFDF103EC37C700000001 /* Headers */ = {
@@ -552,6 +555,7 @@
 				559A075F12049FCF004BBA32 /* GSLock.m */,
 				559A076012049FCF004BBA32 /* GSMime.m */,
 				559A076112049FCF004BBA32 /* GSObjCRuntime.m */,
+				554D9A6B1E908A7E00E79BFA /* GSTypeEncoding.c */,
 				559A076212049FCF004BBA32 /* GSXML.m */,
 				559A076312049FCF004BBA32 /* NSArray+GNUstepBase.m */,
 				559A076412049FCF004BBA32 /* NSAttributedString+GNUstepBase.m */,
@@ -597,7 +601,6 @@
 				558311D2133AC8C700A54B19 /* DistributedObjects.h in Headers */,
 				558311D3133AC8C700A54B19 /* GCObject.h in Headers */,
 				558311D4133AC8C700A54B19 /* GNUstep.h in Headers */,
-				558311D5133AC8C700A54B19 /* GSBlocks.h in Headers */,
 				558311D8133AC8C700A54B19 /* GSFunctions.h in Headers */,
 				558311D9133AC8C700A54B19 /* GSIArray.h in Headers */,
 				558311DA133AC8C700A54B19 /* GSIMap.h in Headers */,
@@ -613,6 +616,7 @@
 				558311E4133AC8C700A54B19 /* NSBundle+GNUstepBase.h in Headers */,
 				558311E5133AC8C700A54B19 /* NSCalendarDate+GNUstepBase.h in Headers */,
 				558311E6133AC8C700A54B19 /* NSData+GNUstepBase.h in Headers */,
+				554D9A6A1E9089DA00E79BFA /* GSTypeEncoding.h in Headers */,
 				558311E7133AC8C700A54B19 /* NSDebug+GNUstepBase.h in Headers */,
 				558311E8133AC8C700A54B19 /* NSFileHandle+GNUstepBase.h in Headers */,
 				558311E9133AC8C700A54B19 /* NSLock+GNUstepBase.h in Headers */,
@@ -774,6 +778,7 @@
 				559A078412049FCF004BBA32 /* NSData+GNUstepBase.m in Sources */,
 				559A078512049FCF004BBA32 /* NSDebug+GNUstepBase.m in Sources */,
 				559A078712049FCF004BBA32 /* NSFileHandle+GNUstepBase.m in Sources */,
+				554D9A6C1E908A7E00E79BFA /* GSTypeEncoding.c in Sources */,
 				559A078812049FCF004BBA32 /* NSLock+GNUstepBase.m in Sources */,
 				559A078912049FCF004BBA32 /* NSMutableString+GNUstepBase.m in Sources */,
 				559A078A12049FCF004BBA32 /* NSNumber+GNUstepBase.m in Sources */,

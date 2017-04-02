@@ -24,3 +24,4 @@
 
 #import <Foundation/Foundation.h>
 #import <GNUstepBase/Additions.h>
+#import <GNUstepBase/GSTypeEncoding.h>
