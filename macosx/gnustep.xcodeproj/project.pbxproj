@@ -348,8 +348,10 @@
 				034768DFFF38A50411DB9C8B /* Products */,
 				559A068C120493A7004BBA32 /* Info-gnustep__Upgraded_.plist */,
 			);
+			indentWidth = 2;
 			name = gnustep;
 			sourceTree = "<group>";
+			tabWidth = 8;
 			usesTabs = 0;
 		};
 		0867D69AFE84028FC02AAC07 /* Frameworks */ = {
