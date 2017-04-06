@@ -13,18 +13,13 @@ framework module GNUstepBase {
       header "DistributedObjects.h"
       export *
   }
-  
-  
-  module GCObject {
-      header "GCObject.h"
-      export *
-  }
-  
+
   module GSUnion {
       header "GSUnion.h"
       export *
   }
   
+  exclude header "GCObject.h"
   exclude header "GSIMap.h"
   exclude header "GSIArray.h"
   exclude header "GSBlocks.h"
