@@ -444,9 +444,10 @@ static SEL	objSel;
 
 - (id) initWithDictionary: (NSDictionary*)d
 {
-  [super init];
+  if (self = [super init]) {
   dictionary = (_GSInsensitiveDictionary*)RETAIN(d);
   enumerator = GSIMapEnumeratorForMap(&dictionary->map);
+  }
   return self;
 }
 
