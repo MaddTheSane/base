@@ -32,6 +32,9 @@
 #include <stdio.h>
 
 @implementation NSProcessInfo(GNUstepBase)
+#ifdef NeXT_RUNTIME
+@dynamic debugLoggingEnabled;
+#endif
 
 static NSMutableSet	*_debug_set = nil;
 static BOOL     debugTemporarilyDisabled = NO;
