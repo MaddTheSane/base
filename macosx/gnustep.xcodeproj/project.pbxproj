@@ -7,10 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		5527CA252F33356F005D4698 /* gsdoc-1_0_4.dtd in Resources */ = {isa = PBXBuildFile; fileRef = 5527CA242F33356F005D4698 /* gsdoc-1_0_4.dtd */; };
-		5527CA262F33356F005D4698 /* gsdoc-1_0_1.dtd in Resources */ = {isa = PBXBuildFile; fileRef = 5527CA212F33356F005D4698 /* gsdoc-1_0_1.dtd */; };
-		5527CA272F33356F005D4698 /* gsdoc-1_0_2.dtd in Resources */ = {isa = PBXBuildFile; fileRef = 5527CA222F33356F005D4698 /* gsdoc-1_0_2.dtd */; };
-		5527CA282F33356F005D4698 /* gsdoc-1_0_3.dtd in Resources */ = {isa = PBXBuildFile; fileRef = 5527CA232F33356F005D4698 /* gsdoc-1_0_3.dtd */; };
+		5527CA252F33356F005D4698 /* gsdoc-1_0_4.dtd in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5527CA242F33356F005D4698 /* gsdoc-1_0_4.dtd */; };
+		5527CA262F33356F005D4698 /* gsdoc-1_0_1.dtd in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5527CA212F33356F005D4698 /* gsdoc-1_0_1.dtd */; };
+		5527CA272F33356F005D4698 /* gsdoc-1_0_2.dtd in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5527CA222F33356F005D4698 /* gsdoc-1_0_2.dtd */; };
+		5527CA282F33356F005D4698 /* gsdoc-1_0_3.dtd in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5527CA232F33356F005D4698 /* gsdoc-1_0_3.dtd */; };
 		5527CA2D2F33FF38005D4698 /* GSPThread.h in Headers */ = {isa = PBXBuildFile; fileRef = 5527CA2C2F33FF38005D4698 /* GSPThread.h */; };
 		5542BEED1208923300DA804D /* GNUstepBase.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 559A068D120493A7004BBA32 /* GNUstepBase.framework */; };
 		554D9A6A1E9089DA00E79BFA /* GSTypeEncoding.h in Headers */ = {isa = PBXBuildFile; fileRef = 554D9A691E9089DA00E79BFA /* GSTypeEncoding.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -147,6 +147,10 @@
 				559A0680120493A7004BBA32 /* gsdoc-0_6_6.dtd in CopyFiles */,
 				559A0681120493A7004BBA32 /* gsdoc-0_6_7.dtd in CopyFiles */,
 				559A0682120493A7004BBA32 /* gsdoc-1_0_0.dtd in CopyFiles */,
+				5527CA252F33356F005D4698 /* gsdoc-1_0_4.dtd in CopyFiles */,
+				5527CA262F33356F005D4698 /* gsdoc-1_0_1.dtd in CopyFiles */,
+				5527CA272F33356F005D4698 /* gsdoc-1_0_2.dtd in CopyFiles */,
+				5527CA282F33356F005D4698 /* gsdoc-1_0_3.dtd in CopyFiles */,
 				559A0683120493A7004BBA32 /* plist-0_9.dtd in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -753,10 +757,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5527CA252F33356F005D4698 /* gsdoc-1_0_4.dtd in Resources */,
-				5527CA262F33356F005D4698 /* gsdoc-1_0_1.dtd in Resources */,
-				5527CA272F33356F005D4698 /* gsdoc-1_0_2.dtd in Resources */,
-				5527CA282F33356F005D4698 /* gsdoc-1_0_3.dtd in Resources */,
 				559A0667120493A7004BBA32 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
