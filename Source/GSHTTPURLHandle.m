@@ -128,7 +128,7 @@ static NSString	*httpVersion = @"1.1";
     reading,
   } connectionState;
 }
-- (void) setDebug: (BOOL)flag;
+- (int) setDebug: (int)flag;
 - (void) _tryLoadInBackground: (NSURL*)fromURL;
 @end
 
@@ -547,15 +547,20 @@ debugWrite(GSHTTPURLHandle *handle, NSData *data)
 	}
     }
 
+  buf = [[s dataUsingEncoding: NSISOLatin1StringEncoding] mutableCopy];
+
   enumerator = NSEnumerateMapTable(wProperties);
   while (NSNextMapEnumeratorPair(&enumerator, (void **)(&key), (void**)&val))
     {
-      [s appendFormat: @"%@: %@\r\n", key, val];
+      GSMimeHeader      *h;
+
+      h = [[GSMimeHeader alloc] initWithName: key value: val parameters: nil];
+      [buf appendData: [h rawMimeDataPreservingCase: YES foldedAt: 0]];
+      RELEASE(h);
     }
   NSEndMapTableEnumeration(&enumerator);
 
-  [s appendString: @"\r\n"];
-  buf = [[s dataUsingEncoding: NSASCIIStringEncoding] mutableCopy];
+  [buf appendBytes: "\r\n" length: 2];
 
   /*
    * Append any data to be sent
@@ -1304,9 +1309,12 @@ debugWrite(GSHTTPURLHandle *handle, NSData *data)
   return result;
 }
 
-- (void) setDebug: (BOOL)flag
+- (int) setDebug: (int)flag
 {
-  debug = flag;
+  int   old = debug;
+
+  debug = flag ? YES : NO;
+  return old;
 }
 
 - (void) setReturnAll: (BOOL)flag
@@ -1639,6 +1647,9 @@ debugWrite(GSHTTPURLHandle *handle, NSData *data)
  *     to 8080 for <code>http</code> and 4430 for <code>https</code>.
  *   </item>
  *   <item>
+ *     Any GSTLS... key to control TLS behavior
+ *   </item>
+ *   <item>
  *     Any NSHTTPProperty... key
  *   </item>
  * </list>
@@ -1652,6 +1663,7 @@ debugWrite(GSHTTPURLHandle *handle, NSData *data)
         format: @"%@ %p with invalid key", NSStringFromSelector(_cmd), self];
     }
   if ([propertyKey hasPrefix: @"GSHTTPProperty"]
+    || [propertyKey hasPrefix: @"GSTLS"]
     || [propertyKey hasPrefix: @"NSHTTPProperty"])
     {
       if (property == nil)

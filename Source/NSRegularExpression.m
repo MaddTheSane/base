@@ -46,6 +46,8 @@
 #import "Foundation/NSTextCheckingResult.h"
 #import "Foundation/NSArray.h"
 #import "Foundation/NSCoder.h"
+#import "Foundation/NSUserDefaults.h"
+#import "Foundation/NSNotification.h"
 
 
 /**
@@ -133,6 +135,42 @@ NSRegularExpressionOptionsToURegexpFlags(NSRegularExpressionOptions opts)
   return self;
 }
 
+- (BOOL) isEqual: (id)obj
+{
+  if ([obj isKindOfClass: [NSRegularExpression class]])
+    {
+      if (self == obj)
+        {
+          return YES;
+        }
+      else if (options != ((NSRegularExpression*)obj)->options)
+        {
+          return NO;
+        }
+      else
+        {
+          UErrorCode  myErr      = 0;
+          UErrorCode  theirErr   = 0;
+          const UText *myText    = uregex_patternUText(regex, &myErr);
+          const UText *theirText =
+           uregex_patternUText(((NSRegularExpression*)obj)->regex, &theirErr);
+          if (U_FAILURE(myErr) != U_FAILURE(theirErr))
+            {
+              return NO;
+            }
+          else if (U_FAILURE(myErr) && U_FAILURE(theirErr))
+            {
+              return YES;
+            }
+          return utext_equals(myText, theirText);
+        }
+    }
+  else
+    {
+      return [super isEqual: obj];
+    }
+}
+
 - (NSString*) pattern
 {
   UErrorCode	s = 0;
@@ -145,7 +183,6 @@ NSRegularExpressionOptionsToURegexpFlags(NSRegularExpressionOptions opts)
     }
   str = [GSUTextString new];
   utext_clone(&str->txt, t, FALSE, TRUE, &s);
-  utext_close(t);
   return [str autorelease];
 }
 #else
@@ -178,12 +215,58 @@ NSRegularExpressionOptionsToURegexpFlags(NSRegularExpressionOptions opts)
   return self;
 }
 
+- (BOOL) isEqual: (id)obj
+{
+  if ([obj isKindOfClass: [NSRegularExpression class]])
+    {
+      if (self == obj)
+        {
+          return YES;
+        }
+      else if (options != ((NSRegularExpression*)obj)->options)
+        {
+          return NO;
+        }
+      else
+        {
+          UErrorCode  myErr      = 0;
+          UErrorCode  theirErr   = 0;
+          int32_t     myLen      = 0;
+          int32_t     theirLen   = 0;
+          const UChar *myText    = uregex_pattern(regex, &myLen, &myErr);
+          const UChar *theirText = uregex_pattern(
+                                     ((NSRegularExpression*)obj)->regex,
+                                     &theirLen, &theirErr);
+          if (U_FAILURE(myErr) != U_FAILURE(theirErr))
+            {
+              return NO;
+            }
+          else if (U_FAILURE(myErr) && U_FAILURE(theirErr))
+            {
+              return YES;
+            }
+          if (myLen != theirLen)
+            {
+              return NO;
+            }
+          return
+           (0 == memcmp((const void*)myText, (const void*)theirText, myLen));
+        }
+    }
+  else
+    {
+      return [super isEqual: obj];
+    }
+}
+
+
+
 - (NSString*) pattern
 {
   UErrorCode	s = 0;
   int32_t	length;
   const unichar *pattern = uregex_pattern(regex, &length, &s);
-  
+
   if (U_FAILURE(s))
     {
       return nil;
@@ -191,6 +274,11 @@ NSRegularExpressionOptionsToURegexpFlags(NSRegularExpressionOptions opts)
   return [NSString stringWithCharacters: pattern length: length];
 }
 #endif
+
+- (NSUInteger) hash
+{
+  return [[self pattern] hash] ^ options;
+}
 
 static UBool
 callback(const void *context, int32_t steps)
@@ -205,6 +293,48 @@ callback(const void *context, int32_t steps)
   CALL_BLOCK(block, nil, NSMatchingProgress, &stop);
   return stop;
 }
+
+
+#define DEFAULT_WORK_LIMIT 1500
+/**
+ * The work limit specifies the number of iterations the matcher will do before
+ * aborting an operation. This ensures that degenerate pattern/input
+ * combinations don't send the application into what for all intents and
+ * purposes seems like an infinite loop.
+ */
+static int32_t _workLimit = DEFAULT_WORK_LIMIT;
+
++ (void) _defaultsChanged: (NSNotification*)n
+{
+  NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+  id value = [defs objectForKey: @"GSRegularExpressionWorkLimit"];
+  int32_t newLimit = DEFAULT_WORK_LIMIT;
+  if ([value respondsToSelector: @selector(intValue)])
+    {
+      int32_t v = [value intValue];
+      if (v >= 0)
+        {
+          newLimit = v;
+        }
+    }
+  _workLimit = newLimit;
+}
+
++ (void) initialize
+{
+  if (self == [NSRegularExpression class])
+    {
+      [[NSNotificationCenter defaultCenter]
+        addObserver: self
+           selector: @selector(_defaultsChanged:)
+              name: NSUserDefaultsDidChangeNotification
+            object: nil];
+      [self _defaultsChanged: nil];
+    }
+}
+
+
+
 
 /**
  * Sets up a libicu regex object for use.  Note: the documentation states that
@@ -241,6 +371,7 @@ setupRegex(URegularExpression *regex,
     {
       uregex_useTransparentBounds(r, TRUE, &s);
     }
+  uregex_setTimeLimit(r, _workLimit, &s);
   if (U_FAILURE(s))
     {
       uregex_close(r);
@@ -276,6 +407,7 @@ setupRegex(URegularExpression *regex,
     {
       uregex_useTransparentBounds(r, TRUE, &s);
     }
+  uregex_setTimeLimit(r, _workLimit, &s);
   if (U_FAILURE(s))
     {
       uregex_close(r);
@@ -699,6 +831,14 @@ prepareResult(NSRegularExpression *regex,
   UTextInitWithNSString(&replacement, template);
 
   output = uregex_replaceAllUText(r, &replacement, NULL, &s);
+  if (0 != s)
+    {
+      uregex_close(r);
+      utext_close(&replacement);
+      utext_close(&txt);
+      DESTROY(ret);
+      return 0;
+    }
   utext_clone(&ret->txt, output, TRUE, TRUE, &s);
   [string setString: ret];
   [ret release];
@@ -725,13 +865,21 @@ prepareResult(NSRegularExpression *regex,
   UTextInitWithNSString(&replacement, template);
 
   output = uregex_replaceAllUText(r, &replacement, NULL, &s);
+  if (0 != s)
+    {
+      uregex_close(r);
+      utext_close(&replacement);
+      utext_close(&txt);
+      DESTROY(ret);
+      return nil;
+    }
   utext_clone(&ret->txt, output, TRUE, TRUE, &s);
   uregex_close(r);
 
   utext_close(&txt);
   utext_close(output);
   utext_close(&replacement);
-  return ret;
+  return AUTORELEASE(ret);
 }
 
 - (NSString*) replacementStringForResult: (NSTextCheckingResult*)result
@@ -755,13 +903,21 @@ prepareResult(NSRegularExpression *regex,
   UTextInitWithNSString(&replacement, template);
 
   output = uregex_replaceFirstUText(r, &replacement, NULL, &s);
+  if (0 != s)
+    {
+      uregex_close(r);
+      utext_close(&replacement);
+      utext_close(&txt);
+      DESTROY(ret);
+      return nil;
+    }
   utext_clone(&ret->txt, output, TRUE, TRUE, &s);
   uregex_close(r);
 
   utext_close(&txt);
   utext_close(output);
   utext_close(&replacement);
-  return ret;
+  return AUTORELEASE(ret);
 }
 #else
 - (NSUInteger) replaceMatchesInString: (NSMutableString*)string

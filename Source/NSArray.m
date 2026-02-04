@@ -662,12 +662,10 @@ static SEL	rlSel;
 	  objects[i] = [objects[i] copy];
 	}
       self = [self initWithObjects: objects count: c];
-#if GS_WITH_GC == 0
       while (i > 0)
 	{
 	  [objects[--i] release];
 	}
-#endif
     }
   else
     {
@@ -752,12 +750,10 @@ static SEL	rlSel;
 		  count: items
 		  at: contents];
 	  self = [self initWithObjects: contents count: items];
-#if GS_WITH_GC == 0
 	  while (items-- > 0)
 	    {
 	      [contents[items] release];
 	    }
-#endif
 	  GS_ENDIDBUF();
 	}
       else
@@ -1480,7 +1476,7 @@ compare(id elem1, id elem2, void* context)
   else if ([key isEqualToString: @"count"] == YES)
     {
       GSOnceMLog(
-@"[NSArray-valueForKey:] called wth 'count' is deprecated .. use '@count'");
+@"[NSArray-valueForKey:] called with 'count' is deprecated .. use '@count'");
       result = [NSNumber numberWithUnsignedInteger: [self count]];
     }
   else
@@ -2268,12 +2264,10 @@ compare(id elem1, id elem2, void* context)
 	      (*rem)(self, remSel, i);
 	    }
 	}
-#if GS_WITH_GC == 0
       if (rem != 0)
 	{
 	  RELEASE(anObject);
 	}
-#endif
     }
 }
 
@@ -2360,12 +2354,10 @@ compare(id elem1, id elem2, void* context)
 	      (*rem)(self, remSel, i);
 	    }
 	}
-#if GS_WITH_GC == 0
       if (rem != 0)
 	{
 	  RELEASE(anObject);
 	}
-#endif
     }
 }
 

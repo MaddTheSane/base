@@ -34,6 +34,7 @@
 #import "Foundation/NSArray.h"
 #import "Foundation/NSData.h"
 #import "Foundation/NSDictionary.h"
+#import "Foundation/NSException.h"
 #import "Foundation/NSLock.h"
 #import "Foundation/NSNotification.h"
 #import "Foundation/NSNotificationQueue.h"
@@ -735,14 +736,12 @@ GSDebugAllocationListRecordedObjects(Class c)
   memcpy(tmp, the_table[i].recorded_objects,
     the_table[i].num_recorded_objects * sizeof(id));
 
-#if	!GS_WITH_GC
   /* Retain all the objects - NB: if retaining one of the objects as a
    * side effect releases another one of them , we are broken ... */
   for (k = 0; k < the_table[i].num_recorded_objects; k++)
     {
       [tmp[k] retain];
     }
-#endif
 
   /* Then, we bravely unlock the lock */
   unLock();
@@ -752,13 +751,11 @@ GSDebugAllocationListRecordedObjects(Class c)
   answer = [NSArray arrayWithObjects: tmp
     count: the_table[i].num_recorded_objects];
 
-#if	!GS_WITH_GC
   /* Now we release all the objects to balance the retain */
   for (k = 0; k < the_table[i].num_recorded_objects; k++)
     {
       [tmp[k] release];
     }
-#endif
 
   /* And free the space used by them */
   NSZoneFree(NSDefaultMallocZone(), tmp);
@@ -793,8 +790,6 @@ __builtin_extract_return_address(__builtin_return_address(a + 1)) : 0); break;
 #elif	defined(HAVE_SIGNAL_H)
 #  include	<signal.h>
 #endif
-
-#include <setjmp.h>
 
 #if	defined(_WIN32)
 #ifndef SIGBUS
@@ -1130,17 +1125,31 @@ GSPrivateStackAddresses(void)
 }
 
 
-const char *_NSPrintForDebugger(id object)
+const char *
+_NSPrintForDebugger(id object)
 {
   if (object && [object respondsToSelector: @selector(description)])
-    return [[object description] cString];
+    return [[object description] UTF8String];
 
   return NULL;
 }
 
-NSString *_NSNewStringFromCString(const char *cstring)
+NSString *
+_NSNewStringFromCString(const char *cstring)
 {
-  return [NSString stringWithCString: cstring
-			    encoding: [NSString defaultCStringEncoding]];
+  NSString      *string;
+
+  string = [NSString stringWithCString: cstring
+			      encoding: [NSString defaultCStringEncoding]];
+  if (nil == string)
+    {
+      string = [NSString stringWithUTF8String: cstring];
+      if (nil == string)
+        {
+          string = [NSString stringWithCString: cstring
+                                      encoding: NSISOLatin1StringEncoding];
+        }
+    }
+  return string;
 }
 

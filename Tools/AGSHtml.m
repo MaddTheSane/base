@@ -109,7 +109,7 @@ static NSString		*mainFont = nil;
   RELEASE(localRefs);
   RELEASE(projectRefs);
   RELEASE(indent);
-  [super dealloc];
+  DEALLOC
 }
 #endif
 
@@ -596,9 +596,9 @@ static NSString		*mainFont = nil;
 - (void) outputNode: (GSXMLNode*)node to: (NSMutableString*)buf
 {
   @autoreleasepool {
-    GSXMLNode	*children = [node firstChild];
-    
-    if ([node type] == XML_ELEMENT_NODE)
+  GSXMLNode	*children = [node firstChild];
+
+  if ([node type] == XML_ELEMENT_NODE)
     {
       NSString		*name = [node name];
       NSDictionary	*prop = [node attributes];
@@ -1093,7 +1093,7 @@ static NSString		*mainFont = nil;
 	  if (base == nil)
 	    {
 	      NSLog(@"No 'base' document name supplied in gsdoc element");
-	      return;
+	      break;
 	    }
 	  nextFile = [prop objectForKey: @"next"];
 	  nextFile = [nextFile stringByAppendingPathExtension: @"html"];

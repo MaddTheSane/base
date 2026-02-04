@@ -992,16 +992,6 @@ cifframe_callback(ffi_cif *cif, void *retp, void **args, void *user)
 
 
 @implementation	GSKVOObservation
-#if	GS_WITH_GC
-+ (void) initialize
-{
-  GSMakeWeakPointer(self, "observer");
-}
-- (void) finalize
-{
-  GSAssignZeroingWeakPointer((void**)&observer, nil);
-}
-#endif
 @end
 
 @implementation	GSKVOPathInfo
@@ -1165,15 +1155,6 @@ cifframe_callback(ffi_cif *cif, void *retp, void **args, void *user)
           o->options = options;
           observation = o;
         }
-#if	GS_WITH_GC
-      else if (o->observer == nil)
-	{
-	  /* The observer for thsi observation must have been collected.
-	   */
-	  [pathInfo->observations removeObjectAtIndex: count];
-	  continue;
-	}
-#endif
       pathInfo->allOptions |= o->options;
     }
   if (observation == nil)
@@ -1302,14 +1283,6 @@ cifframe_callback(ffi_cif *cif, void *retp, void **args, void *user)
               context = o->context;
               break;
             }
-#if	GS_WITH_GC
-	  else if (o->observer == nil)
-	    {
-	      /* The observer for thsi observation must have been collected.
-	       */
-	      [pathInfo->observations removeObjectAtIndex: count];
-	    }
-#endif
 	}
     }
   [iLock unlock];
@@ -1397,7 +1370,7 @@ cifframe_callback(ffi_cif *cif, void *retp, void **args, void *user)
   [super dealloc];
 }
 
-- (void) observeValueForKeyPath: (NSString *)keyPath
+- (void) oberveValueForKeyPath: (NSString *)keyPath
                        ofObject: (id)anObject
                          change: (NSDictionary *)change
                         context: (void *)context
@@ -1560,10 +1533,8 @@ cifframe_callback(ffi_cif *cif, void *retp, void **args, void *user)
 - (void) removeObserver: (NSObject*)anObserver forKeyPath: (NSString*)aPath
 {
   GSKVOInfo	*info;
-  id forwarder;
+  id            forwarder;
 
-  setup();
-  [kvoLock lock];
   /*
    * Get the observation information and remove this observation.
    */
@@ -1580,7 +1551,6 @@ cifframe_callback(ffi_cif *cif, void *retp, void **args, void *user)
       IF_NO_GC(AUTORELEASE(info);)
       [self setObservationInfo: nil];
     }
-  [kvoLock unlock];
   if ([aPath rangeOfString:@"."].location != NSNotFound)
     [forwarder finalize];
 }

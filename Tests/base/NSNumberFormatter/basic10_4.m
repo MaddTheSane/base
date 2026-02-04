@@ -57,6 +57,7 @@ int main()
 
     START_SET("NSLocale")
       NSLocale  *sys;
+      NSLocale  *en;
       if (!NSLOCALE_SUPPORTED)
         SKIP("NSLocale not supported\nThe ICU library was not available when GNUstep-base was built")
       
@@ -78,7 +79,15 @@ int main()
       str = [fmt stringFromNumber: num];
       PASS_EQUAL(str, @"1235", "default 10.4 format same as Cocoa")
 
-      [fmt setLocale: [[NSLocale alloc] initWithLocaleIdentifier: @"en"]];
+      en = [[[NSLocale alloc] initWithLocaleIdentifier: @"en"] autorelease];
+      PASS_EQUAL([en localeIdentifier], @"en", "have locale 'en'");
+
+      [fmt setLocale: en];
+
+      [fmt setPaddingCharacter: @"+"];
+      PASS_EQUAL([fmt paddingCharacter], @"+", "padding character se to '+'")
+
+      [fmt setPaddingCharacter: @"*"]; // Subsequent tests use '*'
 
       [fmt setMaximumFractionDigits: 2];
       str = [fmt stringFromNumber: num];
@@ -112,11 +121,13 @@ int main()
       [fmt setFormatWidth: 6];
       
       str = [fmt stringFromNumber: num];
-      PASS_EQUAL(str, @"**1234", "format width set correctly");
+      PASS([str isEqual: @"**1234"] || [str isEqual: @"  1234"],
+        "format width set correctly");
       
       [fmt setPositivePrefix: @"+"];
       str = [fmt stringFromNumber: num];
-      PASS_EQUAL(str, @"*+1234", "positive prefix set correctly");
+      PASS([str isEqual: @"*+1234"] || [str isEqual: @" +1234"],
+        "positive prefix set correctly");
       
       [fmt setPaddingCharacter: @"0"];
       str = [fmt stringFromNumber: num];
@@ -145,7 +156,12 @@ int main()
         "prefix and suffix used properly");
 
       num = [[[NSNumber alloc] initWithFloat: -1234.56] autorelease];
-      PASS_EQUAL([fmt stringFromNumber: num], @"(R$1.235)",
+     
+      /* Different versions of ICU use different formats, so we need to
+       * permit alternative results.
+       */
+      str = [fmt stringFromNumber: num];
+      PASS([str isEqual: @"(R$1.235)"] || [str isEqual: @"_R$1.235"],
         "negativeFormat used for -ve number");
 
       [fmt setNumberStyle: NSNumberFormatterNoStyle];

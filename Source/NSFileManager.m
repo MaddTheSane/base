@@ -2372,11 +2372,7 @@ static inline void gsedRelease(GSEnumeratedDirectory X)
       const _CHAR	*localPath;
 
       _mgr = RETAIN(mgr);
-#if	GS_WITH_GC
-      _stack = NSAllocateCollectable(sizeof(GSIArray_t), NSScannedOption);
-#else
       _stack = NSZoneMalloc([self zone], sizeof(GSIArray_t));
-#endif
       GSIArrayInitWithZoneAndCapacity(_stack, [self zone], 64);
 
       _flags.isRecursive = recurse;
@@ -2771,6 +2767,7 @@ static inline void gsedRelease(GSEnumeratedDirectory X)
 
 #else
   NSDictionary	*attributes;
+  NSDate        *modification;
   unsigned long long	fileSize;
   unsigned long long	i;
   int		bufsize = 8096;
@@ -2791,6 +2788,7 @@ static inline void gsedRelease(GSEnumeratedDirectory X)
 
   fileSize = [attributes fileSize];
   fileMode = [attributes filePosixPermissions];
+  modification = [attributes fileModificationDate];
 
   /* Open the source file. In case of error call the handler. */
   sourceFd = open([self fileSystemRepresentationWithPath: source],
@@ -2823,8 +2821,12 @@ static inline void gsedRelease(GSEnumeratedDirectory X)
   for (i = 0; i < fileSize; i += rbytes)
     {
       rbytes = read (sourceFd, buffer, bufsize);
-      if (rbytes < 0)
+      if (rbytes <= 0)
 	{
+          if (0 == rbytes)
+            {
+              break;    // End of input file
+            }
           close (sourceFd);
           close (destFd);
 
@@ -2851,6 +2853,18 @@ static inline void gsedRelease(GSEnumeratedDirectory X)
   close (sourceFd);
   close (destFd);
 
+  /* Check for modification during copy.
+   */
+  attributes = [self fileAttributesAtPath: source traverseLink: NO];
+  if (NO == [modification isEqual: [attributes fileModificationDate]]
+    || [attributes fileSize] != fileSize)
+    {
+      return [self _proceedAccordingToHandler: handler
+                                     forError: @"source modified during copy"
+                                       inPath: destination
+                                     fromPath: source
+                                       toPath: destination];
+    }
   return YES;
 #endif
 }

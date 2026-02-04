@@ -88,29 +88,22 @@ NSString * const NSStreamSOCKSProxyVersionKey
  */
 static RunLoopEventType typeForStream(NSStream *aStream)
 {
+  NSStreamStatus        status = [aStream streamStatus];
+
+  if (NSStreamStatusError == status
+    || [aStream _loopID] == (void*)aStream)
+    {
+      return ET_TRIGGER;
+    }
 #if	defined(_WIN32)
-  if ([aStream _loopID] == (void*)aStream)
-    {
-      return ET_TRIGGER;
-    }
-  else
-    {
-      return ET_HANDLE;
-    }
+  return ET_HANDLE;
 #else
-  if ([aStream _loopID] == (void*)aStream)
-    {
-      return ET_TRIGGER;
-    }
-  else if ([aStream isKindOfClass: [NSOutputStream class]] == NO
-    && [aStream  streamStatus] != NSStreamStatusOpening)
+  if ([aStream isKindOfClass: [NSOutputStream class]] == NO
+    && status != NSStreamStatusOpening)
     {
       return ET_RDESC;
     }
-  else
-    {
-      return ET_WDESC;	
-    }
+  return ET_WDESC;	
 #endif
 }
 
@@ -414,7 +407,7 @@ static RunLoopEventType typeForStream(NSStream *aStream)
 {
   NSDebugMLLog(@"NSStream", @"record error: %@ - %@", self, anError);
   ASSIGN(_lastError, anError);
-  _currentStatus = NSStreamStatusError;
+  [self _setStatus: NSStreamStatusError];
 }
 
 - (void) _resetEvents: (NSUInteger)mask
@@ -540,7 +533,22 @@ static RunLoopEventType typeForStream(NSStream *aStream)
 
 - (void) _setStatus: (NSStreamStatus)newStatus
 {
-  _currentStatus = newStatus;
+  if (_currentStatus != newStatus)
+    {
+      if (NSStreamStatusError == newStatus && NSCountMapTable(_loops) > 0)
+        {
+          /* After an error, we are in the run loops only to trigger
+           * errors, not for I/O, sop we must re-schedule in the right mode.
+           */
+          [self _unschedule];
+          _currentStatus = newStatus;
+          [self _schedule];
+        }
+      else
+        {
+          _currentStatus = newStatus;
+        }
+    }
 }
 
 - (BOOL) _unhandledData
@@ -712,8 +720,11 @@ static RunLoopEventType typeForStream(NSStream *aStream)
 
 - (void) dealloc
 {
-  if ([self _isOpened])
-    [self close];
+  if (_currentStatus != NSStreamStatusNotOpen
+    && _currentStatus != NSStreamStatusClosed)
+    {
+      [self close];
+    }
   RELEASE(_data);
   [super dealloc];
 }

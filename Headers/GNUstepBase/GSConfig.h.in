@@ -218,22 +218,10 @@ typedef	gsuaddr gsaddr;
 //#define USE_GMP	@USE_GMP@
 #define USE_GMP	0
 
-/*
- * Macros to deal with hiding an object from the garbage collector
- * This macro employs the procesor-dependent knowledge that a pointer to an
- * object will always be on an even address boundary.  If we ever port to a
- * system where this is not the case, we will have to find another mechanism.
- */
-#ifndef	GS_WITH_GC
+#ifdef	GS_WITH_GC
+#undef  GS_WITH_GC
+#endif
 #define	GS_WITH_GC	0
-#endif
-#if	GS_WITH_GC
-#define	GS_GC_HIDE(obj)		((id)(((uintptr_t)obj) | 1))
-#define	GS_GC_UNHIDE(obj)	((id)(((uintptr_t)obj) & ~1))
-#else
-#define	GS_GC_HIDE(obj)		((id)obj)
-#define	GS_GC_UNHIDE(obj)	((id)obj)
-#endif
 
 /*
  * Define to say if we use NXConstantString or NSConstantString
@@ -281,6 +269,7 @@ typedef	struct {
 #define GS_USE_MDNS @HAVE_MDNS@
 #define GS_USE_ICU @HAVE_ICU@
 #define GS_USE_LIBDISPATCH @HAVE_LIBDISPATCH@
+#define GS_USE_LIBDISPATCH_RUNLOOP @HAVE_LIBDISPATCH_RUNLOOP@
 #define GS_HAVE_OBJC_ROOT_CLASS_ATTR @GS_HAVE_OBJC_ROOT_CLASS_ATTR@
 
 #ifndef __has_include
@@ -306,6 +295,7 @@ typedef	struct {
 
 #if defined(_WIN32)
 #define BOOL WinBOOL
+#define __OBJC_BOOL 1
 #include <w32api.h>
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT Windows2000
@@ -317,8 +307,15 @@ typedef	struct {
 #define WINVER Windows2000
 #endif
 
+#if defined(__WIN64__)
+#include <winsock2.h>
+#include <windows.h>
+#else
 #include <windows.h>
 #include <winsock2.h>
+#endif
+
+#undef __OBJC_BOOL
 #undef  BOOL
 #endif
 
@@ -431,32 +428,16 @@ typedef	struct {
 #include <stdbool.h>
 #endif
 
-// Strong has different semantics in GC and ARC modes, so we need to have a
-// macro that picks the correct one.
-#if __OBJC_GC__
-#  define GS_GC_STRONG __strong
-#else
-#  define GS_GC_STRONG
-#endif
-
 #if !__has_feature(objc_arc)
 // NetBSD > 6 defines __weak in cdefs_elf.h
 #ifdef __NetBSD__
 #undef __weak
 #endif
 #  if !defined(__weak)
-#    if __OBJC_GC__
-#      define __weak __attribute__((objc_gc(weak)))
-#    else
-#      define __weak
-#    endif
+#    define __weak
 #  endif
 #  if !defined(__strong)
-#    if __OBJC_GC__
-#      define __strong __attribute__((objc_gc(strong)))
-#    else
-#      define __strong
-#    endif
+#    define __strong
 #  endif
 #endif
 

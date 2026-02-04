@@ -838,10 +838,8 @@ static NSURLProtocol	*placeholder = nil;
 		nil]]];
 	  return;
 	}
-#if	!GS_WITH_GC
       [this->input retain];
       [this->output retain];
-#endif
       if ([[url scheme] isEqualToString: @"https"] == YES)
         {
           static NSArray        *keys;
@@ -1430,11 +1428,11 @@ static NSURLProtocol	*placeholder = nil;
     }
   else if (stream == this->output)
     {
-      switch(event)
+      switch (event)
 	{
 	  case NSStreamEventOpenCompleted: 
 	    {
-	      NSMutableString	*m;
+	      NSMutableData	*m;
 	      NSDictionary	*d;
 	      NSEnumerator	*e;
 	      NSString		*s;
@@ -1461,39 +1459,46 @@ static NSURLProtocol	*placeholder = nil;
 		  _shouldClose = YES;
 		}
 
-	      m = [[NSMutableString alloc] initWithCapacity: 1024];
+	      m = [[NSMutableData alloc] initWithCapacity: 1024];
 
 	      /* The request line is of the form:
 	       * method /path?query HTTP/version
 	       * where the query part may be missing
 	       */
-	      [m appendString: [this->request HTTPMethod]];
-	      [m appendString: @" "];
+	      [m appendData: [[this->request HTTPMethod]
+                dataUsingEncoding: NSASCIIStringEncoding]];
+	      [m appendBytes: " " length: 1];
 	      u = [this->request URL];
 	      s = [[u fullPath] stringByAddingPercentEscapesUsingEncoding:
 		NSUTF8StringEncoding];
 	      if ([s hasPrefix: @"/"] == NO)
 	        {
-		  [m appendString: @"/"];
+		  [m appendBytes: "/" length: 1];
 		}
-	      [m appendString: s];
+	      [m appendData: [s dataUsingEncoding: NSASCIIStringEncoding]];
 	      s = [u query];
 	      if ([s length] > 0)
 	        {
-		  [m appendString: @"?"];
-		  [m appendString: s];
+		  [m appendBytes: "?" length: 1];
+		  [m appendData: [s dataUsingEncoding: NSASCIIStringEncoding]];
 		}
-	      [m appendFormat: @" HTTP/%0.1f\r\n", _version];
+	      s = [NSString stringWithFormat: @" HTTP/%0.1f\r\n", _version];
+	      [m appendData: [s dataUsingEncoding: NSASCIIStringEncoding]];
 
 	      d = [this->request allHTTPHeaderFields];
 	      e = [d keyEnumerator];
 	      while ((s = [e nextObject]) != nil)
 	        {
-		  [m appendString: s];
-		  [m appendString: @": "];
-		  [m appendString: [d objectForKey: s]];
-		  [m appendString: @"\r\n"];
+                  GSMimeHeader      *h;
+
+                  h = [[GSMimeHeader alloc] initWithName: s
+                                                   value: [d objectForKey: s]
+                                              parameters: nil];
+                  [m appendData:
+                    [h rawMimeDataPreservingCase: YES foldedAt: 0]];
+                  RELEASE(h);
 		}
+
 	      /* Use valueForHTTPHeaderField: to check for content-type
 	       * header as that does a case insensitive comparison and
 	       * we therefore won't end up adding a second header by
@@ -1504,8 +1509,9 @@ static NSURLProtocol	*placeholder = nil;
 		  @"Content-Type"] == nil)
 		{
 		  /* On MacOSX, this is automatically added to POST methods */
-		  [m appendString:
-		    @"Content-Type: application/x-www-form-urlencoded\r\n"];
+                  static char   *ct
+                    = "Content-Type: application/x-www-form-urlencoded\r\n";
+		  [m appendBytes: ct length: strlen(ct)];
 		}
 	      if ([this->request valueForHTTPHeaderField: @"Host"] == nil)
 		{
@@ -1529,21 +1535,22 @@ static NSURLProtocol	*placeholder = nil;
                     }
 		  if (nil == p)
 		    {
-		      [m appendFormat: @"Host: %@\r\n", h];
+		      s = [NSString stringWithFormat: @"Host: %@\r\n", h];
 		    }
 		  else
 		    {
-		      [m appendFormat: @"Host: %@:%@\r\n", h, p];
+		      s = [NSString stringWithFormat: @"Host: %@:%@\r\n", h, p];
 		    }
+                  [m appendData: [s dataUsingEncoding: NSASCIIStringEncoding]];
 		}
 	      if (l >= 0 && [this->request
 	        valueForHTTPHeaderField: @"Content-Length"] == nil)
 		{
-		  [m appendFormat: @"Content-Length: %d\r\n", l];
+                  s = [NSString stringWithFormat: @"Content-Length: %d\r\n", l];
+                  [m appendData: [s dataUsingEncoding: NSASCIIStringEncoding]];
 		}
-	      [m appendString: @"\r\n"];	// End of headers
-	      _writeData = RETAIN([m dataUsingEncoding: NSASCIIStringEncoding]);
-	      RELEASE(m);
+	      [m appendBytes: "\r\n" length: 2];	// End of headers
+	      _writeData  = m;
 	    }			// Fall through to do the write
 
 	  case NSStreamEventHasSpaceAvailable: 
@@ -1768,10 +1775,8 @@ static NSURLProtocol	*placeholder = nil;
 			    userInfo: nil]];
 	  return;
 	}
-#if	!GS_WITH_GC
       [this->input retain];
       [this->output retain];
-#endif
       if ([[url scheme] isEqualToString: @"https"] == YES)
         {
           [this->input setProperty: NSStreamSocketSecurityLevelNegotiatedSSL
