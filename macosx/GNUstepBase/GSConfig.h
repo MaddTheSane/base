@@ -198,6 +198,26 @@ typedef	gsuaddr gsaddr;
 #define	GSNativeChar	char
 #endif
 
+#ifndef CF_EXCLUDE_CSTD_HEADERS
+#include <sys/types.h>
+#include <stdarg.h>
+#include <assert.h>
+#include <ctype.h>
+#include <errno.h>
+#include <float.h>
+#include <limits.h>
+#include <locale.h>
+#include <math.h>
+#include <setjmp.h>
+#include <signal.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <stdbool.h>
+#endif
+
 #define	OBJC2RUNTIME 1
 #define BASE_NATIVE_OBJC_EXCEPTIONS 0
 #ifdef __LP64__
@@ -209,6 +229,14 @@ typedef	gsuaddr gsaddr;
 #define GS_USE_AVAHI 0
 #define GS_USE_MDNS 1
 #define GS_USE_ICU 0
+#define GS_HAVE_OBJC_ROOT_CLASS_ATTR 1
+
+#if __has_builtin(__builtin_unreachable)
+#  define GS_UNREACHABLE() __builtin_unreachable()
+#else
+#  define GS_UNREACHABLE() abort()
+#endif
+
 #import <GNUstepBase/preface.h>
 
 #endif	/* included_GSConfig_h */
