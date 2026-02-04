@@ -1999,7 +1999,7 @@ GSAutoreleasedBuffer(NSUInteger size)
     }
   o = (NSObject*)NSAllocateObject(buffer_class,
     size + offset, NSDefaultMallocZone());
-  (*autorelease_imp)(autorelease_class, autorelease_sel, o);
+  (*(void(*)(id, SEL, id))autorelease_imp)(autorelease_class, autorelease_sel, o);
   return ((void*)o) + instance_size + offset;
 }
 

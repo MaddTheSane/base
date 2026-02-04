@@ -392,7 +392,7 @@ GS_EXPORT NSString* const GSMimeErrorDomain;
 
 /** The error codes used in the GSMimeErrorDomain
  */
-typedef NS_ENUM(NSInteger, GSMimeErrorCode) {
+typedef NS_ERROR_ENUM(GSMimeErrorDomain, GSMimeErrorCode) {
   GSMimeSMTPAbort,
   GSMimeSMTPTimeout,
   GSMimeSMTPCommsEnd,
@@ -425,7 +425,7 @@ GS_GSMimeSMTPClient_IVARS;
 
 /** Returns the current delegate.
  */
-- (id) delegate;
+- (id<GSMimeSMTPClientDelegate>) delegate;
 
 /** Tries to flush any queued messages to the SMTP server, completing by the
  * specified limit date.<br />
@@ -454,7 +454,7 @@ GS_GSMimeSMTPClient_IVARS;
 /** Set the delegate to receive callback methods indicating when a message
  * is sent, failed, or removed from the queue unsent.
  */
-- (void) setDelegate: (id)d;
+- (void) setDelegate: (id<GSMimeSMTPClientDelegate>)d;
 
 /** Set the host for the SMTP server.  If this is not set (or is set to nil)
  * then the GSMimeSMTPClientHost user default is used.  If the host is nil
@@ -498,15 +498,16 @@ GS_GSMimeSMTPClient_IVARS;
  */
 - (NSString*) stateDesc;
 
-@property (assign) id delegate;
+@property (assign) id<GSMimeSMTPClientDelegate> delegate;
 
 
 @end
 
-/** Informal protocol for delegates of the GSMimeSMTPClient class.
+/** Protocol for delegates of the GSMimeSMTPClient class.
  * The default implementations of these methods do nothing.
  */
 @protocol GSMimeSMTPClientDelegate <NSObject>
+@optional
 - (void) smtpClient: (GSMimeSMTPClient*)client
 	 mimeFailed: (GSMimeDocument*)doc;	/* Failed to send */
 - (void) smtpClient: (GSMimeSMTPClient*)client

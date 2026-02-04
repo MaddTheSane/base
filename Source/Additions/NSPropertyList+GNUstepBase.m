@@ -459,7 +459,7 @@ OAppend(id obj, NSDictionary *loc, NSUInteger lev, NSUInteger step,
 	  [keyArray getObjects: keys];
 	  for (i = 0; i < numKeys; i++)
 	    {
-	      plists[i] = (*myObj)(obj, objSel, keys[i]);
+	      plists[i] = (*(id(*)(id, SEL, id))myObj)(obj, objSel, keys[i]);
 	    }
 	}
 
@@ -642,7 +642,7 @@ OAppend(id obj, NSDictionary *loc, NSUInteger lev, NSUInteger step,
       OAppend(aPropertyList, loc, 0, step > 3 ? 3 : step, dest);
       return dest;
     }
-  return (*originalImp)(self, _cmd, aPropertyList, aFormat, anErrorString);
+  return (*(NSData*(*)(id, SEL, id, NSPropertyListFormat, NSString**))originalImp)(self, _cmd, aPropertyList, aFormat, anErrorString);
 }
 
 + (void) load

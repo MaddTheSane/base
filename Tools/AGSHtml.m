@@ -595,7 +595,7 @@ static NSString		*mainFont = nil;
 
 - (void) outputNode: (GSXMLNode*)node to: (NSMutableString*)buf
 {
-  @autoreleasepool {
+  ENTER_POOL;
   GSXMLNode	*children = [node firstChild];
 
   if ([node type] == XML_ELEMENT_NODE)
@@ -1963,7 +1963,7 @@ static NSString		*mainFont = nil;
 	    }
 	}
     }
-  }
+  LEAVE_POOL;
 }
 
 /**

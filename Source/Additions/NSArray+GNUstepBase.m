@@ -60,7 +60,7 @@
     {
       NSComparisonResult comparison;
 
-      comparison = (*sorter)(item, (*oai)(self, oaiSel, index), context);
+      comparison = (*sorter)(item, (*(id(*)(id, SEL, NSUInteger))oai)(self, oaiSel, index), context);
       if (comparison == NSOrderedAscending)
         {
           upper = index;
@@ -78,7 +78,7 @@
    *	Now skip past any equal items so the insertion point is AFTER any
    *	items that are equal to the new one.
    */
-  while (index < count && (*sorter)(item, (*oai)(self, oaiSel, index), context)
+  while (index < count && (*sorter)(item, (*(id(*)(id, SEL, NSUInteger))oai)(self, oaiSel, index), context)
     != NSOrderedAscending)
     {
       index++;
@@ -123,7 +123,7 @@
     {
       NSComparisonResult comparison;
 
-      comparison = (*imp)(item, comp, (*oai)(self, oaiSel, index));
+      comparison = (*imp)(item, comp, (*(id(*)(id, SEL, NSUInteger))oai)(self, oaiSel, index));
       if (comparison == NSOrderedAscending)
         {
           upper = index;
@@ -142,7 +142,7 @@
    *	items that are equal to the new one.
    */
   while (index < count
-    && (*imp)(item, comp, (*oai)(self, oaiSel, index)) != NSOrderedAscending)
+    && (*imp)(item, comp, (*(id(*)(id, SEL, NSUInteger))oai)(self, oaiSel, index)) != NSOrderedAscending)
     {
       index++;
     }

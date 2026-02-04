@@ -128,7 +128,7 @@ UTF8Str(const unsigned char *bytes)
   if (NULL == bytes) {
     return nil;
   }
-  return (*usImp)(NSString_class, usSel, bytes);
+  return (*(id(*)(id, SEL, const unsigned char *))usImp)(NSString_class, usSel, bytes);
 }
 
 inline static NSString*

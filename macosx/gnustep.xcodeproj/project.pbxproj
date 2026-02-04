@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5527CA252F33356F005D4698 /* gsdoc-1_0_4.dtd in Resources */ = {isa = PBXBuildFile; fileRef = 5527CA242F33356F005D4698 /* gsdoc-1_0_4.dtd */; };
+		5527CA262F33356F005D4698 /* gsdoc-1_0_1.dtd in Resources */ = {isa = PBXBuildFile; fileRef = 5527CA212F33356F005D4698 /* gsdoc-1_0_1.dtd */; };
+		5527CA272F33356F005D4698 /* gsdoc-1_0_2.dtd in Resources */ = {isa = PBXBuildFile; fileRef = 5527CA222F33356F005D4698 /* gsdoc-1_0_2.dtd */; };
+		5527CA282F33356F005D4698 /* gsdoc-1_0_3.dtd in Resources */ = {isa = PBXBuildFile; fileRef = 5527CA232F33356F005D4698 /* gsdoc-1_0_3.dtd */; };
 		5542BEED1208923300DA804D /* GNUstepBase.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 559A068D120493A7004BBA32 /* GNUstepBase.framework */; };
 		554D9A6A1E9089DA00E79BFA /* GSTypeEncoding.h in Headers */ = {isa = PBXBuildFile; fileRef = 554D9A691E9089DA00E79BFA /* GSTypeEncoding.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		554D9A6C1E908A7E00E79BFA /* GSTypeEncoding.c in Sources */ = {isa = PBXBuildFile; fileRef = 554D9A6B1E908A7E00E79BFA /* GSTypeEncoding.c */; };
@@ -173,11 +177,17 @@
 
 /* Begin PBXFileReference section */
 		089C1667FE841158C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		5527CA1F2F333502005D4698 /* HTMLLinker.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = HTMLLinker.1; sourceTree = "<group>"; };
+		5527CA202F333502005D4698 /* HTMLLinker.gsdoc */ = {isa = PBXFileReference; lastKnownFileType = text; path = HTMLLinker.gsdoc; sourceTree = "<group>"; };
+		5527CA212F33356F005D4698 /* gsdoc-1_0_1.dtd */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "gsdoc-1_0_1.dtd"; sourceTree = "<group>"; };
+		5527CA222F33356F005D4698 /* gsdoc-1_0_2.dtd */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "gsdoc-1_0_2.dtd"; sourceTree = "<group>"; };
+		5527CA232F33356F005D4698 /* gsdoc-1_0_3.dtd */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "gsdoc-1_0_3.dtd"; sourceTree = "<group>"; };
+		5527CA242F33356F005D4698 /* gsdoc-1_0_4.dtd */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "gsdoc-1_0_4.dtd"; sourceTree = "<group>"; };
+		5527CA292F333601005D4698 /* BaseTools.gsdoc */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = BaseTools.gsdoc; sourceTree = "<group>"; };
 		554D99291E9037E700E79BFA /* GNUstepBase.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = GNUstepBase.modulemap; sourceTree = "<group>"; };
 		554D9A691E9089DA00E79BFA /* GSTypeEncoding.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GSTypeEncoding.h; sourceTree = "<group>"; };
 		554D9A6B1E908A7E00E79BFA /* GSTypeEncoding.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = GSTypeEncoding.c; sourceTree = "<group>"; };
 		554DDE830431106D00000001 /* HTMLLinker.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = HTMLLinker.m; sourceTree = "<group>"; };
-		554DDE85043110AA00000001 /* HTMLLinker.html */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.html; path = HTMLLinker.html; sourceTree = "<group>"; };
 		555BA0811235608F00C64C1D /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
 		555BA0831235609D00C64C1D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		5566CC2804324D9F00000002 /* README */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = README; path = ../macosx/README; sourceTree = "<group>"; };
@@ -269,15 +279,12 @@
 		55AB587B0408D2DB00000001 /* AGSParser.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AGSParser.h; sourceTree = "<group>"; };
 		55AB587C0408D2DB00000001 /* AGSParser.m */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 2; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = AGSParser.m; sourceTree = "<group>"; usesTabs = 0; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
 		55AB587D0408D2DB00000001 /* autogsdoc.m */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 2; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = autogsdoc.m; sourceTree = "<group>"; usesTabs = 1; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
-		55AB588F0408DB7200000001 /* gsdoc-0_6_5.dtd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = "gsdoc-0_6_5.dtd"; path = "../Tools/gsdoc-0_6_5.dtd"; sourceTree = "<group>"; };
-		55AB58900408DB7200000001 /* gsdoc-0_6_6.dtd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = "gsdoc-0_6_6.dtd"; path = "../Tools/gsdoc-0_6_6.dtd"; sourceTree = "<group>"; };
-		55AB58910408DB7200000001 /* gsdoc-0_6_7.dtd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = "gsdoc-0_6_7.dtd"; path = "../Tools/gsdoc-0_6_7.dtd"; sourceTree = "<group>"; };
-		55AB58920408DB7200000001 /* gsdoc-1_0_0.dtd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = "gsdoc-1_0_0.dtd"; path = "../Tools/gsdoc-1_0_0.dtd"; sourceTree = "<group>"; };
-		55AB58E60408EA8100000001 /* AutoDocTemplate.gsdoc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = AutoDocTemplate.gsdoc; path = ../Tools/AutoDocTemplate.gsdoc; sourceTree = "<group>"; };
-		55AB58E70408EA8100000001 /* gnustep.gsdoc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = gnustep.gsdoc; path = ../Tools/gnustep.gsdoc; sourceTree = "<group>"; };
-		55AB58E80408EA8100000001 /* gsdoc.gsdoc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = gsdoc.gsdoc; path = ../Tools/gsdoc.gsdoc; sourceTree = "<group>"; };
-		55AB58E90408EA8100000001 /* indextemplate.gsdoc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = indextemplate.gsdoc; path = ../Tools/indextemplate.gsdoc; sourceTree = "<group>"; };
-		55AB58EA0408EA8100000001 /* plist-0_9.dtd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = "plist-0_9.dtd"; path = "../Tools/plist-0_9.dtd"; sourceTree = "<group>"; };
+		55AB588F0408DB7200000001 /* gsdoc-0_6_5.dtd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "gsdoc-0_6_5.dtd"; sourceTree = "<group>"; };
+		55AB58900408DB7200000001 /* gsdoc-0_6_6.dtd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "gsdoc-0_6_6.dtd"; sourceTree = "<group>"; };
+		55AB58910408DB7200000001 /* gsdoc-0_6_7.dtd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "gsdoc-0_6_7.dtd"; sourceTree = "<group>"; };
+		55AB58920408DB7200000001 /* gsdoc-1_0_0.dtd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "gsdoc-1_0_0.dtd"; sourceTree = "<group>"; };
+		55AB58E80408EA8100000001 /* gsdoc.gsdoc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = gsdoc.gsdoc; sourceTree = "<group>"; };
+		55AB58EA0408EA8100000001 /* plist-0_9.dtd */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "plist-0_9.dtd"; sourceTree = "<group>"; };
 		55C9D7721218C4DB0038CB6C /* GNUstepBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GNUstepBase.h; path = GNUstepBase/GNUstepBase.h; sourceTree = SOURCE_ROOT; };
 		55E1346E043268A100000002 /* GSPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = GSPrivate.h; path = ../Source/GSPrivate.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		55F7D7D803E49C1000000001 /* ANNOUNCE */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = ANNOUNCE; path = ../ANNOUNCE; sourceTree = "<group>"; };
@@ -417,7 +424,8 @@
 		554DDE820431104D00000001 /* HTMLLinker */ = {
 			isa = PBXGroup;
 			children = (
-				554DDE85043110AA00000001 /* HTMLLinker.html */,
+				5527CA1F2F333502005D4698 /* HTMLLinker.1 */,
+				5527CA202F333502005D4698 /* HTMLLinker.gsdoc */,
 				554DDE830431106D00000001 /* HTMLLinker.m */,
 			);
 			name = HTMLLinker;
@@ -441,14 +449,15 @@
 		556FFD2E03EC36E500000001 /* GNUstepBase */ = {
 			isa = PBXGroup;
 			children = (
-				554D9A691E9089DA00E79BFA /* GSTypeEncoding.h */,
 				558311A8133AC8C700A54B19 /* Additions.h */,
 				558311A9133AC8C700A54B19 /* config.h.in */,
 				558311AA133AC8C700A54B19 /* CXXException.h */,
 				558311AB133AC8C700A54B19 /* DistributedObjects.h */,
 				558311AC133AC8C700A54B19 /* GCObject.h */,
 				558311AD133AC8C700A54B19 /* GNUstep.h */,
+				55C9D7721218C4DB0038CB6C /* GNUstepBase.h */,
 				558311AE133AC8C700A54B19 /* GSBlocks.h */,
+				559A07E31204A196004BBA32 /* GSConfig.h */,
 				558311AF133AC8C700A54B19 /* GSConfig.h.in */,
 				558311B1133AC8C700A54B19 /* GSFunctions.h */,
 				558311B2133AC8C700A54B19 /* GSIArray.h */,
@@ -457,6 +466,7 @@
 				558311B5133AC8C700A54B19 /* GSLock.h */,
 				558311B6133AC8C700A54B19 /* GSMime.h */,
 				558311B7133AC8C700A54B19 /* GSObjCRuntime.h */,
+				554D9A691E9089DA00E79BFA /* GSTypeEncoding.h */,
 				558311B8133AC8C700A54B19 /* GSUnion.h */,
 				558311B9133AC8C700A54B19 /* GSVersionMacros.h */,
 				558311BA133AC8C700A54B19 /* GSXML.h */,
@@ -478,10 +488,8 @@
 				558311CA133AC8C700A54B19 /* NSTask+GNUstepBase.h */,
 				558311CB133AC8C700A54B19 /* NSThread+GNUstepBase.h */,
 				558311CC133AC8C700A54B19 /* NSURL+GNUstepBase.h */,
-				558311CE133AC8C700A54B19 /* Unicode.h */,
-				55C9D7721218C4DB0038CB6C /* GNUstepBase.h */,
-				559A07E31204A196004BBA32 /* GSConfig.h */,
 				556FFD8A03EC36E500000001 /* preface.h */,
+				558311CE133AC8C700A54B19 /* Unicode.h */,
 			);
 			path = GNUstepBase;
 			sourceTree = "<group>";
@@ -530,20 +538,24 @@
 				55AB58900408DB7200000001 /* gsdoc-0_6_6.dtd */,
 				55AB58910408DB7200000001 /* gsdoc-0_6_7.dtd */,
 				55AB58920408DB7200000001 /* gsdoc-1_0_0.dtd */,
+				5527CA212F33356F005D4698 /* gsdoc-1_0_1.dtd */,
+				5527CA222F33356F005D4698 /* gsdoc-1_0_2.dtd */,
+				5527CA232F33356F005D4698 /* gsdoc-1_0_3.dtd */,
+				5527CA242F33356F005D4698 /* gsdoc-1_0_4.dtd */,
 				55AB58EA0408EA8100000001 /* plist-0_9.dtd */,
 			);
 			name = DTDs;
+			path = ../Tools;
 			sourceTree = "<group>";
 		};
 		55AB58E50408EA4D00000001 /* DocTemplates */ = {
 			isa = PBXGroup;
 			children = (
-				55AB58E60408EA8100000001 /* AutoDocTemplate.gsdoc */,
-				55AB58E70408EA8100000001 /* gnustep.gsdoc */,
+				5527CA292F333601005D4698 /* BaseTools.gsdoc */,
 				55AB58E80408EA8100000001 /* gsdoc.gsdoc */,
-				55AB58E90408EA8100000001 /* indextemplate.gsdoc */,
 			);
 			name = DocTemplates;
+			path = ../Tools;
 			sourceTree = "<group>";
 		};
 		55FBAA821B93D08400A513B7 /* Additions */ = {
@@ -753,6 +765,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5527CA252F33356F005D4698 /* gsdoc-1_0_4.dtd in Resources */,
+				5527CA262F33356F005D4698 /* gsdoc-1_0_1.dtd in Resources */,
+				5527CA272F33356F005D4698 /* gsdoc-1_0_2.dtd in Resources */,
+				5527CA282F33356F005D4698 /* gsdoc-1_0_3.dtd in Resources */,
 				559A0667120493A7004BBA32 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -929,6 +945,7 @@
 					0x58000000,
 					"-headerpad_max_install_names",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.gnustep.base;
 				PRODUCT_NAME = GNUstepBase;
 				WRAPPER_EXTENSION = framework;
 				ZERO_LINK = YES;
@@ -962,6 +979,7 @@
 					0x58000000,
 					"-headerpad_max_install_names",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.gnustep.base;
 				PRODUCT_NAME = GNUstepBase;
 				WRAPPER_EXTENSION = framework;
 				ZERO_LINK = NO;

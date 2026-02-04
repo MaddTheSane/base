@@ -76,6 +76,14 @@
 #define HAVE_INET_ATON 1
 #endif
 
+#ifndef HAVE_SYS_FCNTL_H
+#define HAVE_SYS_FCNTL_H 1
+#endif
+
+#ifndef HAVE_VISIBILITY_ATTRIBUTE
+#define HAVE_VISIBILITY_ATTRIBUTE 1
+#endif
+
 #ifndef RCS_ID
 #define RCS_ID(name) \
 static const char rcsId[] = name; \

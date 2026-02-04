@@ -59,7 +59,7 @@
 
 
 #define	GS_GSMimeSMTPClient_IVARS \
-  id			delegate;\
+  id<GSMimeSMTPClientDelegate> delegate;\
   NSString		*hostname;\
   NSString		*identity;\
   NSString		*originator;\
@@ -124,12 +124,12 @@ static	Class		documentClass = 0;
 static	Class		headerClass = 0;
 
 static BOOL             oldStyleFolding = NO;
-static NSString         *Cte7bit = @"7bit";
-static NSString         *Cte8bit = @"8bit";
-static NSString         *CteBase64 = @"base64";
-static NSString         *CteBinary = @"binary";
-static NSString         *CteQuotedPrintable = @"quoted-printable";
-static NSString         *CteXuuencode = @"x-uuencode";
+static NSString         *const Cte7bit = @"7bit";
+static NSString         *const Cte8bit = @"8bit";
+static NSString         *const CteBase64 = @"base64";
+static NSString         *const CteBinary = @"binary";
+static NSString         *const CteQuotedPrintable = @"quoted-printable";
+static NSString         *const CteXuuencode = @"x-uuencode";
 
 typedef BOOL (*boolIMP)(id, SEL, id);
 
@@ -6142,7 +6142,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	{
 	  GSMimeHeader	*info;
 
-	  info = (*imp1)(headers, @selector(objectAtIndex:), count);
+	  info = (*(id(*)(id, SEL, NSUInteger))imp1)(headers, @selector(objectAtIndex:), count);
 	  if ((*imp2)(name, @selector(isEqualToString:), [info name]))
 	    {
 	      [headers removeObjectAtIndex: count];
@@ -6287,7 +6287,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	{
 	  GSMimeHeader	*info;
 
-	  info = (*imp1)(headers, @selector(objectAtIndex:), index);
+	  info = (*(id(*)(id, SEL, NSUInteger))imp1)(headers, @selector(objectAtIndex:), index);
 	  if ((*imp2)(name, @selector(isEqualToString:), [info name]))
 	    {
 	      return info;
@@ -6322,7 +6322,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	{
 	  GSMimeHeader	*info;
 
-	  info = (*imp1)(headers, @selector(objectAtIndex:), index);
+	  info = (*(id(*)(id, SEL, NSUInteger))imp1)(headers, @selector(objectAtIndex:), index);
 	  if ((*imp2)(name, @selector(isEqualToString:), [info name]))
 	    {
 	      [array addObject: info];
@@ -7243,7 +7243,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	{
 	  GSMimeHeader	*info;
 
-	  info = (*imp1)(headers, @selector(objectAtIndex:), index);
+	  info = (*(id(*)(id, SEL, NSUInteger))imp1)(headers, @selector(objectAtIndex:), index);
 	  if ((*imp2)(name, @selector(isEqualToString:), [info name]))
 	    {
 	      return index;
@@ -7268,7 +7268,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	{
 	  GSMimeHeader	*info;
 
-	  info = (*imp1)(headers, @selector(objectAtIndex:), count);
+	  info = (*(id(*)(id, SEL, NSUInteger))imp1)(headers, @selector(objectAtIndex:), count);
 	  if ((*imp2)(name, @selector(isEqualToString:), [info name]))
 	    {
 	      return info;
@@ -8056,10 +8056,15 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
   [super dealloc];
 }
 
+#if GS_NONFRAGILE
+@synthesize delegate;
+#else
 - (id) delegate
 {
   return internal->delegate;
 }
+@dynamic delegate;
+#endif
 
 - (BOOL) flush: (NSDate*)limit
 {
@@ -8122,10 +8127,12 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
     }
 }
 
+#ifndef GS_NONFRAGILE
 - (void) setDelegate: (id)d
 {
   internal->delegate = d;
 }
+#endif
 
 - (void) setHostname: (NSString*)s
 {

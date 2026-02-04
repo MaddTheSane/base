@@ -63,7 +63,7 @@ BOOL GSDebugSet(NSString *level)
 	  return NO;
 	}
     }
-  if ((*debugImp)(_debug_set, debugSel, level) == nil)
+  if ((*(id(*)(id, SEL, NSString*))debugImp)(_debug_set, debugSel, level) == nil)
     {
       return NO;
     }

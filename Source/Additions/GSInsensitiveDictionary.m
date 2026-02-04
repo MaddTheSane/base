@@ -122,8 +122,8 @@ static SEL	objSel;
       [aCoder encodeValueOfObjCType: @encode(NSUInteger) at: &count];
       while (node != 0)
 	{
-	  (*imp)(aCoder, sel, node->key.obj);
-	  (*imp)(aCoder, sel, node->value.obj);
+	  (*(void(*)(id, SEL, id))imp)(aCoder, sel, node->key.obj);
+	  (*(void(*)(id, SEL, id))imp)(aCoder, sel, node->value.obj);
 	  node = GSIMapEnumeratorNextNode(&enumerator);
 	}
       GSIMapEndEnumerator(&enumerator);
@@ -161,8 +161,8 @@ static SEL	objSel;
       GSIMapInitWithZoneAndCapacity(&map, [self zone], count);
       while (count-- > 0)
         {
-	  (*imp)(aCoder, sel, type, &key);
-	  (*imp)(aCoder, sel, type, &value);
+	  (*(void(*)(id, SEL, const char*, id*))imp)(aCoder, sel, type, &key);
+	  (*(void(*)(id, SEL, const char*, id*))imp)(aCoder, sel, type, &value);
 	  GSIMapAddPairNoRetain(&map, (GSIMapKey)key, (GSIMapVal)value);
 	}
     }
@@ -238,8 +238,8 @@ static SEL	objSel;
 	    }
 	  else
 	    {
-	      k = (*nxtObj)(e, nxtSel);
-	      o = (*otherObj)(other, objSel, k);
+	      k = (*(id(*)(id, SEL))nxtObj)(e, nxtSel);
+	      o = (*(id(*)(id, SEL, id))otherObj)(other, objSel, k);
 	    }
 	  k = [k copyWithZone: z];
 	  if (k == nil)
@@ -299,7 +299,7 @@ static SEL	objSel;
 	  while ((node = GSIMapEnumeratorNextNode(&enumerator)) != 0)
 	    {
 	      id o1 = node->value.obj;
-	      id o2 = (*otherObj)(other, objSel, node->key.obj);
+	      id o2 = (*(id(*)(id, SEL, id))otherObj)(other, objSel, node->key.obj);
 
 	      if (o1 != o2 && [o1 isEqual: o2] == NO)
 		{
