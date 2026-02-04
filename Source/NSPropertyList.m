@@ -240,7 +240,16 @@ foundIgnorableWhitespace: (NSString *)string
 	}
       else
         {
-	  ASSIGN(plist, [[stack lastObject] makeImmutableCopyOnFail: NO]);
+          NSObject      *o = [stack lastObject];
+
+          if ([o makeImmutable] == YES)
+            {
+              ASSIGN(plist, o);
+            }
+          else
+            {
+              ASSIGNCOPY(plist, o);
+            }
 	}
       [stack removeLastObject];
       inArray = NO;
@@ -1026,7 +1035,7 @@ static id parsePlItem(pldata* pld)
 	  result = dict;
 	  if (pld->opt == NSPropertyListImmutable)
 	    {
-	      [result makeImmutableCopyOnFail: NO];
+              result = GS_IMMUTABLE(result);
 	    }
 	}
 	break;
@@ -1078,7 +1087,7 @@ static id parsePlItem(pldata* pld)
 	  result = array;
 	  if (pld->opt == NSPropertyListImmutable)
 	    {
-	      [result makeImmutableCopyOnFail: NO];
+              result = GS_IMMUTABLE(result);
 	    }
 	}
 	break;
@@ -1487,7 +1496,7 @@ encodeBase64(NSData *source, NSMutableData *dest)
 
       [dest setLength: base + destlen];
       GSPrivateEncodeBase64((const uint8_t*)[source bytes],
-        length, (uint8_t*)[dest mutableBytes]);
+        length, (uint8_t*)[dest mutableBytes] + base);
     }
 }
 
@@ -2622,7 +2631,7 @@ GSPropertyListMake(id obj, NSDictionary *loc, BOOL xml,
             }
           
           if (length - index > 2
-              && bytes[index] == '<' && bytes[index+1] == '?')
+            && bytes[index] == '<' && bytes[index+1] == '?')
             {
               // It begins with '<?' so it is xml
               format = NSPropertyListXMLFormat_v1_0;
@@ -2630,7 +2639,7 @@ GSPropertyListMake(id obj, NSDictionary *loc, BOOL xml,
           else
             {
               // Assume openstep format unless we find otherwise.
-          format = NSPropertyListOpenStepFormat;
+              format = NSPropertyListOpenStepFormat;
             }
         }
     }
@@ -2981,14 +2990,15 @@ NSAssert(pos + 2 < _length, NSInvalidArgumentException);
       *counter = pos;
       return count;
     }
-  else if ((c > 0x11) && (c <= 0x13))
+  // FIXME: Handling for 0x13 is wrong, but this value will only
+  // show up for incorrect old GNUstep property lists.
+  else if ((c == 0x12) || (c == 0x13))
     {
-      unsigned len = c - 0x10;
+      unsigned len = 4;
 
-NSAssert(pos + 1 < _length, NSInvalidArgumentException);
+NSAssert(pos + 4 < _length, NSInvalidArgumentException);
       count = _bytes[pos++];
-NSAssert(pos + count < _length, NSInvalidArgumentException);
-      while (len-- > 0)
+      while (--len > 0)
         {
           count = (count << 8) + _bytes[pos++];
         }
@@ -3715,7 +3725,7 @@ isEqualFunc(const void *item1, const void *item2,
     }
   else
     {
-      code = 0x13;
+      code = 0x12;
       [dest appendBytes: &code length: 1];
       count = NSSwapHostIntToBig(count);
       [dest appendBytes: &count length: 4];

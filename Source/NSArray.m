@@ -914,9 +914,9 @@ static SEL	rlSel;
   return nil;
 }
 
-- (id) objectAtIndexedSubscript: (size_t)anIndex
+- (id) objectAtIndexedSubscript: (NSUInteger)anIndex
 {
-  return [self objectAtIndex: (NSUInteger)anIndex];
+  return [self objectAtIndex: anIndex];
 }
 
 - (NSArray *) objectsAtIndexes: (NSIndexSet *)indexes
@@ -931,7 +931,7 @@ static SEL	rlSel;
       i = [indexes indexGreaterThanIndex: i];
     }
 
-  return [group makeImmutableCopyOnFail: NO];
+  return GS_IMMUTABLE(group);
 }
 
 - (BOOL) isEqual: (id)anObject
@@ -1117,7 +1117,7 @@ compare(id elem1, id elem2, void* context)
     NSDefaultMallocZone()] initWithArray: self copyItems: NO]);
   [sortedArray sortUsingFunction: comparator context: context];
 
-  return [sortedArray makeImmutableCopyOnFail: NO];
+  return GS_IMMUTABLE(sortedArray);
 }
 
 
@@ -1130,7 +1130,7 @@ compare(id elem1, id elem2, void* context)
     NSDefaultMallocZone()] initWithArray: self copyItems: NO]);
   [sortedArray sortWithOptions: options usingComparator: comparator];
 
-  return [sortedArray makeImmutableCopyOnFail: NO];
+  return GS_IMMUTABLE(sortedArray);
 }
 
 - (NSArray*) sortedArrayUsingComparator: (NSComparator)comparator
@@ -1245,7 +1245,7 @@ compare(id elem1, id elem2, void* context)
 	  [s appendString: [[self objectAtIndex: i] description]];
 	}
     }
-  return [s makeImmutableCopyOnFail: NO];
+  return GS_IMMUTABLE(s);
 }
 
 /**
@@ -1273,7 +1273,7 @@ compare(id elem1, id elem2, void* context)
 	    }
 	}
     }
-  return [a makeImmutableCopyOnFail: NO];
+  return GS_IMMUTABLE(a);
 }
 
 /**
@@ -1688,7 +1688,7 @@ compare(id elem1, id elem2, void* context)
                       o = [o valueForKeyPath: rem];
                       [result addObjectsFromArray: o];
                     }
-                  [result makeImmutableCopyOnFail: NO];
+                  result = GS_IMMUTABLE(result);
                 }
               else
                 {
@@ -1708,7 +1708,7 @@ compare(id elem1, id elem2, void* context)
                       o = [o valueForKeyPath: rem];
                       [result addObject: o];
                     }
-                  [result makeImmutableCopyOnFail: NO];
+                  result = GS_IMMUTABLE(result);
                 }
               else
                 {
@@ -1728,7 +1728,7 @@ compare(id elem1, id elem2, void* context)
                       o = [o valueForKeyPath: rem];
                       [result addObjectsFromArray: [o allObjects]];
                     }
-                  [result makeImmutableCopyOnFail: NO];
+                  result = GS_IMMUTABLE(result);
                 }
               else
                 {
@@ -2055,9 +2055,16 @@ compare(id elem1, id elem2, void* context)
   [self subclassResponsibility: _cmd];
 }
 
-- (void) setObject: (id)anObject atIndexedSubscript: (size_t)anIndex
+- (void) setObject: (id)anObject atIndexedSubscript: (NSUInteger)anIndex
 {
-  [self replaceObjectAtIndex: (NSUInteger)anIndex withObject: anObject];
+  if ([self count] == anIndex)
+    {
+      [self addObject: anObject];
+    }
+  else
+    {
+      [self replaceObjectAtIndex: anIndex withObject: anObject];
+    }
 }
 
 /** Replaces the values in the receiver at the locations given by the

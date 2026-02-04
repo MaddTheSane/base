@@ -2747,6 +2747,28 @@ else
 fi
 
 
+MAKECPPFLAGS=`gnustep-config --variable=CPPFLAGS`
+if test "$CPPFLAGS" = ""; then
+  CPPFLAGS=$MAKECPPFLAGS
+  export CPPFLAGS
+else
+  if test "$CPPFLAGS" != "$MAKECPPFLAGS"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: You are running configure with the preprocessor options ($CPPFLAGS) set to a different value from that used by gnustep-make ($MAKECPPFLAGS).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use CPPFLAGS=$CPPFLAGS or run the gnustep-base configure again with your CPPFLAGS environment variable set to $MAKECPPFLAGS" >&5
+$as_echo "$as_me: WARNING: You are running configure with the preprocessor options ($CPPFLAGS) set to a different value from that used by gnustep-make ($MAKECPPFLAGS).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use CPPFLAGS=$CPPFLAGS or run the gnustep-base configure again with your CPPFLAGS environment variable set to $MAKECPPFLAGS" >&2;}
+  fi
+fi
+
+MAKELDFLAGS=`gnustep-config --variable=LDFLAGS`
+if test "$LDFLAGS" = ""; then
+  LDFLAGS=$MAKELDFLAGS
+  export LDFLAGS
+else
+  if test "$LDFLAGS" != "$MAKELDFLAGS"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: You are running configure with the link options ($LDFLAGS) set to a different value from that used by gnustep-make ($MAKELDFLAGS).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use LDFLAGS=$LDFLAGS or run the gnustep-base configure again with your LDFLAGS environment variable set to $MAKELDFLAGS" >&5
+$as_echo "$as_me: WARNING: You are running configure with the link options ($LDFLAGS) set to a different value from that used by gnustep-make ($MAKELDFLAGS).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use LDFLAGS=$LDFLAGS or run the gnustep-base configure again with your LDFLAGS environment variable set to $MAKELDFLAGS" >&2;}
+  fi
+fi
+
 # We shouldn't be loading GNUstep.sh here.  It would load in a lot of
 # variables which might get confused with the ones that will be used
 # at runtime.  We will load it later once we have determined (and
@@ -4028,8 +4050,8 @@ if test "$CC" = ""; then
   export CC
 else
   if test "$CC" != "$MAKECC"; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: You are running configure with the compiler ($CC) set to a different value from that used by gnustep-make ($MAKECC).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use $CC or run the gnustep-base configure again with your CC environment variable set to $MAKECC" >&5
-$as_echo "$as_me: WARNING: You are running configure with the compiler ($CC) set to a different value from that used by gnustep-make ($MAKECC).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use $CC or run the gnustep-base configure again with your CC environment variable set to $MAKECC" >&2;}
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: You are running configure with the compiler ($CC) set to a different value from that used by gnustep-make ($MAKECC).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use CC=$CC or run the gnustep-base configure again with your CC environment variable set to $MAKECC" >&5
+$as_echo "$as_me: WARNING: You are running configure with the compiler ($CC) set to a different value from that used by gnustep-make ($MAKECC).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use CC=$CC or run the gnustep-base configure again with your CC environment variable set to $MAKECC" >&2;}
   fi
 fi
 if test "$CPP" = ""; then
@@ -4037,8 +4059,8 @@ if test "$CPP" = ""; then
   export CPP
 else
   if test "$CPP" != "$MAKECPP"; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: You are running configure with the preprocessor ($CPP) set to a different value from that used by gnustep-make ($MAKECPP).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use $CPP or run the gnustep-base configure again with your CPP environment variable set to $MAKECPP" >&5
-$as_echo "$as_me: WARNING: You are running configure with the preprocessor ($CPP) set to a different value from that used by gnustep-make ($MAKECPP).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use $CPP or run the gnustep-base configure again with your CPP environment variable set to $MAKECPP" >&2;}
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: You are running configure with the preprocessor ($CPP) set to a different value from that used by gnustep-make ($MAKECPP).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use CPP=$CPP or run the gnustep-base configure again with your CPP environment variable set to $MAKECPP" >&5
+$as_echo "$as_me: WARNING: You are running configure with the preprocessor ($CPP) set to a different value from that used by gnustep-make ($MAKECPP).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use CPP=$CPP or run the gnustep-base configure again with your CPP environment variable set to $MAKECPP" >&2;}
   fi
 fi
 if test "$CXX" = ""; then
@@ -4046,8 +4068,8 @@ if test "$CXX" = ""; then
   export CXX
 else
   if test "$CXX" != "$MAKECXX"; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: You are running configure with the compiler ($CXX) set to a different value from that used by gnustep-make ($MAKECXX).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use $CXX or run the gnustep-base configure again with your CXX environment variable set to $MAKECXX" >&5
-$as_echo "$as_me: WARNING: You are running configure with the compiler ($CXX) set to a different value from that used by gnustep-make ($MAKECXX).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use $CXX or run the gnustep-base configure again with your CXX environment variable set to $MAKECXX" >&2;}
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: You are running configure with the compiler ($CXX) set to a different value from that used by gnustep-make ($MAKECXX).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use CXX=$CXX or run the gnustep-base configure again with your CXX environment variable set to $MAKECXX" >&5
+$as_echo "$as_me: WARNING: You are running configure with the compiler ($CXX) set to a different value from that used by gnustep-make ($MAKECXX).  To avoid conflicts/problems, reconfigure/reinstall gnustep-make to use CXX=$CXX or run the gnustep-base configure again with your CXX environment variable set to $MAKECXX" >&2;}
   fi
 fi
 ac_ext=c
@@ -7590,24 +7612,8 @@ CFLAGS=$saved_CFLAGS
 # Check if we can name pthreads
 #--------------------------------------------------------------------
 
-for ac_func in pthread_set_name_np
-do :
-  ac_fn_c_check_func "$LINENO" "pthread_set_name_np" "ac_cv_func_pthread_set_name_np"
-if test "x$ac_cv_func_pthread_set_name_np" = xyes; then :
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_PTHREAD_SET_NAME_NP 1
-_ACEOF
-
-fi
-done
-
-if test $ac_cv_func_pthread_set_name_np = yes; then
-
-$as_echo "#define PTHREAD_SETNAME(a) (pthread_set_name_np(pthread_self(), a), 0)" >>confdefs.h
-
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pthread_setname_np() variant" >&5
-$as_echo_n "checking for pthread_setname_np() variant... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for pthread_setname_np()" >&5
+$as_echo_n "checking for pthread_setname_np()... " >&6; }
 if ${gs_cv_pthread_setname_np+:} false; then :
   $as_echo_n "(cached) " >&6
 else
@@ -7666,24 +7672,23 @@ rm -f core conftest.err conftest.$ac_objext \
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $gs_cv_pthread_setname_np" >&5
 $as_echo "$gs_cv_pthread_setname_np" >&6; }
-  case $gs_cv_pthread_setname_np in
-    darwin)
+case $gs_cv_pthread_setname_np in
+  darwin)
 
 $as_echo "#define PTHREAD_SETNAME(a) pthread_setname_np(a)" >>confdefs.h
 
-      ;;
-    glibc)
+    ;;
+  glibc)
 
 $as_echo "#define PTHREAD_SETNAME(a) pthread_setname_np(pthread_self(),a)" >>confdefs.h
 
-      ;;
-    netbsd)
+    ;;
+  netbsd)
 
 $as_echo "#define PTHREAD_SETNAME(a) pthread_setname_np(pthread_self(),\"%s\",a)" >>confdefs.h
 
-      ;;
-  esac
-fi
+    ;;
+esac
 
 #--------------------------------------------------------------------
 # Check whether we can get the system thread ID
@@ -7905,6 +7910,9 @@ if test $ac_cv_func_objc_sync_enter = yes ; then
   OBJCSYNC=1
 else
   OBJCSYNC=0
+  if test "$OBJC_RUNTIME_LIB" = "ng"; then
+    as_fn_error $? "The objc runtime library does not appear to have synchronisation support.  Try re-configuring gnustep-make with a CPPFLAGS variable containing a -L point to specify the directory containing the correct libobjc, or using the --with-objc-lib-flag=... option." "$LINENO" 5
+  fi
 fi
 
 
@@ -7933,6 +7941,9 @@ done
     OBJC2RUNTIME=1
   else
     OBJC2RUNTIME=0
+    if test "$OBJC_RUNTIME_LIB" = "ng"; then
+      as_fn_error $? "The objc runtime library does not appear to have property support.  Try re-configuring gnustep-make with a CPPFLAGS variable containing a -L point to specify the directory containing the correct libobjc, or using the --with-objc-lib-flag=... option." "$LINENO" 5
+    fi
   fi
 fi
 
@@ -7955,6 +7966,9 @@ if test $ac_cv_func__Block_copy = yes ; then
   HAVE_BLOCKS=1
 else
   HAVE_BLOCKS=0
+  if test "$OBJC_RUNTIME_LIB" = "ng"; then
+    as_fn_error $? "The objc runtime library does not appear to have blocks support.  Try re-configuring gnustep-make with a CPPFLAGS variable containing a -L point to specify the directory containing the correct libobjc, or using the --with-objc-lib-flag=... option." "$LINENO" 5
+  fi
 fi
 
 
@@ -7987,15 +8001,17 @@ fi
   if test $non_fragile = yes; then
     OBJCLIBS="$OBJLIBS -fobjc-nonfragile-abi"
     GS_NONFRAGILE=1
-    # Check whether --enable-mixedabi was given.
+    if test "$OBJC_RUNTIME_LIB" != "ng"; then
+      # Check whether --enable-mixedabi was given.
 if test "${enable_mixedabi+set}" = set; then :
   enableval=$enable_mixedabi;
 else
   enable_mixedabi=yes
 fi
 
-    if test $enable_mixedabi = yes; then
-      GS_MIXEDABI=1
+      if test $enable_mixedabi = yes; then
+        GS_MIXEDABI=1
+      fi
     fi
   fi
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $non_fragile" >&5
@@ -8751,6 +8767,51 @@ fi
 
 done
 
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for libintl_fprintf in -lintl" >&5
+$as_echo_n "checking for libintl_fprintf in -lintl... " >&6; }
+if ${ac_cv_lib_intl_libintl_fprintf+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lintl  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char libintl_fprintf ();
+int
+main ()
+{
+return libintl_fprintf ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_intl_libintl_fprintf=yes
+else
+  ac_cv_lib_intl_libintl_fprintf=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_intl_libintl_fprintf" >&5
+$as_echo "$ac_cv_lib_intl_libintl_fprintf" >&6; }
+if test "x$ac_cv_lib_intl_libintl_fprintf" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBINTL 1
+_ACEOF
+
+  LIBS="-lintl $LIBS"
+
+fi
+
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for dyn_string_append in -liberty" >&5
 $as_echo_n "checking for dyn_string_append in -liberty... " >&6; }
 if ${ac_cv_lib_iberty_dyn_string_append+:} false; then :
@@ -8842,7 +8903,21 @@ _ACEOF
 fi
 
 else
-  for ac_header in execinfo.h
+  if test $ismingw = yes ; then
+    for ac_header in dbghelp.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "dbghelp.h" "ac_cv_header_dbghelp_h" "$ac_includes_default"
+if test "x$ac_cv_header_dbghelp_h" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_DBGHELP_H 1
+_ACEOF
+
+fi
+
+done
+
+  else
+    for ac_header in execinfo.h
 do :
   ac_fn_c_check_header_mongrel "$LINENO" "execinfo.h" "ac_cv_header_execinfo_h" "$ac_includes_default"
 if test "x$ac_cv_header_execinfo_h" = xyes; then :
@@ -8854,7 +8929,7 @@ fi
 
 done
 
-  for ac_func in backtrace
+    for ac_func in backtrace
 do :
   ac_fn_c_check_func "$LINENO" "backtrace" "ac_cv_func_backtrace"
 if test "x$ac_cv_func_backtrace" = xyes; then :
@@ -8865,6 +8940,7 @@ _ACEOF
 fi
 done
 
+  fi
 fi
 for ac_func in __builtin_extract_return_address
 do :
@@ -12112,9 +12188,9 @@ fi
     echo "See http://site.icu-project.org/ for help."
   else
     ICU_VERSION=`$ICU_CONFIG --version`
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for ICU >= 4.0" >&5
-$as_echo_n "checking for ICU >= 4.0... " >&6; }
-      found=`expr $ICU_VERSION \>= 4.0`
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for ICU >= 4.6" >&5
+$as_echo_n "checking for ICU >= 4.6... " >&6; }
+      found=`expr $ICU_VERSION \>= 4.6`
       if test "$found" = "1" ; then
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }

@@ -64,7 +64,7 @@
  *	Since all the other subclasses are based on NSDataMalloc or
  *	NSMutableDataMalloc, we can put most methods in here and not
  *	bother with duplicating them in the other classes.
- *		
+ *
  */
 
 #import "common.h"
@@ -166,7 +166,7 @@ encodebase64(unsigned char **dstRef,
   NSUInteger lineLength;
   NSUInteger destLen;
 
-  lineLength = 0;  
+  lineLength = 0;
   if (options & NSDataBase64Encoding64CharacterLineLength)
     lineLength = 64;
   else if (options & NSDataBase64Encoding76CharacterLineLength)
@@ -239,32 +239,32 @@ encodebase64(unsigned char **dstRef,
 static BOOL
 readContentsOfFile(NSString* path, void** buf, off_t* len, NSZone* zone)
 {
-#if defined(__MINGW__)
+#if defined(_WIN32)
   const unichar	*thePath = 0;
 #else
   const char	*thePath = 0;
-#endif	
+#endif
   FILE		*theFile = 0;
   void		*tmp = 0;
   int		c;
   off_t        fileLength;
-	
-#if defined(__MINGW__)
+
+#if defined(_WIN32)
   thePath = (const unichar*)[path fileSystemRepresentation];
 #else
   thePath = [path fileSystemRepresentation];
-#endif	
+#endif
   if (thePath == 0)
     {
       NSWarnFLog(@"Open (%@) attempt failed - bad path", path);
       return NO;
     }
-	
-#if defined(__MINGW__)
+
+#if defined(_WIN32)
   theFile = _wfopen(thePath, L"rb");
 #else
   theFile = fopen(thePath, "rb");
-#endif	
+#endif
 
   if (theFile == 0)		/* We failed to open the file. */
     {
@@ -282,7 +282,7 @@ readContentsOfFile(NSString* path, void** buf, off_t* len, NSZone* zone)
 	[NSError _last]);
       goto failure;
     }
-	
+
   /*
    *	Determine the length of the file (having seeked to the end of the
    *	file) by calling ftello().
@@ -293,7 +293,7 @@ readContentsOfFile(NSString* path, void** buf, off_t* len, NSZone* zone)
       NSWarnFLog(@"Ftell on %@ failed - %@", path, [NSError _last]);
       goto failure;
     }
-	
+
   /*
    *	Rewind the file pointer to the beginning, preparing to read in
    *	the file.
@@ -310,7 +310,7 @@ readContentsOfFile(NSString* path, void** buf, off_t* len, NSZone* zone)
   if (fileLength == 0)
     {
       unsigned char	buf[BUFSIZ];
-     
+
       /*
        * Special case ... a file of length zero may be a named pipe or some
        * file in the /proc filesystem, which will return us data if we read
@@ -362,7 +362,7 @@ readContentsOfFile(NSString* path, void** buf, off_t* len, NSZone* zone)
 	    (intmax_t)fileLength, [NSError _last]);
 	  goto failure;
 	}
-	    
+
       while (offset < fileLength
 	&& (c = fread(tmp + offset, 1, fileLength - offset, theFile)) != 0)
 	{
@@ -389,7 +389,7 @@ readContentsOfFile(NSString* path, void** buf, off_t* len, NSZone* zone)
   *len = fileLength;
   fclose(theFile);
   return YES;
-  
+
   /*
    *	Just in case the failure action needs to be changed.
    */
@@ -719,6 +719,14 @@ failure:
               c = *src++;
               if (c != '=')
                 {
+                  if (options & NSDataBase64DecodingIgnoreUnknownCharacters)
+                    {
+                      if (!isupper(c) && !islower(c) && !isdigit(c)
+                        && c != '/' && c != '+')
+                        {
+                          continue;     // An unknown character
+                        }
+                    }
                   free(result);
                   DESTROY(self);
                   return nil;
@@ -1385,6 +1393,15 @@ failure:
 	  *(double*)data = NSSwapBigDoubleToHost(nd);
 	  return;
 	}
+#if __GNUC__ > 2 && defined(_C_BOOL)
+      case _C_BOOL:
+	{
+	  [self deserializeBytes: data
+			  length: sizeof(_Bool)
+			atCursor: cursor];
+	  return;
+	}
+#endif
       case _C_CLASS:
 	{
 	  uint16_t ni;
@@ -1589,7 +1606,7 @@ failure:
              options: (NSUInteger)writeOptionsMask
                error: (NSError **)errorPtr
 {
-#if defined(__MINGW__)
+#if defined(_WIN32)
   NSUInteger	length = [path length];
   unichar	wthePath[length + 100];
   unichar	wtheRealPath[length + 100];
@@ -1719,7 +1736,7 @@ failure:
 		{
 		  c = 0;
 		  // Delete the old file if possible
-		  DeleteFileW(secondaryFile);	
+		  DeleteFileW(secondaryFile);
 		}
 	      else
 		{
@@ -1797,15 +1814,15 @@ failure:
       useAuxiliaryFile = YES;
     }
   if ([path canBeConvertedToEncoding: [NSString defaultCStringEncoding]])
-    {	
+    {
       const char *local_c_path = [path cString];
 
       if (local_c_path != 0 && strlen(local_c_path) < (BUFSIZ*2))
-	{	
+	{
 	  strncpy(theRealPath, local_c_path, sizeof(theRealPath) - 1);
 	  theRealPath[sizeof(theRealPath) - 1] = '\0';
 	  error_BadPath = NO;
-	}	
+	}
     }
   if (error_BadPath)
     {
@@ -1901,13 +1918,11 @@ failure:
   if (useAuxiliaryFile)
     {
       NSFileManager		*mgr = [NSFileManager defaultManager];
-      NSMutableDictionary	*att = nil;
+      NSDictionary	  *att = nil;
 
       if ([mgr fileExistsAtPath: path])
 	{
-	  att = [[mgr fileAttributesAtPath: path
-			      traverseLink: YES] mutableCopy];
-	  IF_NO_GC(AUTORELEASE(att));
+	  att = [mgr fileAttributesAtPath: path traverseLink: YES];
 	}
 
       c = rename(thePath, theRealPath);
@@ -1920,18 +1935,20 @@ failure:
 
       if (att != nil)
 	{
+    NSMutableDictionary *mAtt = [att mutableCopy];
+    IF_NO_GC(AUTORELEASE(mAtt));
 	  /*
 	   * We have created a new file - so we attempt to make it's
 	   * attributes match that of the original.
 	   */
-	  [att removeObjectForKey: NSFileSize];
-	  [att removeObjectForKey: NSFileModificationDate];
-	  [att removeObjectForKey: NSFileReferenceCount];
-	  [att removeObjectForKey: NSFileSystemNumber];
-	  [att removeObjectForKey: NSFileSystemFileNumber];
-	  [att removeObjectForKey: NSFileDeviceIdentifier];
-	  [att removeObjectForKey: NSFileType];
-	  if ([mgr changeFileAttributes: att atPath: path] == NO)
+	  [mAtt removeObjectForKey: NSFileSize];
+	  [mAtt removeObjectForKey: NSFileModificationDate];
+	  [mAtt removeObjectForKey: NSFileReferenceCount];
+	  [mAtt removeObjectForKey: NSFileSystemNumber];
+	  [mAtt removeObjectForKey: NSFileSystemFileNumber];
+	  [mAtt removeObjectForKey: NSFileDeviceIdentifier];
+	  [mAtt removeObjectForKey: NSFileType];
+	  if ([mgr changeFileAttributes: mAtt atPath: path] == NO)
 	    {
 	      NSWarnMLog(@"Unable to correctly set all attributes for '%@'",
 		path);
@@ -2233,10 +2250,10 @@ failure:
     {
       [aCoder encodeBytes: bytes
                    length: length
-                   forKey: @"NS.data"]; 
+                   forKey: @"NS.data"];
     }
   else
-    {  
+    {
       [aCoder encodeValueOfObjCType: @encode(NSUInteger)
 			         at: &length];
       if (length)
@@ -2268,18 +2285,18 @@ failure:
 
 
       data = [aCoder decodeBytesForKey: @"NS.data"
-                        returnedLength: &l]; 
+                        returnedLength: &l];
       self = [self initWithBytes: data length: l];
     }
   else
-    {  
+    {
       NSUInteger  l;
 
       [aCoder decodeValueOfObjCType: @encode(NSUInteger) at: &l];
       if (l)
         {
           void *b;
-          
+
 #if	GS_WITH_GC
           b = NSAllocateCollectable(l, 0);
 #else
@@ -2663,6 +2680,11 @@ failure:
 	  [self appendBytes: &nd length: sizeof(NSSwappedDouble)];
 	  return;
 	}
+#if __GNUC__ > 2 && defined(_C_BOOL)
+      case _C_BOOL:
+	[self appendBytes: data length: sizeof(_Bool)];
+	return;
+#endif
       case _C_CLASS:
 	{
 	  const char  *name = *(Class*)data?class_getName(*(Class*)data):"";
@@ -3145,6 +3167,13 @@ getBytes(void* dst, void* src, unsigned len, unsigned limit, unsigned *pos)
 	  *(double*)data = NSSwapBigDoubleToHost(nd);
 	  return;
 	}
+#if __GNUC__ > 2 && defined(_C_BOOL)
+      case _C_BOOL:
+	{
+	  getBytes(data, bytes, sizeof(_Bool), length, cursor);
+	  return;
+	}
+#endif
       case _C_CLASS:
 	{
 	  uint16_t	ni;
@@ -3380,7 +3409,7 @@ getBytes(void* dst, void* src, unsigned len, unsigned limit, unsigned *pos)
 }
 @end
 #endif
- 
+
 
 #ifdef	HAVE_MMAP
 @implementation	NSDataMappedFile
@@ -3414,21 +3443,21 @@ getBytes(void* dst, void* src, unsigned len, unsigned limit, unsigned *pos)
 {
   off_t		off;
   int		fd;
-	
-#if defined(__MINGW__)
+
+#if defined(_WIN32)
   const unichar	*thePath = (const unichar*)[path fileSystemRepresentation];
 #else
   const char	*thePath = [path fileSystemRepresentation];
 #endif
 
-  if (thePath == 0)	
+  if (thePath == 0)
     {
       NSWarnMLog(@"Open (%@) attempt failed - bad path", path);
       DESTROY(self);
       return nil;
     }
 
-#if defined(__MINGW__)
+#if defined(_WIN32)
   fd = _wopen(thePath, _O_RDONLY);
 #else
   fd = open(thePath, O_RDONLY);
@@ -3979,6 +4008,11 @@ getBytes(void* dst, void* src, unsigned len, unsigned limit, unsigned *pos)
 	  (*appendImp)(self, appendSel, &nd, sizeof(NSSwappedDouble));
 	  return;
 	}
+#if __GNUC__ > 2 && defined(_C_BOOL)
+      case _C_BOOL:
+	(*appendImp)(self, appendSel, data, sizeof(_Bool));
+	return;
+#endif
       case _C_CLASS:
 	{
 	  const char  *name = *(Class*)data?class_getName(*(Class*)data):"";
@@ -4215,7 +4249,7 @@ getBytes(void* dst, void* src, unsigned len, unsigned limit, unsigned *pos)
 }
 @end
 #endif
- 
+
 
 #ifdef	HAVE_SHMCTL
 @implementation	NSMutableDataShared
@@ -4386,4 +4420,3 @@ getBytes(void* dst, void* src, unsigned len, unsigned limit, unsigned *pos)
 
 @end
 #endif	/* HAVE_SHMCTL	*/
-

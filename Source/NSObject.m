@@ -201,7 +201,7 @@ static void GSLogZombie(id o, SEL sel)
 #endif
 
 
-#if	defined(__MINGW__)
+#if	defined(_WIN32)
 #ifndef _WIN64
 #undef InterlockedIncrement
 #undef InterlockedDecrement
@@ -1011,13 +1011,13 @@ static id gs_weak_load(id obj)
       GC_set_warn_proc(GSGarbageCollectorLog);
 #endif
 
-#ifdef __MINGW__
+#ifdef _WIN32
       {
         // See libgnustep-base-entry.m
         extern void gnustep_base_socket_init(void);
         gnustep_base_socket_init();
       }
-#else /* __MINGW__ */
+#else /* _WIN32 */
 
 #ifdef	SIGPIPE
     /*
@@ -1059,7 +1059,7 @@ static id gs_weak_load(id obj)
       }
 #endif /* HAVE_SIGACTION */
 #endif /* SIGPIPE */
-#endif /* __MINGW__ */
+#endif /* _WIN32 */
 
       finalize_sel = @selector(finalize);
       finalize_imp = class_getMethodImplementation(self, finalize_sel);
@@ -1138,11 +1138,6 @@ static id gs_weak_load(id obj)
 	   selector: @selector(_becomeMultiThreaded:)
 	       name: NSWillBecomeMultiThreadedNotification
 	     object: nil];
-
-      /* It is also safer to set upo the user defaults system before doing
-       * other stuff which might use it.
-       */
-      [NSUserDefaults class];
     }
   return;
 }
@@ -2009,8 +2004,8 @@ static id gs_weak_load(id obj)
   if (!msg)
     {
       [NSException raise: NSGenericException
-		   format: @"invalid selector passed to %s",
-		     sel_getName(_cmd)];
+		   format: @"invalid selector '%s' passed to %s",
+		     sel_getName(aSelector), sel_getName(_cmd)];
       return nil;
     }
   return (*msg)(self, aSelector);
@@ -2022,7 +2017,7 @@ static id gs_weak_load(id obj)
  * The method must be one which takes one argument and returns an object.
  * <br />Raises NSInvalidArgumentException if given a null selector.
  */
-- (id) performSelector: (SEL)aSelector withObject: (id) anObject
+- (id) performSelector: (SEL)aSelector withObject: (id)anObject
 {
   IMP msg;
 
@@ -2033,7 +2028,7 @@ static id gs_weak_load(id obj)
   /* The Apple runtime API would do:
    * msg = class_getMethodImplementation(object_getClass(self), aSelector);
    * but this cannot ask self for information about any method reached by
-   * forwarding, so the returned forwarding function would ge a generic one
+   * forwarding, so the returned forwarding function would be a generic one
    * rather than one aware of hardware issues with returning structures
    * and floating points.  We therefore prefer the GNU API which is able to
    * use forwarding callbacks to get better type information.
@@ -2042,8 +2037,8 @@ static id gs_weak_load(id obj)
   if (!msg)
     {
       [NSException raise: NSGenericException
-		   format: @"invalid selector passed to %s",
-		   sel_getName(_cmd)];
+		   format: @"invalid selector '%s' passed to %s",
+                   sel_getName(aSelector), sel_getName(_cmd)];
       return nil;
     }
 
@@ -2078,7 +2073,8 @@ static id gs_weak_load(id obj)
   if (!msg)
     {
       [NSException raise: NSGenericException
-		  format: @"invalid selector passed to %s", sel_getName(_cmd)];
+		   format: @"invalid selector '%s' passed to %s",
+                   sel_getName(aSelector), sel_getName(_cmd)];
       return nil;
     }
 

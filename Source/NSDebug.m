@@ -68,7 +68,10 @@ typedef struct {
 
 static NSInteger itemComp(id v0, id v1, void *ctxt)
 {
-  return strcmp(((list_entry*)v0)->name, ((list_entry *)v1)->name);
+  int i = strcmp(((list_entry*)v0)->name, ((list_entry *)v1)->name);
+  if (i < 0) return NSOrderedAscending;
+  if (i > 0) return NSOrderedDescending;
+  return NSOrderedSame;
 }
 
 static	unsigned int	num_classes = 0;
@@ -793,7 +796,7 @@ __builtin_extract_return_address(__builtin_return_address(a + 1)) : 0); break;
 
 #include <setjmp.h>
 
-#if	defined(__MINGW__)
+#if	defined(_WIN32)
 #ifndef SIGBUS
 #define SIGBUS  SIGILL
 #endif
