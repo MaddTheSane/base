@@ -15,15 +15,16 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 #import "common.h"
+#import "GSPrivate.h"
 #import "GNUstepBase/GSLocale.h"
+#import "Foundation/NSAutoreleasePool.h"
 #import "Foundation/NSDictionary.h"
 #import "Foundation/NSArray.h"
 #import "Foundation/NSLock.h"
@@ -64,6 +65,10 @@ static NSString *
 privateSetLocale(int category, NSString *locale)
 {
   const char *clocale = NULL;
+  /* Need to get the encoding first as the function call invalidates 
+   * the return value of setlocale()
+   */
+  NSStringEncoding enc = GSPrivateNativeCStringEncoding();
   if (locale != nil)
     {
       clocale = [locale cString];
@@ -72,7 +77,7 @@ privateSetLocale(int category, NSString *locale)
 
   if (clocale != NULL)
     {
-      return ToString(clocale);
+      return [NSString stringWithCString: clocale encoding: enc];
     }
   return nil;
 }
@@ -105,7 +110,7 @@ GSDomainFromDefaultLocale(void)
   /* Protect locale access with locks to prevent multiple threads using
    * it and interfering with the buffer.
    */
-  [gnustep_global_lock lock];
+  [GSPrivateGlobalLock() lock];
 
   /**
    * Set the current locale to the system default, and backup
@@ -218,7 +223,7 @@ GSDomainFromDefaultLocale(void)
    */
   if (saved == nil)
     {
-      saved = [NSObject leak: dict];
+      [NSObject keep: AUTORELEASE([dict copy]) at: &saved];
     }
 
   /**
@@ -227,7 +232,7 @@ GSDomainFromDefaultLocale(void)
    */
   privateSetLocale(LC_ALL, backupLocale);
 
-  [gnustep_global_lock unlock];
+  [GSPrivateGlobalLock() unlock];
   return saved;
 }
 
@@ -257,6 +262,7 @@ GSLanguageFromLocale(NSString *locale)
       || [locale length] < 2)
     return @"English";
 
+  ENTER_POOL
   gbundle = [NSBundle bundleForLibrary: @"gnustep-base"];
   aliases = [gbundle pathForResource: @"Locale"
 		              ofType: @"aliases"
@@ -266,22 +272,27 @@ GSLanguageFromLocale(NSString *locale)
       NSDictionary	*dict;
 
       dict = [NSDictionary dictionaryWithContentsOfFile: aliases];
-      language = [dict objectForKey: locale];
+      language = [[dict objectForKey: locale] copy];
       if (language == nil && [locale pathExtension] != nil)
 	{
 	  locale = [locale stringByDeletingPathExtension];
           if ([locale isEqual: @"C"] || [locale isEqual: @"POSIX"])
-            return @"English";
-	  language = [dict objectForKey: locale];
+	    {
+              language = @"English";
+	    }
+	  else
+	    {
+	      language = [[dict objectForKey: locale] copy];
+	    }
 	}
       if (language == nil)
 	{
 	  locale = [locale substringWithRange: NSMakeRange(0, 2)];
-	  language = [dict objectForKey: locale];
+	  language = [[dict objectForKey: locale] copy];
 	}
     }
-
-  return language;
+  LEAVE_POOL
+  return AUTORELEASE(language);
 }
 
 NSArray *
@@ -325,14 +336,14 @@ NSString *GSDefaultLanguageLocale()
 #ifdef LC_MESSAGES
   NSString *backup;
 
-  [gnustep_global_lock lock];
+  [GSPrivateGlobalLock() lock];
 
   backup = privateSetLocale(LC_ALL, nil);
   privateSetLocale(LC_ALL, @"");
   locale = privateSetLocale(LC_MESSAGES, nil);  
   privateSetLocale(LC_ALL, backup);
 
-  [gnustep_global_lock unlock];
+  [GSPrivateGlobalLock() unlock];
 #endif
 #endif
 

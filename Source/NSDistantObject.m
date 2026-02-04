@@ -15,12 +15,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSDistantObject class reference</title>
    $Date$ $Revision$
@@ -35,6 +34,7 @@
 #import "Foundation/NSPort.h"
 #import "Foundation/NSMethodSignature.h"
 #import "Foundation/NSException.h"
+#import "Foundation/NSHashTable.h"
 #import "Foundation/NSInvocation.h"
 #include <objc/Protocol.h>
 #import "GSInvocation.h"
@@ -125,17 +125,18 @@ enum proxyLocation
 
 
 
-/*
- *	The GSDistantObjectPlaceHolder class is simply used as a placeholder
- *	for an NSDistantObject so we can manage efficient allocation and
+/* The GSDistantObjectPlaceHolder class produces a singleton used as a
+ * placeholder	for an NSDistantObject so we can manage efficient allocation and
  *	initialisation - in most cases when we ask for an NSDistantObject
  *	instance, we will get a pre-existing one, so we don't want to go
  *	allocating the memory for a new instance unless absolutely necessary.
  */
 GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
-+ (id) initWithCoder: (NSCoder*)aCoder;
-+ (id) initWithLocal: (id)anObject connection: (NSConnection*)aConnection;
-+ (id) initWithTarget: (unsigned)target connection: (NSConnection*)aConnection;
++ (id) initWithCoder: (NSCoder*)aCoder NS_RETURNS_RETAINED;
++ (id) initWithLocal: (id)anObject
+	  connection: (NSConnection*)aConnection NS_RETURNS_RETAINED;
++ (id) initWithTarget: (unsigned)target
+	   connection: (NSConnection*)aConnection NS_RETURNS_RETAINED;
 + (id) autorelease;
 + (void) release;
 + (id) retain;
@@ -191,7 +192,7 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
   NSAssert(decoder_connection, NSInternalInconsistencyException);
 
   /* First get the tag, so we know what values need to be decoded. */
-  [aCoder decodeValueOfObjCType: @encode(typeof(proxy_tag))
+  [aCoder decodeValueOfObjCType: @encode(__typeof__(proxy_tag))
 			     at: &proxy_tag];
 
   switch (proxy_tag)
@@ -203,7 +204,7 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
 	 *	Lookup the target handle to ensure that it exists here.
 	 *	Return a retained copy of the local target object.
 	 */
-	[aCoder decodeValueOfObjCType: @encode(typeof(target))
+	[aCoder decodeValueOfObjCType: @encode(__typeof__(target))
 				   at: &target];
 
         if (debug_proxy)
@@ -222,7 +223,7 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
 	    if (debug_proxy)
 	      {
 		NSLog(@"Local object is %p (%p)\n",
-		  (void*)(uintptr_t)o, (void*)(uintptr_t)o ? o->_object : 0);
+		  (void*)(uintptr_t)o, o->_object);
 	      }
 	    return RETAIN(o->_object);
 	  }
@@ -235,7 +236,7 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
 	 *	return the proxy object we already created for this target, or
 	 *	create a new proxy object if necessary.
 	 */
-	[aCoder decodeValueOfObjCType: @encode(typeof(target))
+	[aCoder decodeValueOfObjCType: @encode(__typeof__(target))
 				   at: &target];
 	if (debug_proxy)
 	  NSLog(@"Receiving a proxy, was local 0x%x connection %p\n",
@@ -272,7 +273,7 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
 	   *	time we will have obtained our own proxy for the original
 	   *	object ...
 	   */
-	  [aCoder decodeValueOfObjCType: @encode(typeof(intermediary))
+	  [aCoder decodeValueOfObjCType: @encode(__typeof__(intermediary))
 				     at: &intermediary];
 	  AUTORELEASE([self initWithTarget: intermediary
 				connection: decoder_connection]);
@@ -282,7 +283,7 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
 	   *	and (if necessary) get the originating process to retain the
 	   *	object for us.
 	   */
-	  [aCoder decodeValueOfObjCType: @encode(typeof(target))
+	  [aCoder decodeValueOfObjCType: @encode(__typeof__(target))
 				     at: &target];
 
 	  [aCoder decodeValueOfObjCType: @encode(id)
@@ -512,10 +513,10 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
 	    NSLog(@"Sending a proxy, will be remote 0x%x connection %p\n",
 			proxy_target, _connection);
 
-	  [aRmc encodeValueOfObjCType: @encode(typeof(proxy_tag))
+	  [aRmc encodeValueOfObjCType: @encode(__typeof__(proxy_tag))
 				   at: &proxy_tag];
 
-	  [aRmc encodeValueOfObjCType: @encode(typeof(proxy_target))
+	  [aRmc encodeValueOfObjCType: @encode(__typeof__(proxy_target))
 				   at: &proxy_target];
 	  /*
 	   * Tell connection this object is being vended.
@@ -533,10 +534,10 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
 	    NSLog(@"Sending a proxy, will be local 0x%x connection %p\n",
 			proxy_target, _connection);
 
-	  [aRmc encodeValueOfObjCType: @encode(typeof(proxy_tag))
+	  [aRmc encodeValueOfObjCType: @encode(__typeof__(proxy_tag))
 				   at: &proxy_tag];
 
-	  [aRmc encodeValueOfObjCType: @encode(typeof(proxy_target))
+	  [aRmc encodeValueOfObjCType: @encode(__typeof__(proxy_target))
 				   at: &proxy_target];
 	}
     }
@@ -576,13 +577,13 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
        * It's remote here, so we need to tell other side where to form
        * triangle connection to
        */
-      [aRmc encodeValueOfObjCType: @encode(typeof(proxy_tag))
+      [aRmc encodeValueOfObjCType: @encode(__typeof__(proxy_tag))
 			       at: &proxy_tag];
 
-      [aRmc encodeValueOfObjCType: @encode(typeof(localProxy->_handle))
+      [aRmc encodeValueOfObjCType: @encode(__typeof__(localProxy->_handle))
 			       at: &localProxy->_handle];
 
-      [aRmc encodeValueOfObjCType: @encode(typeof(proxy_target))
+      [aRmc encodeValueOfObjCType: @encode(__typeof__(proxy_target))
 			       at: &proxy_target];
 
       [aRmc encodeBycopyObject: proxy_connection_out_port];
@@ -639,9 +640,10 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
   self = [_connection retainOrAddLocal: self forObject: anObject];
 
   if (debug_proxy)
-    NSLog(@"Created new local=%p object %p target 0x%x connection %p\n",
-     self, _object, _handle, _connection);
-
+    {
+      NSLog(@"Created new local=%p object %p target 0x%x connection %p\n",
+       self, _object, _handle, _connection);
+    }
   return self;
 }
 
@@ -665,9 +667,10 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
   self = [_connection retainOrAddProxy: self forTarget: target];
 
   if (debug_proxy)
+    {
       NSLog(@"Created new proxy=%p target 0x%x connection %p\n",
 	 self, _handle, _connection);
-
+    }
   return self;
 }
 
@@ -724,16 +727,20 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
       if (_protocol != nil)
 	{
 	  struct objc_method_description mth;
-	  mth = GSProtocolGetMethodDescriptionRecursive(_protocol, aSelector, YES, YES);
+	  mth = GSProtocolGetMethodDescriptionRecursive(
+	    _protocol, aSelector, YES, YES);
 
 	  if (mth.name == NULL && mth.types == NULL)
 	    {
 	      // Search for class method
-	      mth = GSProtocolGetMethodDescriptionRecursive(_protocol, aSelector, YES, NO);
+	      mth = GSProtocolGetMethodDescriptionRecursive(
+		_protocol, aSelector, YES, NO);
 	    }
 
 	  if (mth.types)
-	    return [NSMethodSignature signatureWithObjCTypes: mth.types];
+	    {
+	      return [NSMethodSignature signatureWithObjCTypes: mth.types];
+	    }
 	}
 
       if (_sigs != 0)
@@ -829,8 +836,13 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
  */
 @implementation NSDistantObject(GNUstepExtensions)
 
+- (NSUInteger) sizeOfContentExcluding: (NSHashTable*)exclude
+{
+  return 0;
+}
+
 /**
- * Used by the garbage collection system to tidy up when a proxy is destroyed.
+ * Used to tidy up when a proxy is destroyed.
  */
 - (void) finalize
 {
@@ -838,7 +850,7 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
     {
       if (debug_proxy > 3)
 	NSLog(@"retain count for connection (%p) is now %lx\n",
-		_connection, [_connection retainCount]);
+		_connection, (unsigned long)[_connection retainCount]);
       /*
        * A proxy for local object retains its target - so we release it.
        * For a local object the connection also retains this proxy, so we
@@ -894,13 +906,24 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
 
 - (BOOL) respondsToSelector: (SEL)aSelector
 {
-  BOOL		m = NO;
-  id		inv;
-  id		sig;
+  if (aSelector == 0)
+    {
+      return NO;
+    }
+  if (class_respondsToSelector(object_getClass(self), aSelector))
+    {
+      return YES;
+    }
+  else
+    {
+      BOOL	m = NO;
+      id	inv;
+      id	sig;
 
-  DO_FORWARD_INVOCATION(respondsToSelector:, aSelector);
+      DO_FORWARD_INVOCATION(respondsToSelector:, aSelector);
 
-  return m;
+      return m;
+    }
 }
 
 - (id) replacementObjectForCoder: (NSCoder*)aCoder
@@ -912,6 +935,19 @@ GS_ROOT_CLASS @interface	GSDistantObjectPlaceHolder
 {
   return self;
 }
+
+- (NSUInteger) sizeInBytesExcluding: (NSHashTable*)exclude
+{
+  if (0 == NSHashGet(exclude, self))
+    {
+      Class             c = object_getClass(self);
+      NSUInteger        size = class_getInstanceSize(c);
+
+      return size;
+    }
+  return 0;
+}
+
 @end
 
 

@@ -14,7 +14,7 @@
    You should have received a copy of the GNU General Public
    License along with this program; see the file COPYINGv3.
    If not, write to the Free Software Foundation,
-   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+   31 Milk Street #960789 Boston, MA 02196 USA.
 
    */
 
@@ -280,8 +280,18 @@ main(int argc, char** argv, char **env)
 			    }
 			  else
 			    {
-			      snprintf(&c[o], 6, "\\U%04x", u[i]);
-			      o += 6;
+                              unsigned  v = u[i];
+
+                              c[o++] = '\\';
+                              c[o++] = 'U';
+                              c[3] = "0123456789abcdef"[v & 0xf];
+                              v /= 16;
+                              c[2] = "0123456789abcdef"[v & 0xf];
+                              v /= 16;
+                              c[1] = "0123456789abcdef"[v & 0xf];
+                              v /= 16;
+                              c[0] = "0123456789abcdef"[v & 0xf];
+			      o += 4;
 			    }
 			}
 		      NSZoneFree(z, u);
@@ -307,12 +317,12 @@ main(int argc, char** argv, char **env)
 		  else
 		    {
 		      NSFileHandle	*out;
-		      CREATE_AUTORELEASE_POOL(arp);
 
+		      ENTER_POOL
 		      out = [NSFileHandle fileHandleWithStandardOutput];
 		      [out writeData: myData];
 		      [out synchronizeFile];
-		      RELEASE(arp);
+		      LEAVE_POOL
 		    }
 		}
 	    }

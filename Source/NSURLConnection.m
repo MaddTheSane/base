@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #import "common.h"
@@ -157,11 +156,40 @@ typedef struct
   return AUTORELEASE(o);
 }
 
+- (void) start
+{
+  [this->_protocol startLoading];
+}
+
 - (void) cancel
 {
   [this->_protocol stopLoading];
   DESTROY(this->_protocol);
   DESTROY(this->_delegate);
+}
+
+- (id) delegate
+{
+  return this->_delegate;
+}
+
+- (void) scheduleInRunLoop: (NSRunLoop *)aRunLoop 
+                   forMode: (NSRunLoopMode)mode
+{
+  NSArray *modes = [NSArray arrayWithObject: mode];
+  [aRunLoop performSelector: @selector(start)
+                     target: self
+                   argument: nil
+                      order: 0
+                      modes: modes];
+}
+
+- (void) unscheduleFromRunLoop: (NSRunLoop *)aRunLoop 
+                       forMode: (NSRunLoopMode)mode
+{
+  [aRunLoop cancelPerformSelector: @selector(start)
+                           target: self
+                         argument: nil];
 }
 
 - (void) dealloc
@@ -185,7 +213,9 @@ typedef struct
     }
 }
 
-- (id) initWithRequest: (NSURLRequest *)request delegate: (id)delegate
+- (id) initWithRequest: (NSURLRequest *)request
+              delegate: (id)delegate
+      startImmediately: (BOOL)startImmediately
 {
   if ((self = [super init]) != nil)
     {
@@ -226,10 +256,20 @@ typedef struct
 	initWithRequest: this->_request
 	cachedResponse: nil
 	client: (id<NSURLProtocolClient>)self];
-      [this->_protocol startLoading];
+      if (startImmediately == YES)
+        {
+          [this->_protocol startLoading];
+        }
       this->_debug = GSDebugSet(@"NSURLConnection");
     }
   return self;
+}
+
+- (id) initWithRequest: (NSURLRequest *)request delegate: (id)delegate
+{
+  return [self initWithRequest: request
+                      delegate: delegate
+              startImmediately: YES];
 }
 
 @end
@@ -362,6 +402,9 @@ typedef struct
                   *error = [[[collector error] retain] autorelease];
                 }
             }
+	  /* Cancel to prevent the NSURLProtocol instance retaining us.
+	   */
+	  [conn cancel];
           [conn release];
         }
       [collector release];
@@ -388,6 +431,8 @@ typedef struct
   this->_delegate = nil;
   [o connection: self didFailWithError: error];
   DESTROY(o);
+  [this->_protocol stopLoading];
+  DESTROY(this->_protocol);
 }
 
 - (void) URLProtocol: (NSURLProtocol *)protocol
@@ -467,6 +512,8 @@ typedef struct
   this->_delegate = nil;
   [o connectionDidFinishLoading: self];
   DESTROY(o);
+  [this->_protocol stopLoading];
+  DESTROY(this->_protocol);
 }
 
 - (void) URLProtocol: (NSURLProtocol *)protocol

@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    */
 
@@ -48,7 +47,7 @@
 #import "GNUstepBase/Unicode.h"
 #import "GNUstepBase/NSProcessInfo+GNUstepBase.h"
 #import "GNUstepBase/NSString+GNUstepBase.h"
-
+#import "GSFastEnumeration.h"
 #import "GSPrivate.h"
 
 static id       boolN = nil;
@@ -81,8 +80,6 @@ static Class	NSStringClass;
 static Class	NSMutableStringClass;
 static Class	GSStringClass;
 static Class	GSMutableStringClass;
-
-extern BOOL GSScanDouble(unichar*, unsigned, double*);
 
 @class	GSMutableDictionary;
 @interface GSMutableDictionary : NSObject	// Help the compiler
@@ -345,7 +342,7 @@ foundIgnorableWhitespace: (NSString *)string
     }
   else if ([elementName isEqualToString: @"real"])
     {
-      ASSIGN(plist, [NSNumber numberWithDouble: [value doubleValue]]);
+      ASSIGN(plist, [NSNumber numberWithDouble: strtod([value cString], NULL)]);
     }
   else if ([elementName isEqualToString: @"true"])
     {
@@ -691,7 +688,7 @@ static BOOL skipSpace(pldata *pld)
   return NO;
 }
 
-static inline id parseQuotedString(pldata* pld)
+static inline id parseQuotedString(pldata* pld) NS_RETURNS_RETAINED
 {
   unsigned	start = ++pld->pos;
   unsigned	escaped = 0;
@@ -889,12 +886,17 @@ static inline id parseQuotedString(pldata* pld)
 				       length: length
 				 freeWhenDone: YES];
 	}
+      if (nil == obj)
+	{
+	  pld->err = @"escape sequence produces invalid unicode";
+	  return nil;
+	}
     }
   pld->pos++;
   return obj;
 }
 
-static inline id parseUnquotedString(pldata *pld)
+static inline id parseUnquotedString(pldata *pld) NS_RETURNS_RETAINED
 {
   unsigned	start = pld->pos;
   unsigned	i;
@@ -934,7 +936,7 @@ static inline id parseUnquotedString(pldata *pld)
   return obj;
 }
 
-static id parsePlItem(pldata* pld)
+static id parsePlItem(pldata* pld) NS_RETURNS_RETAINED
 {
   id	result = nil;
   BOOL	start = (pld->pos == 0 ? YES : NO);
@@ -962,6 +964,7 @@ static id parsePlItem(pldata* pld)
 	      pld->key = NO;
 	      if (key == nil)
 		{
+		  RELEASE(dict);
 		  return nil;
 		}
 	      if (skipSpace(pld) == NO)
@@ -1035,7 +1038,12 @@ static id parsePlItem(pldata* pld)
 	  result = dict;
 	  if (pld->opt == NSPropertyListImmutable)
 	    {
-              result = GS_IMMUTABLE(result);
+	      if (NO == [result makeImmutable])
+		{
+		  id	tmp = result;
+		  result = [tmp copy];
+		  RELEASE(tmp);
+		}
 	    }
 	}
 	break;
@@ -1087,7 +1095,12 @@ static id parsePlItem(pldata* pld)
 	  result = array;
 	  if (pld->opt == NSPropertyListImmutable)
 	    {
-              result = GS_IMMUTABLE(result);
+	      if (NO == [result makeImmutable])
+		{
+		  id	tmp = result;
+		  result = [tmp copy];
+		  RELEASE(tmp);
+		}
 	    }
 	}
 	break;
@@ -1135,7 +1148,7 @@ static id parsePlItem(pldata* pld)
                     else
                       {
                         result = [[NSNumber alloc]
-                          initWithUnsignedLongLong: strtoull(buf, 0, 10)];
+                          initWithUnsignedLongLong: strtoull(buf, NULL, 10)];
                       }
 		  }
 		else if (type == 'B')
@@ -1169,12 +1182,12 @@ static id parsePlItem(pldata* pld)
 		  }
 		else if (type == 'R')
 		  {
-		    unichar	buf[len];
-		    double	d = 0.0;
+		    char	buf[len+1];
 
 		    for (i = 0; i < len; i++) buf[i] = ptr[i];
-		    GSScanDouble(buf, len, &d);
-		    result = [[NSNumber alloc] initWithDouble: d];
+		    buf[len] = '\0';
+		    result = [[NSNumber alloc]
+		      initWithDouble: strtod(buf, NULL)];
 		  }
 		else
 		  {
@@ -1190,11 +1203,13 @@ static id parsePlItem(pldata* pld)
 	    if (pld->pos >= pld->end)
 	      {
 		pld->err = @"unexpected end of string when parsing data";
+		DESTROY(result);
 		return nil;
 	      }
 	    if (pld->ptr[pld->pos] != '>')
 	      {
 		pld->err = @"unexpected character (wanted '>')";
+		DESTROY(result);
 		return nil;
 	      }
 	    pld->pos++;
@@ -1295,7 +1310,8 @@ static id parsePlItem(pldata* pld)
 		return nil;
               }
             buf = NSZoneMalloc(NSDefaultMallocZone(), (len + 1) / 2);
-	    skipSpace(pld);
+            // We permit (but do not require) space before hex octets
+	    (void)skipSpace(pld);
             len = 0;
 	    while (pld->pos < max
 	      && isxdigit(pld->ptr[pld->pos])
@@ -1308,7 +1324,8 @@ static id parsePlItem(pldata* pld)
 		byte |= char2num(pld->ptr[pld->pos]);
 		pld->pos++;
 		buf[len++] = byte;
-		skipSpace(pld);
+                // We permit (but do not require) space between/after hex octets
+		(void)skipSpace(pld);
 	      }
             if (pld->ptr[pld->pos] != '>')
               {
@@ -1346,7 +1363,7 @@ static id parsePlItem(pldata* pld)
       if (skipSpace(pld) == YES)
 	{
 	  pld->err = @"extra data after parsed string";
-	  result = nil;		// Not at end of string.
+	  DESTROY(result);	// Not at end of string.
 	}
       else
         {
@@ -1356,27 +1373,55 @@ static id parsePlItem(pldata* pld)
   return result;
 }
 
+static const unichar byteOrderMark = 0xFEFF;
+static const unichar byteOrderMarkSwapped = 0xFFFE;
+
 id
-GSPropertyListFromStringsFormat(NSString *string)
+GSPropertyListFromStringsFormat(NSData *d)
 {
   NSMutableDictionary	*dict;
   pldata		_pld;
   pldata		*pld = &_pld;
-  NSData		*d;
 
-  /*
-   * An empty string is a nil property list.
+  _pld.ptr = (const unsigned char*)[d bytes];
+  _pld.end = [d length];
+
+  if (_pld.end >= 2)
+    {
+      const unichar *data_ucs2chars = (const unichar *)(const void*)_pld.ptr;
+
+      if ((data_ucs2chars[0] == byteOrderMark)
+        || (data_ucs2chars[0] == byteOrderMarkSwapped))
+        {
+	  NSString	*tmp;
+
+	  tmp = [[NSString alloc] initWithData: d
+				      encoding: NSUnicodeStringEncoding];
+	  d = [tmp dataUsingEncoding: NSUTF8StringEncoding];
+	  RELEASE(tmp);
+	  _pld.ptr = (const unsigned char*)[d bytes];
+	  _pld.end = [d length];
+        }
+      else if (_pld.end >= 3
+        && _pld.ptr[0] == 0xEF
+        && _pld.ptr[1] == 0xBB
+        && _pld.ptr[2] == 0xBF)
+        {
+	  /* Ignore the UTF8 BOM by skipping past it and decreasing length.
+	   */
+          _pld.ptr += 3;
+          _pld.end -= 3;
+        }
+    }
+
+  /* An empty string is a nil property list.
    */
-  if ([string length] == 0)
+  if (0 == _pld.end)
     {
       return nil;
     }
 
-  d = [string dataUsingEncoding: NSUTF8StringEncoding];
-  NSCAssert(d, @"Couldn't get utf8 data from string.");
-  _pld.ptr = (unsigned char*)[d bytes];
   _pld.pos = 0;
-  _pld.end = [d length];
   _pld.err = nil;
   _pld.lin = 0;
   _pld.opt = NSPropertyListImmutable;
@@ -1470,12 +1515,43 @@ GSPropertyListFromStringsFormat(NSString *string)
 	  break;
 	}
     }
+  /* If parsing as a true strings file failed, try parsing as a
+   * property list dictionary containing only string key/value pairs
+   */
   if (dict == nil && _pld.err != nil)
     {
-      RELEASE(dict);
-      [NSException raise: NSGenericException
-		  format: @"Parse failed at line %d (char %d) - %@",
-	_pld.lin + 1, _pld.pos + 1, _pld.err];
+      NSDictionary	*pl;
+
+      pl = [NSPropertyListSerialization propertyListWithData: d
+	options: NSPropertyListMutableContainers
+	format: NULL
+	error: NULL];
+      if ([pl isKindOfClass: [NSDictionary class]])
+	{
+	  FOR_IN (id, key, pl)
+	    {
+	      NSString	*val = [pl objectForKey: key]; 
+
+	      if (NO == [key isKindOfClass: [NSString class]]
+	        || NO == [val isKindOfClass: [NSString class]])
+		{
+		  pl = nil;
+		  break;
+		}
+	    }
+	  END_FOR_IN(pl)
+	}
+      if (pl)
+	{
+	  ASSIGN(dict, pl);
+	}
+      else
+	{
+	  RELEASE(dict);
+	  [NSException raise: NSGenericException
+		      format: @"Parse failed at line %d (char %d) - %@",
+	    _pld.lin + 1, _pld.pos + 1, _pld.err];
+	}
     }
   return AUTORELEASE(dict);
 }
@@ -1660,7 +1736,7 @@ XString(NSString* obj, NSMutableData *output)
       unsigned	wpos;
       BOOL	osx;
 
-      osx = GSPrivateDefaultsFlag(GSMacOSXCompatible);
+      osx = GSPrivateDefaultsFlag(GSMacOSXCompatible) ? YES : NO;
 
       base = NSAllocateCollectable(sizeof(unichar) * end, 0);
       [obj getCharacters: base];
@@ -1842,6 +1918,10 @@ static void
 OAppend(id obj, NSDictionary *loc, unsigned lev, unsigned step,
   NSPropertyListFormat x, NSMutableData *dest)
 {
+  if (step > 3)
+    {
+      step = 3;
+    }
   if (NSStringClass == 0)
     {
       [NSPropertyListSerialization class];      // Force initialisation
@@ -2364,30 +2444,46 @@ static BOOL	classInitialized = NO;
 
 + (void) initialize
 {
-  if (classInitialized == NO)
+  NSMutableCharacterSet	*s;
+
+  if (Nil == NSStringClass) NSStringClass = [NSString class];
+  if (Nil == GSStringClass) GSStringClass = [GSString class];
+  if (Nil == NSMutableStringClass)
+    NSMutableStringClass = [NSMutableString class];
+  if (Nil == GSMutableStringClass)
+    GSMutableStringClass = [GSMutableString class];
+
+  if (Nil == NSArrayClass) NSArrayClass = [NSArray class];
+  if (Nil == plArray)
     {
-      NSMutableCharacterSet	*s;
-
-      classInitialized = YES;
-
-      NSStringClass = [NSString class];
-      NSMutableStringClass = [NSMutableString class];
-      NSDataClass = [NSData class];
-      NSDateClass = [NSDate class];
-      NSNumberClass = [NSNumber class];
-      NSArrayClass = [NSArray class];
-      NSDictionaryClass = [NSDictionary class];
-      GSStringClass = [GSString class];
-      GSMutableStringClass = [GSMutableString class];
-
       plArray = [GSMutableArray class];
       plAdd = (id (*)(id, SEL, id))
 	[plArray instanceMethodForSelector: @selector(addObject:)];
+    }
 
+  if (Nil == NSDictionaryClass) NSDictionaryClass = [NSDictionary class];
+  if (Nil == plDictionary)
+    {
       plDictionary = [GSMutableDictionary class];
       plSet = (id (*)(id, SEL, id, id))
 	[plDictionary instanceMethodForSelector: @selector(setObject:forKey:)];
+    }
 
+  if (Nil == NSDataClass) NSDataClass = [NSData class];
+  if (Nil == NSNumberClass) NSNumberClass = [NSNumber class];
+  if (nil == boolN)
+    {
+      boolN = [[NSNumber numberWithBool: NO] retain];
+      [[NSObject leakAt: &boolN] release];
+    }
+  if (nil == boolY)
+    {
+      boolY = [[NSNumber numberWithBool: YES] retain];
+      [[NSObject leakAt: &boolY] release];
+    }
+
+  if (nil == oldQuotables)
+    {
       /* The '$', '.', '/' and '_' characters used to be OK to use in
        * property lists, but OSX now quotes them, so we follow suite.
        */
@@ -2398,7 +2494,10 @@ static BOOL	classInitialized = NO;
       [s invert];
       oldQuotables = s;
       [[NSObject leakAt: &oldQuotables] release];
+    }
 
+  if (nil == xmlQuotables)
+    {
       s = [NSMutableCharacterSet new];
       [s addCharactersInString: @"&<>'\\\""];
       [s addCharactersInRange: NSMakeRange(0x0001, 0x001f)];
@@ -2408,13 +2507,17 @@ static BOOL	classInitialized = NO;
       [s addCharactersInRange: NSMakeRange(0xFFFE, 0x0002)];
       xmlQuotables = s;
       [[NSObject leakAt: &xmlQuotables] release];
-
-      boolN = [[NSNumber numberWithBool: NO] retain];
-      [[NSObject leakAt: &boolN] release];
-
-      boolY = [[NSNumber numberWithBool: YES] retain];
-      [[NSObject leakAt: &boolY] release];
     }
+
+  /* Initialize the date class last as it has external dependencies on
+   * time zone data.
+   */
+  if (Nil == NSDateClass)
+    {
+      NSDateClass = [NSDate class];
+    }
+
+  classInitialized = YES;
 }
 
 + (NSData*) dataFromPropertyList: (id)aPropertyList
@@ -2457,7 +2560,7 @@ static BOOL	classInitialized = NO;
   if (aFormat == NSPropertyListXMLFormat_v1_0)
     {
       [dest appendBytes: prefix length: strlen(prefix)];
-      OAppend(aPropertyList, loc, 0, step > 3 ? 3 : step, aFormat, dest);
+      OAppend(aPropertyList, loc, 0, step, aFormat, dest);
       [dest appendBytes: "</plist>" length: 8];
     }
   else if (aFormat == NSPropertyListGNUstepBinaryFormat)
@@ -2470,12 +2573,24 @@ static BOOL	classInitialized = NO;
     }
   else
     {
-      OAppend(aPropertyList, loc, 0, step > 3 ? 3 : step, aFormat, dest);
+      OAppend(aPropertyList, loc, 0, step, aFormat, dest);
     }
   return dest;
 }
 
-void
+/**
+ * <p>Make <var>obj</var> into a plist in <var>str</var>, using the locale <var>loc</var>.</p>
+ *
+ * <p>If <var>*str</var> is <code>nil</code>, create a <ref>GSMutableString</ref>.
+ * Otherwise <var>*str</var> must be a GSMutableString.</p>
+ * 
+ * <p>Options:</p><list>
+ * <item><var>step</var> is the indent level.</item>
+ * <item><var>forDescription</var> enables OpenStep formatting.</item>
+ * <item><var>xml</var> enables XML formatting.</item>
+ * </list>
+ */
+GS_DECLARE void
 GSPropertyListMake(id obj, NSDictionary *loc, BOOL xml,
   BOOL forDescription, unsigned step, id *str)
 {
@@ -2520,38 +2635,81 @@ GSPropertyListMake(id obj, NSDictionary *loc, BOOL xml,
   if (style == NSPropertyListXMLFormat_v1_0)
     {
       [dest appendBytes: prefix length: strlen(prefix)];
-      OAppend(obj, loc, 0, step > 3 ? 3 : step, style, dest);
+      OAppend(obj, loc, 0, step, style, dest);
       [dest appendBytes: "</plist>" length: 8];
     }
   else
     {
-      OAppend(obj, loc, 0, step > 3 ? 3 : step, style, dest);
+      OAppend(obj, loc, 0, step, style, dest);
     }
   tmp = [[NSString alloc] initWithData: dest encoding: NSASCIIStringEncoding];
   [*str appendString: tmp];
   RELEASE(tmp);
 }
 
+static BOOL
+checkPL(id aPropertyList, NSPropertyListFormat aFormat)
+{
+  if ([aPropertyList isKindOfClass: NSArrayClass])
+    {
+      NSArray	*a = (NSArray*)aPropertyList;
+
+      FOR_IN(id, obj, a)
+	{
+	  if (NO == checkPL(obj, aFormat))
+	    {
+	      return NO;
+	    }
+	}
+      END_FOR_IN(a)
+    }
+  else if ([aPropertyList isKindOfClass: NSArrayClass])
+    {
+      NSDictionary	*d = (NSDictionary*)aPropertyList;
+
+      FOR_IN(id, obj, d)
+	{
+	  if (NO == checkPL(obj, aFormat))
+	    {
+	      return NO;
+	    }
+	  obj = [d objectForKey: obj];
+	  if (NO == checkPL(obj, aFormat))
+	    {
+	      return NO;
+	    }
+	}
+      END_FOR_IN(d)
+    }
+  else if (NO == [aPropertyList isKindOfClass: NSStringClass]
+    && NO == [aPropertyList isKindOfClass: NSDataClass])
+    {
+      if (NSPropertyListOpenStepFormat == YES)
+	{
+	  /* We have tried string, data, array, dictionary
+	   */
+	  return NO;
+	}
+      if (NO == [aPropertyList isKindOfClass: NSNumberClass]
+	&& NO == [aPropertyList isKindOfClass: NSDateClass])
+	{
+	  return NO;
+	}
+    }
+  return YES;
+}
+
 + (BOOL) propertyList: (id)aPropertyList
      isValidForFormat: (NSPropertyListFormat)aFormat
 {
-// FIXME ... need to check properly.
   switch (aFormat)
     {
       case NSPropertyListGNUstepFormat:
-	return YES;
-
       case NSPropertyListGNUstepBinaryFormat:
-	return YES;
-
       case NSPropertyListOpenStepFormat:
-	return YES;
-
       case NSPropertyListXMLFormat_v1_0:
-	return YES;
-
       case NSPropertyListBinaryFormat_v1_0:
-	return YES;
+	break;
 
       default:
 	[NSException raise: NSInvalidArgumentException
@@ -2559,6 +2717,7 @@ GSPropertyListMake(id obj, NSDictionary *loc, BOOL xml,
 	  NSStringFromClass(self), NSStringFromSelector(_cmd)];
 	return NO;
     }
+  return checkPL(aPropertyList, aFormat);
 }
 
 + (id) propertyListFromData: (NSData*)data
@@ -2586,7 +2745,7 @@ GSPropertyListMake(id obj, NSDictionary *loc, BOOL xml,
                       error: (out NSError**)error
 {
   NSPropertyListFormat	format = 0;
-  NSString           *errorStr = nil;
+  NSString           	*errorStr = nil;
   id			result = nil;
   const unsigned char	*bytes = 0;
   unsigned int		length = 0;
@@ -2707,8 +2866,9 @@ GSPropertyListMake(id obj, NSDictionary *loc, BOOL xml,
             GSBinaryPLParser	*p = [GSBinaryPLParser alloc];
             
             p = [p initWithData: data mutability: anOption];
-            result = [p rootObject];
-            RELEASE(p);
+	    /* to avoid a leak on exception, autorelease before parse
+	     */
+            result = [AUTORELEASE(p) rootObject];
           }
           break;
           
@@ -2751,7 +2911,7 @@ GSPropertyListMake(id obj, NSDictionary *loc, BOOL xml,
   // not the other way round,
   NSData *data = [self dataWithPropertyList: aPropertyList
                                      format: aFormat
-                                    options: 0
+                                    options: anOption
                                       error: error];
 
   return [stream write: [data bytes] maxLength: [data length]];
@@ -3024,7 +3184,7 @@ NSAssert(pos + 4 < _length, NSInvalidArgumentException);
     }
   val = (index == 0) ? UINTPTR_MAX : (uintptr_t)(void*)index;
   // NSHashInsertIfAbsent() returns NULL on success
-  return NO == NSHashInsertIfAbsent(_stack, (void*)val);
+  return (NULL == NSHashInsertIfAbsent(_stack, (void*)val) ? YES : NO);
 }
 
 - (void)_popObject: (NSUInteger)index
@@ -3547,14 +3707,9 @@ isEqualFunc(const void *item1, const void *item2,
     {
       offset_size = 3;
     }
-  else if (last_offset <= UINT_MAX)
-    {
-      offset_size = 4;
-    }
   else
     {
-      [NSException raise: NSRangeException
-	format: @"Object table offset out of bounds %d.", last_offset];
+      offset_size = 4;
     }
 
   len = [objectList count];

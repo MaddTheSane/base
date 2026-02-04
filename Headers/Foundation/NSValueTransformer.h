@@ -1,9 +1,9 @@
-/* Interface for NSValueTransformer for GNUStep
+/**Interface for NSValueTransformer for GNUStep
    Copyright (C) 2006 Free Software Foundation, Inc.
 
-   Written Dr. H. Nikolaus Schaller
-   Created on Mon Mar 21 2005.
-   Updatesd and documented by Richard Frith-Macdonald
+   Written by:Dr. H. Nikolaus Schaller
+   Created: Mon Mar 21 2005.
+   Author: Richard Frith-Macdonald
    
    This file is part of the GNUstep Base Library.
 
@@ -15,12 +15,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSValueTransformer_h_GNUSTEP_BASE_INCLUDE
@@ -62,6 +61,7 @@ GS_EXPORT NSString* const NSUnarchiveFromDataTransformerName;
  * abstract and its methods must be overridden by subclasses to do
  * the actual work.
  */
+GS_EXPORT_CLASS
 @interface NSValueTransformer : NSObject
 
 /** <override-subclass />

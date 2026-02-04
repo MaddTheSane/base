@@ -10,12 +10,17 @@
 
 int main(int argc, char **argv, char **env)
 {
+  
+#if !defined(HAVE_GNUTLS)
+testHopeful = YES;
+#endif
+
   CREATE_AUTORELEASE_POOL(arp);
   NSFileManager *fm;
   NSBundle *bundle;
   BOOL loaded;
   NSString *helperPath;
-
+  
   // load the test suite's classes
   fm = [NSFileManager defaultManager];
   helperPath = [[fm currentDirectoryPath]
@@ -30,7 +35,7 @@ int main(int argc, char **argv, char **env)
       NSDictionary *refs;
       TestWebServer *server;
       NSURLConnectionTest *testCase;
-      BOOL debug = NO;
+      BOOL debug = GSDebugSet(@"dflt");
 
       testClass = [bundle principalClass]; // NSURLConnectionTest
 
@@ -40,12 +45,12 @@ int main(int argc, char **argv, char **env)
         nil];
       // create a shared TestWebServer instance for performance
       server = [[[testClass testWebServerClass] alloc]
-        initWithAddress: @"127.0.0.1"
-                   port: @"1234"
+        initWithAddress: @"localhost"
+                   port: @"1233"
                    mode: NO
                   extra: d];
       [server setDebug: debug];
-      [server start: d]; // 127.0.0.1:1234 HTTPS
+      [server start: d]; // localhost:1233 HTTPS
 
       /*
        *  Simple GET via HTTPS with empty response's body and
@@ -59,7 +64,7 @@ int main(int argc, char **argv, char **env)
         nil];
       [testCase setUpTest: d];
       [testCase startTest: d];
-      PASS([testCase isSuccess], "HTTPS... GET https://127.0.0.1:1234/");
+      PASS([testCase isSuccess], "HTTPS... GET https://localhost:1233/");
       [testCase tearDownTest: d];
       DESTROY(testCase);
 
@@ -78,7 +83,7 @@ int main(int argc, char **argv, char **env)
         nil];
       [testCase setUpTest: d];
       [testCase startTest: d];
-      PASS([testCase isSuccess], "HTTPS... response 400 .... GET https://localhost:1234/400");
+      PASS([testCase isSuccess], "HTTPS... response 400 .... GET https://localhost:1233/400");
       [testCase tearDownTest: d];
       DESTROY(testCase);
 
@@ -99,7 +104,7 @@ int main(int argc, char **argv, char **env)
         nil];
       [testCase setUpTest: d];
       [testCase startTest: d];
-      PASS([testCase isSuccess], "HTTPS... payload... response 400 .... POST https://localhost:1234/400");
+      PASS([testCase isSuccess], "HTTPS... payload... response 400 .... POST https://localhost:1233/400");
       [testCase tearDownTest: d];
       DESTROY(testCase);
 
@@ -121,11 +126,12 @@ int main(int argc, char **argv, char **env)
         @"/301", @"Path",      // request the handler responding with a redirect
         @"/", @"RedirectPath", // the URL's path of redirecting
         @"YES", @"IsAuxilliary", // start an auxilliary TestWebServer instance
+        @"1236", @"AuxPort",   // the port of the auxilliary instance			  
         refs, @"ReferenceFlags", // the expected reference set difference
         nil];      
       [testCase setUpTest: d];
       [testCase startTest: d];
-      PASS([testCase isSuccess], "HTTPS... redirecting... GET https://localhost:1234/301");
+      PASS([testCase isSuccess], "HTTPS... redirecting... GET https://localhost:1233/301");
       [testCase tearDownTest: d];
       DESTROY(testCase);
 
@@ -141,6 +147,10 @@ int main(int argc, char **argv, char **env)
     }
 
   DESTROY(arp);
+
+#if !defined(HAVE_GNUTLS)
+testHopeful = NO;
+#endif
 
   return 0;
 }

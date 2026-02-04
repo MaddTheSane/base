@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    */
 
@@ -53,12 +52,6 @@
 @end
 @implementation NilMarker
 @end
-
-/**
- * An unarchiving error has occurred.
- */
-NSString * const NSInvalidUnarchiveOperationException
-  = @"NSInvalidUnarchiveOperationException";
 
 static NSMapTable	*globalClassMap = 0;
 
@@ -192,6 +185,7 @@ static NSMapTable	*globalClassMap = 0;
       NSArray		*classes;
       Class		c;
       id		r;
+      id		s;
       NSDictionary	*savedKeyMap;
       unsigned		savedCursor;
 
@@ -237,37 +231,56 @@ static NSMapTable	*globalClassMap = 0;
       o = [c allocWithZone: _zone];	// Create instance.
       // Store object in map so that decoding of it can be self referential.
       GSIArraySetItemAtIndex(_objMap, (GSIArrayItem)o, index);
+
+      s = RETAIN(o);
       r = [o initWithCoder: self];
-      if (r != o)
+      if (s != r)
 	{
 	  [_delegate unarchiver: self
-	      willReplaceObject: o
+	      willReplaceObject: s
 		     withObject: r];
-	  o = r;
-	  GSIArraySetItemAtIndex(_objMap, (GSIArrayItem)o, index);
+	  GSIArraySetItemAtIndex(_objMap, (GSIArrayItem)r, index);
 	}
+      o = r;
+      DESTROY(s);
+
+      s = RETAIN(o);
       r = [o awakeAfterUsingCoder: self];
-      if (r != o)
+      if (s != r)
 	{
 	  [_delegate unarchiver: self
-	      willReplaceObject: o
+	      willReplaceObject: s
 		     withObject: r];
-	  o = r;
-	  GSIArraySetItemAtIndex(_objMap, (GSIArrayItem)o, index);
+	  GSIArraySetItemAtIndex(_objMap, (GSIArrayItem)r, index);
 	}
+      o = r;
+      DESTROY(s);
 
       if (_delegate != nil)
 	{
+	  s = RETAIN(o);
 	  r = [_delegate unarchiver: self didDecodeObject: o];
-	  if (r != o)
+	  /* Apple documentation says that the delegate may return nil to
+	   * indicate that the decoded objects should not be changed.
+	   */
+	  if (nil == r)
 	    {
-	      [_delegate unarchiver: self
-		  willReplaceObject: o
-			 withObject: r];
+	      o = s;
+	    }
+	  else
+	    {
+	      if (s != r)
+		{
+		  [_delegate unarchiver: self
+		      willReplaceObject: s
+			     withObject: r];
+		  GSIArraySetItemAtIndex(_objMap, (GSIArrayItem)r, index);
+		}
 	      o = r;
-	      GSIArraySetItemAtIndex(_objMap, (GSIArrayItem)o, index);
+	      DESTROY(s);
 	    }
 	}
+
       RELEASE(o);	// Retained in array
       obj = o;
       _keyMap = savedKeyMap;
@@ -279,6 +292,9 @@ static NSMapTable	*globalClassMap = 0;
       GSIArraySetItemAtIndex(_objMap, (GSIArrayItem)obj, index);
     }
 
+#ifdef  __clang_analyzer__
+  [[clang::suppress]]
+#endif
   if ((obj == nil) || [@"$null" isEqual: obj])
     {
       // Record NilMarker for decoded object.
@@ -301,8 +317,6 @@ static NSMapTable	*globalClassMap = 0;
 
 + (void) initialize
 {
-  GSMakeWeakPointer(self, "delegate");
-
   if (globalClassMap == 0)
     {
       globalClassMap =
@@ -360,9 +374,74 @@ static NSMapTable	*globalClassMap = 0;
   return o;
 }
 
++ (id) unarchivedObjectOfClass: (Class)cls
+                      fromData: (NSData*)data
+                         error: (NSError**)error
+{
+  return [self unarchivedObjectOfClasses: [NSSet setWithObject:cls]
+                                fromData: data
+                                   error: error];
+}
+
++ (id) unarchivedObjectOfClasses: (GS_GENERIC_CLASS(NSSet,Class)*)classes
+                        fromData: (NSData*)data
+                           error: (NSError**)error
+{
+  /* FIXME: implement proper secure coding support */
+  return [self unarchiveObjectWithData: data];
+}
+
++ (NSArray*) unarchivedArrayOfObjectsOfClass: (Class)cls
+                                    fromData: (NSData*)data
+                                       error: (NSError**)error
+{
+  return [self unarchivedArrayOfObjectsOfClasses: [NSSet setWithObject:cls]
+                                        fromData: data
+                                           error: error];
+}
+
++ (NSArray*) unarchivedArrayOfObjectsOfClasses: (GS_GENERIC_CLASS(NSSet,Class)*)classes
+                                      fromData: (NSData*)data
+                                         error: (NSError**)error
+{
+  /* FIXME: implement proper secure coding support */
+  return [self unarchiveObjectWithData: data];
+}
+
++ (NSDictionary*) unarchivedDictionaryWithKeysOfClass: (Class)keyCls
+                                       objectsOfClass: (Class)valueCls
+                                             fromData: (NSData*)data
+                                                error: (NSError**)error
+{
+  return [self unarchivedDictionaryWithKeysOfClasses: [NSSet setWithObject:keyCls]
+                                    objectsOfClasses: [NSSet setWithObject:valueCls]
+                                            fromData: data
+                                               error: error];
+}
+
++ (NSDictionary*) unarchivedDictionaryWithKeysOfClasses: (GS_GENERIC_CLASS(NSSet,Class)*)keyClasses
+                                       objectsOfClasses: (GS_GENERIC_CLASS(NSSet,Class)*)valueClasses
+                                               fromData: (NSData*)data
+                                                  error: (NSError**)error
+{
+  /* FIXME: implement proper secure coding support */
+  return [self unarchiveObjectWithData: data];
+}
+
+
 - (BOOL) allowsKeyedCoding
 {
   return YES;
+}
+
+- (BOOL)requiresSecureCoding
+{
+  return _requiresSecureCoding;
+}
+
+- (void)setRequiresSecureCoding: (BOOL)secure
+{
+  _requiresSecureCoding = secure;
 }
 
 - (Class) classForClassName: (NSString*)aString
@@ -423,7 +502,7 @@ static NSMapTable	*globalClassMap = 0;
 		  format: @"[%@ +%@]: count mismatch for %@",
 	NSStringFromClass([self class]), NSStringFromSelector(_cmd), o];
     }
-  NSGetSizeAndAlignment(type, 0, &size);
+  NSGetSizeAndAlignment(type, &size, NULL);
   memcpy(buf, [o bytes], expected * size);
 }
 
@@ -636,6 +715,11 @@ static NSMapTable	*globalClassMap = 0;
   return nil;
 }
 
+- (id) decodeObjectOfClasses: (NSSet *)classes forKey: (NSString *)key
+{
+  return [self decodeObjectForKey: key];
+}
+
 - (NSPoint) decodePoint
 {
   NSPoint	p;
@@ -743,7 +827,7 @@ static NSMapTable	*globalClassMap = 0;
 	*(double*)address = [o doubleValue];
 	return;
 
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       case _C_BOOL:
 	*(_Bool*)address = (_Bool)[o unsignedCharValue];
 	return;
@@ -830,7 +914,7 @@ static NSMapTable	*globalClassMap = 0;
 	  unsigned	count;
 	  unsigned	i;
 
-	  IF_NO_GC(RETAIN(_archive);)
+	  IF_NO_ARC(RETAIN(_archive);)
 	  _archiverClass = [_archive objectForKey: @"$archiver"];
 	  _version = [_archive objectForKey: @"$version"];
 
@@ -844,7 +928,7 @@ static NSMapTable	*globalClassMap = 0;
 	  // Add markers for unencoded objects.
 	  for (i = 1; i < count; i++)
 	    {
-	      GSIArrayAddItem(_objMap, (GSIArrayItem)nil);
+	      GSIArrayAddItem(_objMap, (GSIArrayItem)(id)nil);
 	    }
 	}
     }

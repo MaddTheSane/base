@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
   AutogsdocSource: NSPort.m
   AutogsdocSource: NSSocketPort.m
@@ -33,7 +32,7 @@
 #import	<Foundation/NSObject.h>
 #import	<Foundation/NSMapTable.h>
 
-#if	defined(__MINGW__)
+#if	defined(_WIN32)
 #include	<winsock2.h>
 #include	<wininet.h>
 #else
@@ -72,6 +71,7 @@ extern "C" {
  * <p>This class also implements the functionality of the
  * <code><em>NSMachPort</em></code> class on OS X.</p>
  */
+GS_EXPORT_CLASS
 @interface NSPort : NSObject <NSCoding, NSCopying>
 {
 #if	GS_EXPOSE(NSPort)
@@ -197,6 +197,7 @@ typedef SOCKET NSSocketNativeHandle;
  *
  *  <p>Note that this class is incompatible with the latest OS X version.</p>
  */
+GS_EXPORT_CLASS
 @interface NSSocketPort : NSPort
 {
 #if	GS_EXPOSE(NSSocketPort)
@@ -206,7 +207,9 @@ typedef SOCKET NSSocketNativeHandle;
   uint16_t		portNum;	/* TCP port in host byte order.	*/
   SOCKET		listener;
   NSMapTable		*handles;	/* Handles indexed by socket.	*/
-#if	defined(__MINGW__)
+  NSDictionary		*tlscopts;	/* TLS client options */
+  NSDictionary		*tlssopts;	/* TLS server options */
+#if	defined(_WIN32)
   WSAEVENT              eventListener;
   NSMapTable            *events;
 #endif
@@ -271,6 +274,34 @@ typedef SOCKET NSSocketNativeHandle;
  *  Returns port number of underlying socket.
  */
 - (uint16_t) portNumber;
+
+#if	!NO_GNUSTEP
+/** Sets the default options for use of TLS by socket ports.<br />
+ * Setting nil (the default) means that TLS is not used.<br />
+ * Setting an empty dictionary means that TLS is used with normal options.
+ */
++ (void) setClientOptionsForTLS: (NSDictionary*)opts;
+
+/** Sets the default options for use of TLS by socket ports.<br />
+ * Setting nil (the default) means that TLS is not used.<br />
+ * Setting an empty dictionary means that TLS is used with normal options.
+ */
++ (void) setServerOptionsForTLS: (NSDictionary*)opts;
+
+/** Overrides the default options for use of TLS by the receiver.<br />
+ * Setting nil (the default) means that TLS is not used.<br />
+ * Setting an empty dictionary means that TLS is used with normal options.<br />
+ * This method has no effect on network sessions which are already established.
+ */
+- (void) setClientOptionsForTLS: (NSDictionary*)opts;
+
+/** Overrides the default options for use of TLS by the receiver.<br />
+ * Setting nil (the default) means that TLS is not used.<br />
+ * Setting an empty dictionary means that TLS is used with normal options.<br />
+ * This method has no effect on network sessions which are already established.
+ */
+- (void) setServerOptionsForTLS: (NSDictionary*)opts;
+#endif
 @end
 
 
@@ -279,6 +310,7 @@ typedef SOCKET NSSocketNativeHandle;
  *  which can be used for interthread/interprocess communications
  *  on the same host, but not between different hosts.
  */
+GS_EXPORT_CLASS
 @interface NSMessagePort : NSPort
 {
 #if	GS_EXPOSE(NSMessagePort)

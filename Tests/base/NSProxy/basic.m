@@ -1,6 +1,9 @@
 #import "ObjectTesting.h"
 #import <Foundation/NSAutoreleasePool.h>
 #import <Foundation/NSProxy.h>
+#if __has_include(<objc/capabilities.h>)
+#include <objc/capabilities.h>
+#endif
 
 int main()
 {
@@ -13,7 +16,7 @@ int main()
 
   theClass = [NSProxy class];
   PASS(theClass != Nil, "%s exists",prefix); 
-  obj0 = [NSProxy alloc];
+  obj0 = AUTORELEASE([NSProxy alloc]);
   PASS(obj0 != nil, "%s has working alloc",prefix);
   PASS_EXCEPTION([obj0 isKindOfClass:theClass];, NSInvalidArgumentException,
   		 "NSProxy -isKindOfClass raises exception");
@@ -22,10 +25,12 @@ int main()
                  NSInvalidArgumentException,
 		 "NSProxy -isKindOfClass raises exception");
   
-  obj1 = [NSProxy allocWithZone:testZone];
+  obj1 = AUTORELEASE([NSProxy allocWithZone:testZone]);
   PASS(obj1 != nil, "%s has working allocWithZone:",prefix);
+#ifndef OBJC_CAP_ARC
   PASS(NSZoneFromPointer(obj1) == testZone, "%s uses zone for alloc",prefix);
   PASS([obj1 zone] == testZone, "%s -zone works",prefix);
+#endif
   
   PASS([obj1 hash] != 0, "%s has working -hash",prefix);
   PASS([obj1 isEqual:obj1] == YES, "%s has working -isEqual:",prefix);

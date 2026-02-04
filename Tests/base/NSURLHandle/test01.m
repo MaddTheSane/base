@@ -1,6 +1,7 @@
-#include <Foundation/Foundation.h>
-#include "Testing.h"
-#include "ObjectTesting.h"
+#import <Foundation/Foundation.h>
+#import "Testing.h"
+#import "ObjectTesting.h"
+#import "../NSURL/Helpers/Launch.h"
 
 /* This test collection examines the responses when a variety of HTTP
 * status codes are returned by the server. Relies on the
@@ -22,6 +23,22 @@ int main(int argc, char **argv)
   NSData *resp;
   NSData *rxd;
   
+  /* The following test cases depend on the GSInetServerStream
+   * class which is completely broken on Windows.
+   *
+   * See: https://github.com/gnustep/libs-base/issues/266
+   *
+   * We will mark the test cases as hopeful on Windows.
+   */
+  START_SET("Keepalive")
+
+#if defined(_WIN64) && defined(_MSC_VER)
+  SKIP("Known to crash on 64-bit Windows with Clang/MSVC.")
+#elif defined(_WIN32)
+  NSLog(@"Marking local web server tests as hopeful because GSInetServerStream is broken on Windows");
+  testHopeful = YES;
+#endif
+  
   url = [NSURL URLWithString: @"http://localhost:1234/200"];
   cls = [NSURLHandle URLHandleClassForURL: url];
   resp = [NSData dataWithBytes: "Hello\r\n" length: 7];
@@ -31,12 +48,12 @@ int main(int argc, char **argv)
   helpers = [helpers stringByAppendingPathComponent: @"obj"];
   statusServer = [helpers stringByAppendingPathComponent: @"StatusServer"];
   
-  t = [NSTask launchedTaskWithLaunchPath: statusServer arguments: nil];
-  
+  t = [NSTask launchedHelperWithLaunchPath: statusServer
+				 arguments: nil
+				   timeout: 10.0];
+
   if (t != nil)
     {
-      // pause, so that the server is set up
-      [NSThread sleepUntilDate: [NSDate dateWithTimeIntervalSinceNow: 0.5]];
       // try some different requests
       handle = [[[cls alloc] initWithURL: url cached: NO] autorelease];
       rxd = [handle loadInForeground];
@@ -59,9 +76,15 @@ int main(int argc, char **argv)
       [t terminate];
       [t waitUntilExit];
     }
+
+  END_SET("Keepalive")
   
   [arp release]; arp = nil ;
-  
+
+#if defined(_WIN32)
+  testHopeful = NO;
+#endif
+
   return 0;
 }
 

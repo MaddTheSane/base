@@ -18,8 +18,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
 */
 #import "common.h"
@@ -332,7 +331,7 @@ randombytes(uint8_t *buf, NSUInteger len)
             }
           stream.next_out = dst + stream.total_out;
           stream.avail_out = (unsigned)(capacity - stream.total_out);
-          deflate(&stream, Z_FINISH);
+          (void)deflate(&stream, Z_FINISH);
         }
       deflateEnd(&stream);
       result = [NSMutableData alloc];
@@ -425,7 +424,7 @@ randombytes(uint8_t *buf, NSUInteger len)
   if (self == nil)
     {
       [NSException raise: NSInvalidArgumentException
-		  format: @"%@: invalid hexadeciaml string data",
+		  format: @"%@: invalid hexadecimal string data",
 	NSStringFromSelector(_cmd)];
     }
   return self;
@@ -865,7 +864,7 @@ static void MD5Transform (uint32_t buf[4], uint32_t const in[16])
 	      d = [NSData dataWithBytes: &bytes[off] length: end - off];
 	      name = [[NSString alloc] initWithData: d
 					   encoding: NSASCIIStringEncoding];
-	      IF_NO_GC(AUTORELEASE(name);)
+	      IF_NO_ARC(AUTORELEASE(name);)
 	      if (namePtr != 0)
 		{
 		  *namePtr = name;

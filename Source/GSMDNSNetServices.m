@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #import "common.h"
@@ -32,9 +31,6 @@
 #import "Foundation/NSRunLoop.h"
 #import "Foundation/NSTimer.h"
 #import "Foundation/NSValue.h"
-#if defined(_REENTRANT)
-#import "GNUstepBase/GSLock.h"
-#endif
 
 #import <dns_sd.h>		// Apple's DNS Service Discovery
 
@@ -74,8 +70,8 @@
         } while (0);
 
 #if defined(_REENTRANT)
-#  define THE_LOCK		GSLazyRecursiveLock	*lock
-#  define CREATELOCK(x)		x->lock = [GSLazyRecursiveLock new]
+#  define THE_LOCK		NSRecursiveLock	*lock
+#  define CREATELOCK(x)		x->lock = [NSRecursiveLock new]
 #  define LOCK(x)		[x->lock lock]
 #  define UNLOCK(x)		[x->lock unlock]
 #  define DESTROYLOCK(x)	DESTROY(x->lock)

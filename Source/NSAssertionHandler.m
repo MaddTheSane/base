@@ -1,7 +1,7 @@
 /** NSAssertionHandler - Object encapsulation of assertions
    Copyright (C) 1995, 1997 Free Software Foundation, Inc.
 
-   Written by:  Adam Fedor <fedor@boulder.colorado.edu>
+   Written by:  Adam Fedor <fedor@gnu.org>
    Date: Apr 1995
 
    This file is part of the GNUstep Base Library.
@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSAssertionHandler class reference</title>
    $Date$ $Revision$
@@ -30,30 +29,6 @@
 #import "Foundation/NSDictionary.h"
 #import "Foundation/NSThread.h"
 
-/**
- * <p>NSAssertionHandler objects are used to raise exceptions on behalf of
- * macros implementing assertions.<br />
- * Each thread has its own assertion handler instance.<br />
- * </p>
- * <p>The macros work together with the assertion handler object to
- * produce meaningful exception messages containing the name of the
- * source file, the position within that file, and the name of the
- * ObjC method or C function in which the assertion failed.
- * </p>
- * <p>An NSAssertionHandler instance is created on demand for each thread
- * and is stored in the thread's dictionary under the key NSAssertionHandler.
- * A custom NSAssertionHandler can be used by adding it to the thread
- * dictionary under this key.
- * </p>
- * The assertion macros are:
- * NSAssert(), NSCAssert(),
- * NSAssert1(), NSCAssert1(),
- * NSAssert2(), NSCAssert2(),
- * NSAssert3(), NSCAssert3(),
- * NSAssert4(), NSCAssert4(),
- * NSAssert5(), NSCAssert5(),
- * NSParameterAssert(), NSCParameterAssert()
- */
 @implementation NSAssertionHandler
 
 /* Key for thread dictionary. */

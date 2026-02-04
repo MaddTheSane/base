@@ -18,8 +18,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
 */
 #import "common.h"
@@ -31,13 +30,17 @@
 /* Test for ASCII whitespace which is safe for unicode characters */
 #define	space(C)	((C) > 127 ? NO : isspace(C))
 
-/* This private cass is used for the -immutableProxy method in the category
+/* This private class is used for the -immutableProxy method in the category
  * on NSMutableString.
  * It is needed for [NSAttributedString-string] and [NSTextStorage-string]
+ *
+ * NB. The _parent instance variable is private but must *not* be changed
+ * because it is actually used by GSMutableString code to permit some
+ * optimisation (see GSString.m).
  */
 @interface	GSImmutableString : NSString
 {
-  NSString	*_parent;
+  NSString	*_parent;	// Do not change this ivar declaration
 }
 - (id) initWithString: (NSString*)parent;
 @end
@@ -168,6 +171,11 @@
   return [_parent isEqualToString: anObject];
 }
 
+- (BOOL) isProxy
+{
+  return YES;
+}
+
 - (NSUInteger) length
 {
   return [_parent length];
@@ -270,7 +278,6 @@
 	    withString: (NSString*)by
 {
   NSRange       range;
-  NSUInteger	count = 0;
   NSUInteger	newEnd;
   NSRange	searchRange;
 
@@ -294,7 +301,6 @@
 
       do
         {
-          count++;
           [self replaceCharactersInRange: range
                               withString: by];
 

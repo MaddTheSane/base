@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSPredicate_h_GNUSTEP_BASE_INCLUDE
@@ -42,6 +41,7 @@ extern "C" {
 DEFINE_BLOCK_TYPE(GSBlockPredicateBlock, BOOL, id, GS_GENERIC_CLASS(NSDictionary,NSString*,id)*);
 #endif
 
+GS_EXPORT_CLASS
 @interface NSPredicate : NSObject <NSCoding, NSCopying>
 
 + (NSPredicate *) predicateWithFormat: (NSString *)format, ...;
@@ -64,11 +64,11 @@ DEFINE_BLOCK_TYPE(GSBlockPredicateBlock, BOOL, id, GS_GENERIC_CLASS(NSDictionary
 #endif
 @end
 
-@interface NSArray (NSPredicate)
+@interface GS_GENERIC_CLASS(NSArray, ElementT) (NSPredicate)
 /** Evaluate each object in the array using the specified predicate and
  * return an array containing all the objects which evaluate to YES.
  */
-- (NSArray *) filteredArrayUsingPredicate: (NSPredicate *)predicate;
+- (GS_GENERIC_CLASS(NSArray, ElementT) *) filteredArrayUsingPredicate: (NSPredicate *)predicate;
 @end
 
 @interface NSMutableArray (NSPredicate)
@@ -78,11 +78,11 @@ DEFINE_BLOCK_TYPE(GSBlockPredicateBlock, BOOL, id, GS_GENERIC_CLASS(NSDictionary
 - (void) filterUsingPredicate: (NSPredicate *)predicate;
 @end
 
-@interface NSSet (NSPredicate)
+@interface GS_GENERIC_CLASS(NSSet, ElementT) (NSPredicate)
 /** Evaluate each object in the set using the specified predicate and
  * return an set containing all the objects which evaluate to YES.
  */
-- (NSSet *) filteredSetUsingPredicate: (NSPredicate *)predicate;
+- (GS_GENERIC_CLASS(NSSet, ElementT) *) filteredSetUsingPredicate: (NSPredicate *)predicate;
 @end
 
 @interface NSMutableSet (NSPredicate)

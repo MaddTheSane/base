@@ -1,11 +1,32 @@
-/**
- * NSJSONSerialization.m.  This file provides an implementation of the JSON
- * reading and writing APIs introduced with OS X 10.7.  
- *
- * The parser is implemented as a simple recursive parser.  The JSON is
- * unambiguous, so this requires no read-ahead or backtracking.  The source of
- * data for the parse can be either a static JSON string or some JSON data.
- */
+/** Implementation of class NSJSONSerialization
+   Copyright (C) 2011-2021 Free Software Foundation, Inc.
+
+   NSJSONSerialization.m.  This file provides an implementation of the JSON
+   reading and writing APIs introduced with OS X 10.7.
+
+   The parser is implemented as a simple recursive parser.  The JSON is
+   unambiguous, so this requires no read-ahead or backtracking.  The source of
+   data for the parse can be either a static JSON string or some JSON data.
+
+   By: David Chisnall <github@theravensnest.org>
+   Date: Jul 2011
+
+   This file is part of the GNUstep Library.
+
+   This library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2 of the License, or (at your option) any later version.
+
+   This library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with this library; if not, write to the Free
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
+*/
 
 #import "common.h"
 #import "Foundation/NSArray.h"
@@ -91,8 +112,8 @@ typedef struct ParserStateStruct
 static inline void
 updateStringBuffer(ParserState* state)
 {
-  NSRange r = {state->sourceIndex, BUFFER_SIZE};
-  NSUInteger end = [state->source length];
+  NSRange	r = {state->sourceIndex, BUFFER_SIZE};
+  NSUInteger	end = [state->source length];
 
   if (end - state->sourceIndex < BUFFER_SIZE)
     {
@@ -255,6 +276,7 @@ updateStreamBuffer(ParserState* state)
   // Just use the string buffer fetch function to actually get the data
   state->source = str;
   updateStringBuffer(state);
+  RELEASE(str);
   state->source = stream;
 }
 
@@ -318,7 +340,7 @@ parseError(ParserState *state)
   state->error = [NSError errorWithDomain: NSCocoaErrorDomain
                                      code: 0
                                  userInfo: userInfo];
-  [userInfo release];
+  RELEASE(userInfo);
 }
 
 
@@ -391,20 +413,36 @@ parseString(ParserState *state)
       buffer[bufferIndex++] = next;
       if (bufferIndex >= BUFFER_SIZE)
         {
-          NSMutableString *str;
+          NSMutableString 	*str;
+	  int			len = bufferIndex;
 
-          str = [[NSMutableString alloc] initWithCharacters: buffer
-						     length: bufferIndex];
 	  bufferIndex = 0;
-          if (nil == val)
-            {
-              val = str;
-            }
-          else
-            {
-              [val appendString: str];
-              [str release];
-            }
+          if (next < 0xd800 || next > 0xdbff)
+	    {
+	      str = [[NSMutableString alloc] initWithCharacters: buffer
+							 length: len];
+	    }
+	  else
+	    {
+	      /* The most recent unicode character is the first half of a
+	       * surrogate pair, so we need to defer it to the next chunk  
+	       * to make sure the whole unicode character is in the same
+	       * string (otherwise we would have an invalid string).
+	       */
+	      len--;
+	      str = [[NSMutableString alloc] initWithCharacters: buffer
+							 length: len];
+	      buffer[bufferIndex++] = next;
+	    }
+	  if (nil == val)
+	    {
+	      val = str;
+	    }
+	  else
+	    {
+	      [val appendString: str];
+	      RELEASE(str);
+	    }
         }
       next = consumeChar(state);
     }
@@ -436,15 +474,18 @@ parseString(ParserState *state)
     {
       val = [NSMutableString new];
     }
+  // Consume the trailing "
+  consumeChar(state);
   if (!state->mutableStrings)
     {
       if (NO == [val makeImmutable])
         {
-          val = [val copy];
+	  NSMutableString	*m = val;
+
+          val = [m copy];
+	  RELEASE(m);
         }
     }
-  // Consume the trailing "
-  consumeChar(state);
   return val;
 }
 
@@ -468,11 +509,16 @@ parseNumber(ParserState *state)
     {\
       bufferSize *= 2;\
       if (number == numberBuffer)\
-	number = malloc(bufferSize);\
+        {\
+          number = malloc(bufferSize);\
+          memcpy(number, numberBuffer, sizeof(numberBuffer));\
+        }\
       else\
-	number = realloc(number, bufferSize);\
+        {\
+          number = realloc(number, bufferSize);\
+        }\
     }\
-    number[parsedSize++] = (char)x; } while (0)
+  number[parsedSize++] = (char)x; } while (0)
   // JSON numbers must start with a - or a digit
   if (!(c == '-' || isdigit(c)))
     {
@@ -507,6 +553,8 @@ parseNumber(ParserState *state)
             {
               free(number);
             }
+	  parseError(state);
+	  return nil;
         }
       BUFFER(c);
       while (isdigit(c = consumeChar(state)))
@@ -566,7 +614,10 @@ parseArray(ParserState *state)
     {
       if (NO == [array makeImmutable])
         {
+	  id	a = array;
+
           array = [array copy];
+	  RELEASE(a);
         }
     }
   return array;
@@ -630,11 +681,13 @@ parseObject(ParserState *state)
     {
       if (NO == [dict makeImmutable])
         {
+	  id	d = dict;
+
           dict = [dict copy];
+	  RELEASE(d);
         }
     }
   return dict;
-
 }
 
 /**
@@ -647,9 +700,10 @@ parseValue(ParserState *state)
 
   if (state->error) { return nil; };
   c = consumeSpace(state);
-  //   2.1: A JSON value MUST be an object, array, number, or string, or one of the
-  //   following three literal names:
-  //            false null true
+  /*   2.1: A JSON value MUST be an object, array, number, or string,
+   *   or one of the following three literal names:
+   *   false null true
+   */
   switch (c)
     {
       case (unichar)'"':
@@ -786,51 +840,90 @@ static Class NSStringClass;
 static NSMutableCharacterSet *escapeSet;
 
 static inline void
-writeTabs(NSMutableString *output, NSInteger tabs)
+writeTabs(NSMutableString *output, NSInteger tabs, NSJSONWritingOptions opt)
 {
-  NSInteger i;
-
-  for (i = 0 ; i < tabs ; i++)
+  if (opt & NSJSONWritingPrettyPrinted)
     {
-      [output appendString: @"\t"];
+      NSInteger	i;
+
+      switch (opt & GSJSONWritingIndentMask)
+	{
+  	  case GSJSONWritingIndentOneSpace:
+	    for (i = 0 ; i < tabs ; i++)
+	      {
+		[output appendString: @" "];
+	      }
+	    break;
+  	  case GSJSONWritingIndentTwoSpaces:
+	    for (i = 0 ; i < tabs ; i++)
+	      {
+		[output appendString: @"  "];
+	      }
+	    break;
+  	  case GSJSONWritingIndentFourSpaces:
+	    for (i = 0 ; i < tabs ; i++)
+	      {
+		[output appendString: @"    "];
+	      }
+	    break;
+  	  case GSJSONWritingIndentUsingTab:
+	    for (i = 0 ; i < tabs ; i++)
+	      {
+		[output appendString: @"\t"];
+	      }
+	    break;
+	}
     }
 }
 
 static inline void
-writeNewline(NSMutableString *output, NSInteger tabs)
+writeNewline(NSMutableString *output, NSInteger tabs, NSJSONWritingOptions opt)
 {
-  if (tabs >= 0)
+  if (opt & NSJSONWritingPrettyPrinted)
     {
-      [output appendString: @"\n"];
+      if (tabs >= 0)
+	{
+	  [output appendString: @"\n"];
+	}
     }
 }
 
 static BOOL
-writeObject(id obj, NSMutableString *output, NSInteger tabs)
+writeObject(id obj, NSMutableString *output, NSInteger tabs, NSJSONWritingOptions opt)
 {
   if ([obj isKindOfClass: NSArrayClass])
     {
       BOOL writeComma = NO;
       [output appendString: @"["];
+      tabs++;
       FOR_IN(id, o, obj)
         if (writeComma)
           {
             [output appendString: @","];
           }
         writeComma = YES;
-        writeNewline(output, tabs);
-        writeTabs(output, tabs);
-        writeObject(o, output, tabs + 1);
+        writeNewline(output, tabs, opt);
+        writeTabs(output, tabs, opt);
+        writeObject(o, output, tabs, opt);
       END_FOR_IN(obj)
-      writeNewline(output, tabs);
-      writeTabs(output, tabs);
+      tabs--;
+      writeNewline(output, tabs, opt);
+      writeTabs(output, tabs, opt);
       [output appendString: @"]"];
     }
   else if ([obj isKindOfClass: NSDictionaryClass])
     {
       BOOL writeComma = NO;
+      NSArray *keys = [obj allKeys];
       [output appendString: @"{"];
-      FOR_IN(id, o, obj)
+
+      if ((opt & NSJSONWritingSortedKeys) == NSJSONWritingSortedKeys)
+        {
+          keys = [keys sortedArrayUsingSelector: @selector(compare:)];
+        }
+
+      tabs++;
+      FOR_IN(id, o, keys)
         // Keys in dictionaries must be strings
         if (![o isKindOfClass: NSStringClass]) { return NO; }
         if (writeComma)
@@ -838,14 +931,18 @@ writeObject(id obj, NSMutableString *output, NSInteger tabs)
             [output appendString: @","];
           }
         writeComma = YES;
-        writeNewline(output, tabs);
-        writeTabs(output, tabs);
-        writeObject(o, output, tabs + 1);
-        [output appendString: @": "];
-        writeObject([obj objectForKey: o], output, tabs + 1);
-      END_FOR_IN(obj)
-      writeNewline(output, tabs);
-      writeTabs(output, tabs);
+        writeNewline(output, tabs, opt);
+        writeTabs(output, tabs, opt);
+        writeObject(o, output, tabs, opt);
+        [output appendString: @":"];
+	if (opt & NSJSONWritingPrettyPrinted)
+	  [output appendString: @" "];
+        writeObject([obj objectForKey: o], output, tabs, opt);
+      END_FOR_IN(keys)
+
+      tabs--;
+      writeNewline(output, tabs, opt);
+      writeTabs(output, tabs, opt);
       [output appendString: @"}"];
     }
   else if ([obj isKindOfClass: NSStringClass])
@@ -877,7 +974,7 @@ writeObject(id obj, NSMutableString *output, NSInteger tabs)
                 {
                   size += 2;
                 }
-              else if (c < 0x20)
+              else if (c < 0x20 || c > 0x7f)
                 {
                   size += 6;
                 }
@@ -908,7 +1005,7 @@ writeObject(id obj, NSMutableString *output, NSInteger tabs)
                       default: to[j++] = '"'; break;
                     }
                 }
-              else if (c < 0x20)
+              else if (c < 0x20 || c > 0x7f)
                 {
                   char	buf[5];
 
@@ -945,12 +1042,17 @@ writeObject(id obj, NSMutableString *output, NSInteger tabs)
     {
       const char        *t = [obj objCType];
 
-      if (strchr("cCsSiIlLqQ", *t) != 0)
+      if (strchr("csilq", *t) != 0)
         {
           long long     i = [(NSNumber*)obj longLongValue];
 
           [output appendFormat: @"%lld", i];
         }
+      else if (strchr("CSILQ", *t) != 0)
+	{
+	  unsigned long long u = [(NSNumber *)obj unsignedLongLongValue];
+	  [output appendFormat: @"%llu", u];
+	}
       else
         {
           [output appendFormat: @"%.17g", [(NSNumber*)obj doubleValue]];
@@ -1003,7 +1105,7 @@ writeObject(id obj, NSMutableString *output, NSInteger tabs)
 
   tabs = ((opt & NSJSONWritingPrettyPrinted) == NSJSONWritingPrettyPrinted) ?
     0 : NSIntegerMin;
-  if (writeObject(obj, str, tabs))
+  if (writeObject(obj, str, tabs, opt))
     {
       data = [str dataUsingEncoding: NSUTF8StringEncoding];
       if (NULL != error)
@@ -1021,6 +1123,7 @@ writeObject(id obj, NSMutableString *output, NSInteger tabs)
 	  *error = [NSError errorWithDomain: NSCocoaErrorDomain
 				       code: 0
 				   userInfo: userInfo];
+	  RELEASE(userInfo);
 	}
     }
   [str release];
@@ -1029,7 +1132,7 @@ writeObject(id obj, NSMutableString *output, NSInteger tabs)
 
 + (BOOL) isValidJSONObject: (id)obj
 {
-  return writeObject(obj, nil, NSIntegerMin);
+  return writeObject(obj, nil, NSIntegerMin, 0);
 }
 
 + (id) JSONObjectWithData: (NSData *)data
@@ -1079,6 +1182,7 @@ writeObject(id obj, NSMutableString *output, NSInteger tabs)
                                               encoding: p.enc
                                           freeWhenDone: NO];
       updateStringBuffer(&p);
+      RELEASE(p.source);
       /* Negative source index because we are before the
        * current point in the buffer
        */

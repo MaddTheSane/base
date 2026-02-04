@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSProxy class reference</title>
    $Date$ $Revision$
@@ -31,8 +30,10 @@
 #import "Foundation/NSMethodSignature.h"
 #import "Foundation/NSAutoreleasePool.h"
 #import "Foundation/NSException.h"
+#import "Foundation/NSHashTable.h"
 #import "Foundation/NSDistantObject.h"
 #import "Foundation/NSPortCoder.h"
+#include <objc/message.h>
 
 // Get objc_delete_weak_refs(), if it is present in the runtime.
 #ifdef __GNUSTEP_RUNTIME__
@@ -270,7 +271,7 @@
  */
 - (NSString*) description
 {
-  return [NSString stringWithFormat: @"<%s %lx>",
+  return [NSString stringWithFormat: @"<%s %zx>",
 	GSClassNameFromObject(self), (size_t)self];
 }
 
@@ -547,6 +548,41 @@
 - (Class) superclass
 {
   return class_getSuperclass(object_getClass(self));
+}
+
++ (NSUInteger) sizeInBytesExcluding: (NSHashTable*)exclude
+{
+  return 0;
+}
++ (NSUInteger) sizeOfContentExcluding: (NSHashTable*)exclude
+{
+  return 0;
+}
++ (NSUInteger) sizeOfInstance
+{
+  return 0;
+}
+
+
+- (NSUInteger) sizeInBytesExcluding: (NSHashTable*)exclude
+{
+  if (0 == NSHashGet(exclude, self))
+    {
+      Class             c = object_getClass(self);
+      NSUInteger        size = class_getInstanceSize(c);
+
+      NSHashInsert(exclude, self);
+      return size;
+    }
+  return 0;
+}
+- (NSUInteger) sizeOfContentExcluding: (NSHashTable*)exclude
+{
+  return 0;
+}
+- (NSUInteger) sizeOfInstance
+{
+  return class_getInstanceSize(object_getClass(self));
 }
 
 /**

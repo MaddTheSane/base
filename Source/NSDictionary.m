@@ -2,7 +2,7 @@
    Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.
 
    Written by:  Andrew Kachites McCallum <mccallum@gnu.ai.mit.edu>
-   From skeleton by:  Adam Fedor <fedor@boulder.colorado.edu>
+   From skeleton by:  Adam Fedor <fedor@gnu.org>
    Date: Mar 1995
 
    This file is part of the GNUstep Base Library.
@@ -15,12 +15,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSDictionary class reference</title>
    $Date$ $Revision$
@@ -29,6 +28,7 @@
 #import "common.h"
 #import "Foundation/NSDictionary.h"
 #import "Foundation/NSArray.h"
+#import "Foundation/NSOrderedSet.h"
 #import "Foundation/NSData.h"
 #import "Foundation/NSException.h"
 #import "Foundation/NSAutoreleasePool.h"
@@ -176,7 +176,8 @@ static SEL	appSel;
    GS_DISPATCH_CREATE_QUEUE_AND_GROUP_FOR_ENUMERATION(enumQueue, opts)
    FOR_IN(id, key, enumerator)
      obj = (*objectForKey)(self, objectForKeySelector, key);
-     GS_DISPATCH_SUBMIT_BLOCK(enumQueueGroup, enumQueue, if (shouldStop){return;};, return;, aBlock, key, obj, &shouldStop);
+     GS_DISPATCH_SUBMIT_BLOCK(enumQueueGroup, enumQueue,
+     if (shouldStop == NO) {, }, aBlock, key, obj, &shouldStop);
      if (YES == shouldStop)
        {
 	 break;
@@ -468,6 +469,7 @@ static SEL	appSel;
 
   if (objectCount != [keys count])
     {
+      RELEASE(self);
       [NSException raise: NSInvalidArgumentException
 		  format: @"init with obj and key arrays of different sizes"];
     }
@@ -617,6 +619,10 @@ static SEL	appSel;
 	  self = [self initWithObjects: o + c forKeys: o count: c];
 	}
       GS_ENDIDBUF();
+    }
+  else
+    {
+      self = [self init];
     }
   return self;
 }
@@ -860,10 +866,10 @@ static SEL	appSel;
     }
 }
 
-- (void)getObjects: (__unsafe_unretained id[])objects
-           andKeys: (__unsafe_unretained id<NSCopying>[])keys
+- (void) getObjects: (__unsafe_unretained id[])objects
+            andKeys: (__unsafe_unretained id<NSCopying>[])keys
 {
-  NSUInteger i=0;
+  NSUInteger i = 0;
   FOR_IN(id, key, self)
     if (keys != NULL) keys[i] = key;
     if (objects != NULL) objects[i] = [self objectForKey: key];
@@ -877,9 +883,9 @@ static SEL	appSel;
  */
 - (NSArray*) allKeysForObject: (id)anObject
 {
-  unsigned	c;
+  NSUInteger	count;
 
-  if (anObject == nil || (c = [self count]) == 0)
+  if (anObject == nil || (count = [self count]) == 0)
     {
       return nil;
     }
@@ -889,12 +895,12 @@ static SEL	appSel;
       IMP		nxtObj = [e methodForSelector: nxtSel];
       IMP		myObj = [self methodForSelector: objSel];
       BOOL		(*eqObj)(id, SEL, id);
+      unsigned		c = 0;
       id		k;
       id		result;
-      GS_BEGINIDBUF(a, [self count]);
+      GS_BEGINIDBUF(a, count);
 
       eqObj = (BOOL (*)(id, SEL, id))[anObject methodForSelector: eqSel];
-      c = 0;
       while ((k = (*nxtObj)(e, nxtSel)) != nil)
 	{
 	  id	o = (*myObj)(self, objSel, k);
@@ -947,6 +953,31 @@ compareIt(id o1, id o2, void* context)
   info.i = [self methodForSelector: objSel];
   k = [[self allKeys] sortedArrayUsingFunction: compareIt context: &info];
   return k;
+}
+
+- (NSArray *) keysSortedByValueUsingComparator: (NSComparator)cmptr
+{
+  return [self keysSortedByValueWithOptions: 0
+			    usingComparator: cmptr];
+}
+
+- (NSArray *) keysSortedByValueWithOptions: (NSSortOptions)opts
+			   usingComparator: (NSComparator)cmptr
+{
+  NSArray		*sortedValues;
+  NSArray		*noDuplicates;
+  NSMutableArray	*result;
+
+  ENTER_POOL
+  sortedValues = [[self allValues] sortedArrayWithOptions: opts
+					  usingComparator: cmptr];
+  noDuplicates = [[NSOrderedSet orderedSetWithArray: sortedValues] array];
+  result = [[NSMutableArray alloc] initWithCapacity: [sortedValues count]];
+  FOR_IN(NSObject*, value, noDuplicates)
+    [result addObjectsFromArray: [self allKeysForObject: value]];
+  END_FOR_IN(noDuplicates)
+  LEAVE_POOL
+  return AUTORELEASE(result);
 }
 
 /**
@@ -1027,28 +1058,30 @@ compareIt(id o1, id o2, void* context)
   FOR_IN(id, key, enumerator)
     obj = (*objectForKey)(self, objectForKeySelector, key);
 #if (__has_feature(blocks) && (GS_USE_LIBDISPATCH == 1))
-      dispatch_group_async(enumQueueGroup, enumQueue, ^(void){
-        if (shouldStop)
-          {
-	    return;
-          }
-        if (aPredicate(key, obj, &shouldStop))
-          {
-	    [setLock lock];
-	    addObject(buildSet, addObjectSelector, key);
-	    [setLock unlock];
-          }
-    });
-#else
-    if (CALL_BLOCK(aPredicate, key, obj, &shouldStop))
+    if (enumQueue != NULL)
+      {
+        dispatch_group_async(enumQueueGroup, enumQueue, ^(void){
+          if (shouldStop)
+            {
+              return;
+            }
+          if (aPredicate(key, obj, &shouldStop))
+            {
+              [setLock lock];
+              addObject(buildSet, addObjectSelector, key);
+              [setLock unlock];
+            }
+        });
+      }
+    else // call block directly
+#endif
+    if (CALL_NON_NULL_BLOCK(aPredicate, key, obj, &shouldStop))
       {
         addObject(buildSet, addObjectSelector, key);
       }
-#endif
-
-    if (YES == shouldStop)
+    if (shouldStop)
       {
-	break;
+        break;
       }
   END_FOR_IN(enumerator)
   GS_DISPATCH_TEARDOWN_QUEUE_AND_GROUP_FOR_ENUMERATION(enumQueue, opts)
@@ -1188,7 +1221,7 @@ compareIt(id o1, id o2, void* context)
  * according to the locale, and indented according to level.<br />
  * Unless locale is nil, a level of zero indents items by four spaces,
  * while a level of one indents them by a tab.<br />
- * If the keys in the dictionary respond to [NSObject-compare:], the items are
+ * If the keys in the dictionary respond to [NSString-compare:], the items are
  * listed by key in ascending order.  If not, the order in which the
  * items are listed is undefined.
  */
@@ -1211,7 +1244,7 @@ compareIt(id o1, id o2, void* context)
 {
   id	o;
 
-  if ([key hasPrefix: @"@"] == YES)
+  if ([key isKindOfClass: [NSString class]] && [key hasPrefix: @"@"])
     {
       o = [super valueForKey: [key substringFromIndex: 1]];
     }
@@ -1229,31 +1262,6 @@ compareIt(id o1, id o2, void* context)
   return 0;
 }
 
-- (NSUInteger) sizeInBytesExcluding: (NSHashTable*)exclude
-{
-  NSUInteger	size = [super sizeInBytesExcluding: exclude];
-
-  if (size > 0)
-    {
-      NSUInteger	count = [self count];
-
-      size += 3 * sizeof(void*) * count;
-      if (count > 0)
-        {
-	  NSEnumerator  *enumerator = [self keyEnumerator];
-	  NSObject<NSCopying>	*k = nil;
-
-	  while ((k = [enumerator nextObject]) != nil)
-	    {
-	      NSObject	*o = [self objectForKey: k];
-
-	      size += [k sizeInBytesExcluding: exclude];
-	      size += [o sizeInBytesExcluding: exclude];
-	    }
-	}
-    }
-  return size;
-}
 @end
 
 
@@ -1348,7 +1356,14 @@ compareIt(id o1, id o2, void* context)
 
 - (void) setObject: (id)anObject forKeyedSubscript: (id)aKey
 {
-  [self setObject: anObject forKey: aKey];
+  if (anObject == nil)
+    {
+      [self removeObjectForKey: aKey];
+    }
+  else
+    {
+      [self setObject: anObject forKey: aKey]; 
+    }
 }
 
 /**

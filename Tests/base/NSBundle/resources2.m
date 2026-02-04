@@ -10,16 +10,19 @@
 - (NSString*)test;
 @end
 
+@interface TestFramework: NSObject
+@end
 
-static void _testBundle(NSString* name, NSString* className)
+static void _testBundle(NSBundle* bundle, NSString* path, NSString* className)
 {
-  NSBundle *bundle;
   NSArray  *arr, *carr;
-  NSString *path, *localPath;
-  path = [[[[[NSFileManager defaultManager] currentDirectoryPath]
-    stringByStandardizingPath] stringByAppendingPathComponent: @"Resources"]
-      stringByAppendingPathComponent: name];
-  bundle = [NSBundle bundleWithPath: path];
+  NSString *localPath;
+  NSString *str;
+
+  PASS((bundle != nil),
+    "bundle was found");
+  PASS((path != nil),
+    "path of bundle was found");
   arr = [bundle pathsForResourcesOfType: @"txt" inDirectory: nil];
   PASS((arr && [arr count]),
     "-pathsForResourcesOfType:inDirectory: returns an array");
@@ -51,6 +54,11 @@ static void _testBundle(NSString* name, NSString* className)
   PASS([arr containsObject: localPath],
     "Returned array contains localized resource");
 
+  str = [bundle localizedStringForKey: @"test"
+                                value: @"not-found"
+                                table: nil];
+  PASS_EQUAL(str, @"42", "Localizable strings file contains 'test'")
+
   /* --- [NSBundle -pathsForResourcesOfType:inDirectory:forLocalization:] --- */
   arr = [bundle pathsForResourcesOfType: @"txt" inDirectory: nil
     forLocalization: @"en"];
@@ -79,9 +87,9 @@ static void _testBundle(NSString* name, NSString* className)
   PASS([arr containsObject: localPath],
     "Returned array for 'German' contains localized resource");
   Class clz = [bundle classNamed: className];
-  PASS(clz, "Class can be loaded from bundle");
+  PASS(clz != nil, "Class can be loaded from bundle");
   id obj = [clz new];
-  PASS(obj, "Objects from bundle-loaded classes can be instantiated");
+  PASS(obj != nil, "Objects from bundle-loaded classes can be instantiated");
   PASS_EQUAL([obj test], @"Something", "Correct method called");
   [obj release];
 }
@@ -89,12 +97,32 @@ static void _testBundle(NSString* name, NSString* className)
 int main()
 {
   NSAutoreleasePool   *arp = [NSAutoreleasePool new];
+  NSString *path;
+  NSBundle *bundle;
+
   START_SET("Bundle")
-  _testBundle(@"TestBundle.bundle", @"TestBundle");
+  path = [[[[[NSFileManager defaultManager] currentDirectoryPath]
+    stringByStandardizingPath] stringByAppendingPathComponent: @"Resources"]
+      stringByAppendingPathComponent: @"TestBundle.bundle"];
+  bundle = [NSBundle bundleWithPath: path];
+  _testBundle(bundle, path, @"TestBundle");
   END_SET("Bundle")
+
   START_SET("Framework")
-  _testBundle(@"TestFramework.framework", @"TestFramework");
+#if defined(_WIN32)
+  SKIP("Adding a run-time search path is not supported on Windows.")
+#else
+  /* This method call is required to ensure that the linker does not decide to
+   * elide the framework linkage.
+   */
+  [TestFramework class];
+  bundle = [NSBundle bundleForClass: NSClassFromString(@"TestFramework")];
+  path = [bundle bundlePath];
+  _testBundle(bundle, path, @"TestFramework");
+  PASS(0 == [bundle bundleVersion], "bundleVersion is zero");
+#endif
   END_SET("Framework");
+
   [arp release]; arp = nil;
   return 0;
 }

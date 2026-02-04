@@ -16,12 +16,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSMethodSignature class reference</title>
    $Date$ $Revision$
@@ -39,7 +38,28 @@
 #import "Foundation/NSException.h"
 #import "Foundation/NSCoder.h"
 
+
+static inline unsigned int
+gs_string_hash(const char *s)
+{
+  unsigned int val = 0;
+  while (*s != 0)
+    {
+      val = (val << 5) + val + *s++;
+    }
+  return val;
+}
+
+#define	GSI_MAP_RETAIN_KEY(M, X)
+#define	GSI_MAP_RELEASE_KEY(M, X)	free(X.ptr)
+#define GSI_MAP_HASH(M, X)    (gs_string_hash(X.ptr))
+#define GSI_MAP_EQUAL(M, X,Y) (strcmp(X.ptr, Y.ptr) == 0)
+#define GSI_MAP_KTYPES	GSUNION_PTR
+#define GSI_MAP_VTYPES	GSUNION_OBJ
+#import "GNUstepBase/GSIMap.h"
+
 #import "GSInvocation.h"
+#import "GSPThread.h"
 
 #ifdef HAVE_MALLOC_H
 #if !defined(__OpenBSD__)
@@ -63,7 +83,7 @@ skip_offset(const char *ptr)
 }
 
 #define ROUND(V, A) \
-  ({ typeof(V) __v=(V); typeof(A) __a=(A); \
+  ({ __typeof__(V) __v=(V); __typeof__(A) __a=(A); \
      __a*((__v+__a-1)/__a); })
 
 /* Step through method encoding information extracting details.
@@ -332,7 +352,7 @@ next_arg(const char *typePtr, NSArgumentInfo *info, char *outTypes)
 	info->align = __alignof__(char*);
 	break;
 
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       case _C_BOOL:
 	info->size = sizeof(_Bool);
 	info->align = __alignof__(_Bool);
@@ -556,7 +576,43 @@ next_arg(const char *typePtr, NSArgumentInfo *info, char *outTypes)
 
 + (NSMethodSignature*) signatureWithObjCTypes: (const char*)t
 {
-  return AUTORELEASE([[[self class] alloc] _initWithObjCTypes: t]);
+  GSIMapNode node;
+  NSMethodSignature	*sig;
+
+  static GSIMapTable_t cacheTable = {};
+  static gs_mutex_t cacheTableLock = GS_MUTEX_INIT_STATIC;
+
+  GS_MUTEX_LOCK(cacheTableLock);
+  if (cacheTable.zone == 0)
+    {
+      GSIMapInitWithZoneAndCapacity(&cacheTable, [self zone], 8);
+    }
+
+  node = GSIMapNodeForKey(&cacheTable, (GSIMapKey)t);
+  if (node == 0)
+    {
+      char	*buf;
+      int	len = strlen(t) + 1;
+
+      sig = [[self alloc] _initWithObjCTypes: t];
+      buf = malloc(len);
+      memcpy(buf, t, len);
+
+      /* We suppress the static analyser warning about the intentional
+       * leak (until end of execution) of the cache contents.
+       */
+#ifdef  __clang_analyzer__
+      [[clang::suppress]]
+#endif
+      GSIMapAddPair(&cacheTable, (GSIMapKey)buf, (GSIMapVal)(id)sig);
+    }
+  else
+    {
+      sig = RETAIN(node->value.obj);
+    }
+  GS_MUTEX_UNLOCK(cacheTableLock);
+  
+  return AUTORELEASE(sig);
 }
 
 - (NSArgumentInfo) argumentInfoAtIndex: (NSUInteger)index

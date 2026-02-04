@@ -18,15 +18,14 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    If you are interested in a warranty or support for this source code,
    contact Scott Christley <scottc@net-community.com> for more information.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */ 
 
 #ifndef __NSLock_h_GNUSTEP_BASE_INCLUDE
@@ -69,11 +68,12 @@ extern "C" {
  * [NSRecursiveLock], have different restrictions.
  * </p>
  */
+GS_EXPORT_CLASS
 @interface NSLock : NSObject <NSLocking>
 {
 #if	GS_EXPOSE(NSLock)
-@private
-  gs_mutex_t	_mutex;
+@protected
+  gs_mutex_public_t	_mutex;
   NSString	*_name;
 #endif
 }
@@ -120,12 +120,13 @@ extern "C" {
 /**
  * NSCondition provides an interface to POSIX condition variables.
  */
+GS_EXPORT_CLASS
 @interface NSCondition : NSObject <NSLocking>
 {
 #if	GS_EXPOSE(NSCondition)
-@private
-  gs_cond_t	_condition;
-  gs_mutex_t	_mutex;
+@protected
+  gs_cond_public_t	_condition;
+  gs_mutex_public_t	_mutex;
   NSString	*_name;
 #endif
 }
@@ -170,10 +171,11 @@ extern "C" {
  *  condition is equal to a particular value.  The condition is set on
  *  initialization and whenever the lock is relinquished.
  */
+GS_EXPORT_CLASS
 @interface NSConditionLock : NSObject <NSLocking>
 {
 #if	GS_EXPOSE(NSConditionLock)
-@private
+@protected
   NSCondition *_condition;
   int   _condition_value;
   NSString      *_name;
@@ -270,11 +272,12 @@ extern "C" {
  * thread must also unlock it (n) times before another thread 
  * can acquire the lock.
  */
+GS_EXPORT_CLASS
 @interface NSRecursiveLock : NSObject <NSLocking>
 {
 #if	GS_EXPOSE(NSRecursiveLock)
-@private
-  gs_mutex_t	_mutex;
+@protected
+  gs_mutex_public_t	_mutex;
   NSString      *_name;
 #endif
 }
@@ -319,12 +322,43 @@ extern "C" {
 
 @end
 
-#if  defined(__cplusplus)
-}
+#if !NO_GNUSTEP
+typedef void NSLock_error_handler(id obj, SEL _cmd, BOOL stop, NSString *msg);
+/** Code may replace this function pointer in order to intercept the normal
+ * logging of a deadlock.
+ */
+GS_EXPORT NSLock_error_handler  *_NSLock_error_handler;
+
+/** Controls tracing of locks for deadlocking.
+ */
+@interface      NSObject (GSTraceLocks)
+/** Sets whether newly created lock objects (NSCondition, NSConditionLock,
+ * NSLock, NSRecursiveLock but NOT NSDistributedLock) should be created so
+ * that their use by threads is traced and deadlocks can be detected.<br />
+ * Returns the old value of the setting.
+ */
++ (BOOL) shouldCreateTraceableLocks: (BOOL)shouldTrace;
+
+/** Creates and returns a single autoreleased traced condition.
+ */
++ (NSCondition*) tracedCondition;
+
+/** Creates and returns a single autoreleased traced condition lock.
+ */
++ (NSConditionLock*) tracedConditionLockWithCondition: (NSInteger)value;
+
+/** Creates and returns a single autoreleased traced lock.
+ */
++ (NSLock*) tracedLock;
+
+/** Creates and returns a single autoreleased traced recursive lock.
+ */
++ (NSRecursiveLock*) tracedRecursiveLock;
+@end
 #endif
 
-#if     !NO_GNUSTEP && !defined(GNUSTEP_BASE_INTERNAL)
-#import <GNUstepBase/NSLock+GNUstepBase.h>
+#if  defined(__cplusplus)
+}
 #endif
 
 #endif /* __NSLock_h_GNUSTEP_BASE_INCLUDE */

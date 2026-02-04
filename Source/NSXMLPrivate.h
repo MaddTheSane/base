@@ -14,18 +14,18 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #ifndef	_INCLUDED_NSXMLPRIVATE_H
 #define	_INCLUDED_NSXMLPRIVATE_H
 
 #import "common.h"
+#import "GSPrivate.h"
 
 #ifdef	HAVE_LIBXML
 
@@ -65,6 +65,9 @@
  * Macro to cast string to correct type for libxml2
  */
 #define	XMLSTRING(X)	((const unsigned char*)[X UTF8String])
+
+void cleanup_namespaces(xmlNodePtr node, xmlNsPtr ns) GS_ATTRIB_PRIVATE;
+BOOL ensure_oldNs(xmlNodePtr node) GS_ATTRIB_PRIVATE;
 
 inline static unsigned char *XMLStringCopy(NSString *source)
 {
@@ -109,6 +112,23 @@ StringFromXMLString(const unsigned char *bytes, unsigned length)
   return AUTORELEASE(str);
 }
 
+#if defined(HAVE_LIBXML)
+
+#define	GS_XMLNODETYPE \
+union\
+{\
+  xmlDoc	*doc;\
+  xmlDtd	*dtd;\
+  xmlEntity	*entity;\
+  xmlNode	*node;\
+}
+
+#else
+#define GS_XMLNODETYPE void*
+
+#endif
+
+
 /* Instance variables for NSXMLNode.  This macro needs to be defined before
  * the NSXMLNode.h header is imported and before GSInternal.h is imported.
  *
@@ -119,7 +139,7 @@ StringFromXMLString(const unsigned char *bytes, unsigned length)
  * The 'subNodes' array is used to retain the objects pointed to by subnodes.
  *
  * When we create an Objective-C object for a node we also create objects
- * for all parents up to the root object. (Reusing existing once as we find 
+ * for all parents up to the root object. (Reusing existing ones as we find 
  * them in the _private points of parent nodes)
  * This adds the object to the subnode array of the parent object, retaining 
  * the object in this process.
@@ -138,11 +158,12 @@ StringFromXMLString(const unsigned char *bytes, unsigned length)
  * URI is probably not needed at all ... I'm not sure
  */
 #define GS_NSXMLNode_IVARS \
-  NSUInteger	  kind; \
-  GS_XMLNODETYPE *node;  \
-  NSUInteger      options; \
-  id              objectValue; \
-  NSMutableArray *subNodes;
+  NSUInteger	  	kind; \
+  GS_XMLNODETYPE	node;  \
+  NSUInteger      	options; \
+  id              	objectValue; \
+  NSMutableArray 	*subNodes; \
+  xmlDoc		*detached; \
 
 
 /* When using the non-fragile ABI, the instance variables are exposed to the

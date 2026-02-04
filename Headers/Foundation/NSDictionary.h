@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
   */
 
 #ifndef _NSDictionary_h_GNUSTEP_BASE_INCLUDE
@@ -37,6 +36,7 @@ extern "C" {
 @class GS_GENERIC_CLASS(NSSet, ElementT);
 @class NSString, NSURL;
 
+GS_EXPORT_CLASS
 @interface GS_GENERIC_CLASS(NSDictionary,
   __covariant KeyT:id<NSCopying>, __covariant ValT)
   : NSObject <NSCoding, NSCopying, NSMutableCopying, NSFastEnumeration>
@@ -67,8 +67,7 @@ extern "C" {
 			     indent: (NSUInteger)level;
 
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
-DEFINE_BLOCK_TYPE(GSKeysAndObjectsEnumeratorBlock, void,
-  GS_GENERIC_TYPE_F(KeyT,id<NSCopying>), GS_GENERIC_TYPE(ValT), BOOL*);
+DEFINE_BLOCK_TYPE(GSKeysAndObjectsEnumeratorBlock, void, GS_GENERIC_TYPE_F(KeyT,id<NSCopying>), GS_GENERIC_TYPE(ValT), BOOL*);
 - (void) enumerateKeysAndObjectsUsingBlock:
   (GSKeysAndObjectsEnumeratorBlock)aBlock;
 - (void) enumerateKeysAndObjectsWithOptions: (NSEnumerationOptions)opts
@@ -99,8 +98,7 @@ DEFINE_BLOCK_TYPE(GSKeysAndObjectsEnumeratorBlock, void,
 - (GS_GENERIC_CLASS(NSEnumerator,KeyT)*) keyEnumerator;	// Primitive
 
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
-DEFINE_BLOCK_TYPE(GSKeysAndObjectsPredicateBlock, BOOL,
-	GS_GENERIC_TYPE_F(KeyT,id<NSCopying>), GS_GENERIC_TYPE(ValT), BOOL*);
+DEFINE_BLOCK_TYPE(GSKeysAndObjectsPredicateBlock, BOOL, GS_GENERIC_TYPE_F(KeyT,id<NSCopying>), GS_GENERIC_TYPE(ValT), BOOL*);
 - (GS_GENERIC_CLASS(NSSet,KeyT)*) keysOfEntriesPassingTest:
     (GSKeysAndObjectsPredicateBlock)aPredicate;
 - (GS_GENERIC_CLASS(NSSet,KeyT)*) keysOfEntriesWithOptions:
@@ -109,6 +107,8 @@ DEFINE_BLOCK_TYPE(GSKeysAndObjectsPredicateBlock, BOOL,
 #endif
 
 - (GS_GENERIC_CLASS(NSArray,ValT)*) keysSortedByValueUsingSelector: (SEL)comp;
+- (GS_GENERIC_CLASS(NSArray,ValT)*) keysSortedByValueUsingComparator:(NSComparator)cmptr;
+- (GS_GENERIC_CLASS(NSArray,ValT)*) keysSortedByValueWithOptions:(NSSortOptions)opts usingComparator:(NSComparator)cmptr;  
 - (GS_GENERIC_CLASS(NSEnumerator,ValT)*) objectEnumerator;	// Primitive
 - (GS_GENERIC_TYPE(ValT)) objectForKey:
   (GS_GENERIC_TYPE(KeyT))aKey;				// Primitive
@@ -132,6 +132,7 @@ DEFINE_BLOCK_TYPE(GSKeysAndObjectsPredicateBlock, BOOL,
   (GS_GENERIC_TYPE(KeyT))aKey;
 @end
 
+GS_EXPORT_CLASS
 @interface  GS_GENERIC_CLASS(NSMutableDictionary, KeyT:id<NSCopying>, ValT) :
   GS_GENERIC_CLASS(NSDictionary, KeyT, ValT)
 

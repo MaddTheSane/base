@@ -14,21 +14,18 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #import "common.h"
+#import "GSPThread.h"
 
 #define	EXPOSE_NSURLCredentialStorage_IVARS	1
 #import "GSURLPrivate.h"
-
-NSString *const NSURLCredentialStorageChangedNotification
-  = @"NSURLCredentialStorageChangedNotification";
 
 // Internal data storage
 typedef struct {
@@ -49,9 +46,11 @@ static NSURLCredentialStorage	*storage = nil;
 
 + (NSURLCredentialStorage *) sharedCredentialStorage
 {
+  static gs_mutex_t	classLock = GS_MUTEX_INIT_STATIC;
+
   if (storage == nil)
     {
-      [gnustep_global_lock lock];
+      GS_MUTEX_LOCK(classLock);
       if (storage == nil)
         {
 	  NSURLCredentialStorage	*o;
@@ -66,7 +65,7 @@ static NSURLCredentialStorage	*storage = nil;
 	    = [NSMutableDictionary new];
 	  storage = o;
 	}
-      [gnustep_global_lock unlock];
+      GS_MUTEX_UNLOCK(classLock);
     }
   return storage;
 }

@@ -1,7 +1,7 @@
 /* Interface for NSValue for GNUStep
    Copyright (C) 1995, 1996 Free Software Foundation, Inc.
 
-   Written by:  Adam Fedor <fedor@boulder.colorado.edu>
+   Written by:  Adam Fedor <fedor@gnu.org>
    Created: 1995
    
    This file is part of the GNUstep Base Library.
@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSValue_h_GNUSTEP_BASE_INCLUDE
@@ -45,6 +44,7 @@ extern "C" {
  * be careful this does not get freed until after the <code>NSValue</code> is
  * no longer used.
  */
+GS_EXPORT_CLASS
 @interface NSValue : NSObject <NSCopying, NSCoding>
 
 // Allocating and Initializing 
@@ -95,6 +95,14 @@ extern "C" {
  * structure.
  */
 + (NSValue*) valueWithSize: (NSSize)size;
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_10, GS_API_LATEST)
+/**
+ * Convenience method to create instance holding an <code>NSEdgeInsets</code>
+ * structure.
+ */   
++ (NSValue*) valueWithEdgeInsets: (NSEdgeInsets)insets;
+#endif
 
 #if OS_API_VERSION(GS_API_MACOSX, GS_API_LATEST)
 /**
@@ -166,6 +174,14 @@ extern "C" {
  */
 - (NSPoint) pointValue;
 
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_10, GS_API_LATEST)
+/**
+ * If receiver was initialized with an <code>NSEdgeInsets</code> value, return it,
+ * else raises <code>NSInternalInconsistencyException</code>.
+ */
+- (NSEdgeInsets) edgeInsetsValue;
+#endif
+  
 @end
 
 /**
@@ -173,6 +189,7 @@ extern "C" {
  * and accessing as any C primitive numeric type.  On access, the value will
  * be type-converted if necessary, using standard C conversion rules.
  */
+GS_EXPORT_CLASS
 @interface NSNumber : NSValue <NSCopying,NSCoding>
 
 // Allocating and Initializing

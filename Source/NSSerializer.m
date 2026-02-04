@@ -14,15 +14,13 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSSerializer class reference</title>
-   $Date$ $Revision$
    */
 
 #import "common.h"
@@ -446,8 +444,8 @@ typedef struct {
   unsigned	*cursor;
   BOOL		mutable;
   BOOL		didUnique;
-  void		(*debImp)();
-  unsigned int	(*deiImp)();
+  void		(*debImp)(id, SEL, void*, unsigned, unsigned*);
+  unsigned int	(*deiImp)(id, SEL, unsigned*);
   GSIArray_t	array;
 } _NSDeserializerInfo;
 
@@ -472,8 +470,10 @@ initDeserializerInfo(_NSDeserializerInfo* info, NSData *d, unsigned *c, BOOL m)
   info->data = d;
   info->cursor = c;
   info->mutable = m;
-  info->debImp = (void (*)())[d methodForSelector: debSel];
-  info->deiImp = (unsigned int (*)())[d methodForSelector: deiSel];
+  info->debImp = (void (*)(id, SEL, void*, unsigned, unsigned*))
+    [d methodForSelector: debSel];
+  info->deiImp = (unsigned int (*)(id, SEL, unsigned*))
+    [d methodForSelector: deiSel];
   (*info->debImp)(d, debSel, &u, 1, c);
   if (u == 0 || u == 1)
     {
@@ -681,7 +681,7 @@ deserializeFromInfo(_NSDeserializerInfo* info)
 			   * rather than simply releasing as the key may
 			   * be referred to by a cross-reference later.
 			   */
-			  IF_NO_GC(AUTORELEASE(k);)
+			  IF_NO_ARC(AUTORELEASE(k);)
 			  RELEASE(o);
 			}
 		    }

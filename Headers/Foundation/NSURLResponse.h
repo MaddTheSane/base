@@ -1,7 +1,7 @@
-/* Interface for NSURLResponse for GNUstep
+/** Interface for NSURLResponse for GNUstep
    Copyright (C) 2006 Software Foundation, Inc.
 
-   Written by:  Richard Frith-Macdonald <frm@gnu.org>
+   Written by:  Richard Frith-Macdonald <rfm@gnu.org>
    Date: 2006
    
    This file is part of the GNUstep Base Library.
@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSURLResponse_h_GNUSTEP_BASE_INCLUDE
@@ -44,6 +43,7 @@ extern "C" {
 /**
  * The response to an NSURLRequest
  */
+GS_EXPORT_CLASS
 @interface NSURLResponse :  NSObject <NSCoding, NSCopying>
 {
 #if	GS_EXPOSE(NSURLResponse)
@@ -114,6 +114,7 @@ extern "C" {
 /**
  * HTTP specific additions to an NSURLResponse
  */
+GS_EXPORT_CLASS
 @interface NSHTTPURLResponse :  NSURLResponse
 
 /**

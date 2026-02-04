@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSTimer_h_GNUSTEP_BASE_INCLUDE
@@ -27,6 +26,9 @@
 #import	<GNUstepBase/GSVersionMacros.h>
 
 #import	<Foundation/NSDate.h>
+
+@class NSTimer;
+DEFINE_BLOCK_TYPE(GSTimerBlock, void, NSTimer*);
 
 #if	defined(__cplusplus)
 extern "C" {
@@ -39,17 +41,19 @@ extern "C" {
  *	Other classes must not attempt to use instance variables as
  *	they are subject to change.
  */
+GS_EXPORT_CLASS
 @interface NSTimer : NSObject
 {
 #if	GS_EXPOSE(NSTimer)
 @public
-  NSDate 	*_date;		/* Must be first - for NSRunLoop optimisation */
-  BOOL		_invalidated;	/* Must be 2nd - for NSRunLoop optimisation */
-  BOOL		_repeats;
+  NSDate 	 *_date;	/* Must be 1st - for NSRunLoop optimisation */
+  BOOL		 _invalidated;	/* Must be 2nd - for NSRunLoop optimisation */
+  BOOL		 _repeats;
   NSTimeInterval _interval;
-  id		_target;
-  SEL		_selector;
-  id		_info;
+  id		 _target;
+  SEL		 _selector;
+  id		 _info;
+  GSTimerBlock   _block;
 #endif
 #if     GS_NONFRAGILE
 #else
@@ -67,20 +71,30 @@ extern "C" {
 + (NSTimer*) scheduledTimerWithTimeInterval: (NSTimeInterval)ti
 				 invocation: (NSInvocation*)invocation
 				    repeats: (BOOL)f;
+  
 + (NSTimer*) scheduledTimerWithTimeInterval: (NSTimeInterval)ti
 				     target: (id)object
 				   selector: (SEL)selector
 				   userInfo: (id)info
 				    repeats: (BOOL)f;
-
+  
++ (NSTimer *) scheduledTimerWithTimeInterval: (NSTimeInterval)ti
+                                     repeats: (BOOL)f
+                                       block: (GSTimerBlock)block;
+  
 + (NSTimer*) timerWithTimeInterval: (NSTimeInterval)ti
 		        invocation: (NSInvocation*)invocation
 			   repeats: (BOOL)f;
+
 + (NSTimer*) timerWithTimeInterval: (NSTimeInterval)ti
 			    target: (id)object
 			  selector: (SEL)selector
 			  userInfo: (id)info
 			   repeats: (BOOL)f;
+
++ (NSTimer*) timerWithTimeInterval: (NSTimeInterval)ti
+			   repeats: (BOOL)f
+			     block: (GSTimerBlock)block;
 
 - (void) fire;
 - (NSDate*) fireDate;
@@ -102,6 +116,13 @@ extern "C" {
 - (void) setFireDate: (NSDate*)fireDate;
 #endif
 
+#if	OS_API_VERSION(MAC_OS_X_VERSION_10_12, GS_API_LATEST)  
+- (instancetype) initWithFireDate: (NSDate *)date 
+                         interval: (NSTimeInterval)interval 
+                          repeats: (BOOL)repeats 
+                            block: (GSTimerBlock)block;
+#endif
+  
 @end
 
 #if	defined(__cplusplus)

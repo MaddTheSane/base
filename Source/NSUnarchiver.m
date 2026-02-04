@@ -1,7 +1,7 @@
 /** Implementation of NSUnarchiver for GNUstep
    Copyright (C) 1998 Free Software Foundation, Inc.
 
-   Written by:  Richard Frith-Macdonald <richard@brainstorm.co.uk>
+   Written by:  Richard Frith-Macdonald <rfm@gnu.org>
    Created: October 1998
 
    This file is part of the GNUstep Base Library.
@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSUnarchiver class reference</title>
    $Date$ $Revision$
@@ -78,7 +77,7 @@ typeToName1(char type)
       case _C_ULNG_LNG:	return "unsigned long long";
       case _C_FLT:	return "float";
       case _C_DBL:	return "double";
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       case _C_BOOL:	return "_Bool";
 #endif
       case _C_PTR:	return "pointer";
@@ -170,7 +169,7 @@ static char	type_map[32] = {
   _C_ULNG_LNG,
   _C_FLT,
   _C_DBL,
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
   _C_BOOL,
 #else
   0,
@@ -489,6 +488,7 @@ static unsigned	encodingVersion;
 {
   if (anObject == nil)
     {
+      RELEASE(self);
       [NSException raise: NSInvalidArgumentException
 		  format: @"nil data passed to initForReadingWithData:"];
     }
@@ -616,7 +616,7 @@ static unsigned	encodingVersion;
       case _C_ULNG_LNG:	info = _GSC_ULNG_LNG; break;
       case _C_FLT:	info = _GSC_FLT; break;
       case _C_DBL:	info = _GSC_DBL; break;
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       case _C_BOOL:	info = _GSC_BOOL; break;
 #endif
       default:		info = _GSC_NONE; break;
@@ -638,7 +638,7 @@ static unsigned	encodingVersion;
   /* If we have a perfect type match or we are coding a class as an ID,
    * we can just decode the array simply.
    */
-  if (info == amask || (info == _GSC_ID && amask == _GSC_CID))
+  if (info == amask)
     {
       for (i = 0; i < count; i++)
 	{
@@ -736,6 +736,10 @@ static unsigned	encodingVersion;
 		  (*desImp)(src, desSel, &big, @encode(int64_t), &cursor, nil);
 		  break;
 		}
+
+              default:
+                [NSException raise: NSGenericException
+                            format: @"invalid size in archive"];
 	    }
 	  /*
 	   * Now we copy from the big value to the destination location.
@@ -756,7 +760,7 @@ static unsigned	encodingVersion;
 	    }
 	  if (big < min || big > max)
 	    {
-	      NSLog(@"Loss of information converting large decoded value");
+	      NSLog(@"Lost information converting large decoded value");
 	    }
 	  offset += size;
 	}
@@ -810,6 +814,10 @@ static unsigned	encodingVersion;
 		  (*desImp)(src, desSel, &big, @encode(uint64_t), &cursor, nil);
 		  break;
 		}
+
+              default:
+                [NSException raise: NSGenericException
+                            format: @"invalid size in archive"];
 	    }
 	  /*
 	   * Now we copy from the big value to the destination location.
@@ -830,7 +838,7 @@ static unsigned	encodingVersion;
 	    }
 	  if (big > max)
 	    {
-	      NSLog(@"Loss of information converting large decoded value");
+	      NSLog(@"Lost information converting large decoded value");
 	    }
 	  offset += size;
 	}
@@ -895,7 +903,7 @@ scalarSize(char type)
 		   *	order to give the appearance that it's actually a
 		   *	new object.
 		   */
-		  IF_NO_GC(RETAIN(obj));
+		  IF_NO_ARC(RETAIN(obj);)
 		}
 	      else
 		{
@@ -921,16 +929,17 @@ scalarSize(char type)
 		  rep = [obj initWithCoder: self];
 		  if (rep != obj)
 		    {
-		      obj = rep;
-		      GSIArraySetItemAtIndex(objMap, (GSIArrayItem)obj, xref);
+		      GSIArraySetItemAtIndex(objMap, (GSIArrayItem)rep, xref);
 		    }
+		  obj = rep;
 
 		  rep = [obj awakeAfterUsingCoder: self];
 		  if (rep != obj)
 		    {
-		      obj = rep;
-		      GSIArraySetItemAtIndex(objMap, (GSIArrayItem)obj, xref);
+		      GSIArraySetItemAtIndex(objMap, (GSIArrayItem)rep, xref);
 		    }
+	          obj = rep;
+
 		  /*
 		   * The objMap does not retain objects, so in order to
 		   * be sure that a decoded object is not deallocated by
@@ -1376,32 +1385,23 @@ scalarSize(char type)
         {
           case 1:
             *(int8_t*)address = (int8_t)big;
-            if (big & ~0xff)
+            if (big > 127 || big < -128)
               {
-                if ((int8_t)big >= 0 || (big & ~0xff) != ~0xff)
-                  {
-                    NSLog(@"Loss of information converting decoded value to int8_t");
-                  }
+                NSLog(@"Lost information converting decoded value to int8_t");
               }
             return;
           case 2:
             *(int16_t*)address = (int16_t)big;
-            if (big & ~0xffff)
+            if (big > 32767 || big < -32768)
               {
-                if ((int16_t)big >= 0 || (big & ~0xffff) != ~0xffff)
-                  {
-                    NSLog(@"Loss of information converting decoded value to int16_t");
-                  }
+                NSLog(@"Lost information converting decoded value to int16_t");
               }
             return;
           case 4:
             *(int32_t*)address = (int32_t)big;
-            if (big & ~0xffffffff)
+            if (big > 2147483647 || big < -2147483648LL)
               {
-                if ((int32_t)big >= 0 || (big & ~0xffffffff) != ~0xffffffff)
-                  {
-                    NSLog(@"Loss of information converting decoded value to int32_t");
-                  }
+                NSLog(@"Lost information converting decoded value to int32_t");
               }
             return;
           case 8:
@@ -1455,23 +1455,23 @@ scalarSize(char type)
       switch (size)
         {
           case 1:
-            if (big & ~0xff)
+            if (big & ~0xffLL)
               {
-                NSLog(@"Loss of information converting decoded value to uint8_t");
+                NSLog(@"Lost information converting decoded value to uint8_t");
               }
             *(uint8_t*)address = (uint8_t)big;
             return;
           case 2:
-            if (big & ~0xffff)
+            if (big & ~0xffffLL)
               {
-                NSLog(@"Loss of information converting decoded value to uint16_t");
+                NSLog(@"Lost information converting decoded value to uint16_t");
               }
             *(uint16_t*)address = (uint16_t)big;
             return;
           case 4:
-            if (big & ~0xffffffff)
+            if (big & ~0xffffffffLL)
               {
-                NSLog(@"Loss of information converting decoded value to uint32_t");
+                NSLog(@"Lost information converting decoded value to uint32_t");
               }
             *(uint32_t*)address = (uint32_t)big;
             return;
@@ -1507,7 +1507,7 @@ scalarSize(char type)
 				   at: b];
 	  d = [[NSData allocWithZone: zone] initWithBytesNoCopy: b
 							 length: l];
-	  IF_NO_GC(AUTORELEASE(d));
+	  IF_NO_ARC(AUTORELEASE(d);)
 	  return d;
 	}
       else
@@ -1684,7 +1684,7 @@ scalarSize(char type)
   info = [objDict objectForKey: className];
   if (info == nil)
     {
-      return (NSInteger)NSNotFound;
+      return NSNotFound;
     }
   return info->version;
 }

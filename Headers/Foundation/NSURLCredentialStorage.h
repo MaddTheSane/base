@@ -1,4 +1,4 @@
-/* Interface for NSURLCredentialStorage for GNUstep
+/**Interface for NSURLCredentialStorage for GNUstep
    Copyright (C) 2006 Software Foundation, Inc.
 
    Written by:  Richard Frith-Macdonald <frm@gnu.org>
@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSURLCredentialStorage_h_GNUSTEP_BASE_INCLUDE
@@ -42,11 +41,12 @@ extern "C" {
 /**
  * Notification sent when the set of stored credentials changes.
  */
-extern NSString *const NSURLCredentialStorageChangedNotification;
+GS_EXPORT NSString *const NSURLCredentialStorageChangedNotification;
 
 /**
  * Provides shared storage of credentials.
  */
+GS_EXPORT_CLASS
 @interface NSURLCredentialStorage : NSObject
 {
 #if	GS_EXPOSE(NSURLCredentialStorage)

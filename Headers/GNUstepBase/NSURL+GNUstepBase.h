@@ -19,8 +19,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
 */
 
@@ -38,6 +37,12 @@ extern "C" {
 
 @interface NSURL (GNUstepBaseAdditions)
 
+/** Returns a string (encapsulating the scheme, host and port of the receiver)
+ * suitable for use as a key to store the receiver in a cache of objects used
+ * to access resources using the same network connection.
+ */
+- (NSString*) cacheKey;
+
 /** Builds a URL from components as returned by the methods of the same names.
  */
 - (instancetype) initWithScheme: (NSString*)scheme
@@ -53,7 +58,9 @@ extern "C" {
 @end
 
 @interface NSURL (GNUstepBase)
-/** Returns the full path for this URL including any trailing slash.
+/** Returns the full path for this URL including any trailing slash but
+ * without escapes.<br />
+ * This path includes parameters but not the query string.
  */
 - (NSString*) fullPath;
 
@@ -61,7 +68,8 @@ extern "C" {
  * This is useful if you need to distinguish between "/" and "%2F" in the path.
  * The normal -path method will convert all "%2F" value in the path into "/"
  * so that you have no way of knowing whether a "/" is part of a path component
- * ir is a path separator.
+ * or is a path separator.<br />
+ * This path includes parameters but not the query string.
  */
 - (NSString*) pathWithEscapes;
 @end

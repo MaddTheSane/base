@@ -2,7 +2,7 @@
    Copyright (C) 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
 
    Written by:  Andrew Kachites McCallum <mccallum@gnu.ai.mit.edu>
-   Rewrite by:  Richard Frith-Macdonald <rfm@gnu.org>
+   Written by:  Richard Frith-Macdonald <rfm@gnu.org>
    Date: March 1995
    
    This file is part of the GNUstep Base Library.
@@ -15,12 +15,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    AutogsdocSource:NSUnarchiver.m
    AutogsdocSource:NSArchiver.m
@@ -40,6 +39,7 @@ extern "C" {
 
 #if	OS_API_VERSION(GS_API_OSSPEC,GS_API_LATEST)
 
+GS_EXPORT_CLASS
 @interface NSArchiver : NSCoder
 {
 #if	GS_EXPOSE(NSArchiver)
@@ -157,8 +157,9 @@ extern "C" {
 @end
 #endif
 
-
 
+
+GS_EXPORT_CLASS
 @interface NSUnarchiver : NSCoder
 {
 #if	GS_EXPOSE(NSUnarchiver)

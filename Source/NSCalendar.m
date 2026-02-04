@@ -1,4 +1,4 @@
-/* NSCalendar.m
+/** NSCalendar.m
 
    Copyright (C) 2010 Free Software Foundation, Inc.
 
@@ -18,8 +18,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; see the file COPYING.LIB.
    If not, see <http://www.gnu.org/licenses/> or write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+   Free Software Foundation, 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #import "common.h"
@@ -29,102 +28,128 @@
 #import "Foundation/NSDictionary.h"
 #import "Foundation/NSException.h"
 #import "Foundation/NSLocale.h"
+#import "Foundation/NSLock.h"
 #import "Foundation/NSNotification.h"
 #import "Foundation/NSString.h"
 #import "Foundation/NSTimeZone.h"
 #import "Foundation/NSUserDefaults.h"
-#import "GNUstepBase/GSLock.h"
 
 #if defined(HAVE_UNICODE_UCAL_H)
 #define id ucal_id
 #include <unicode/ucal.h>
 #include <unicode/uvernum.h>
 #undef id
+#elif defined(HAVE_ICU_H)
+#include <icu.h>
 #endif
 
 
 #if GS_USE_ICU == 1
-static UCalendarDateFields _NSCalendarUnitToDateField (NSCalendarUnit unit)
+static UCalendarDateFields _NSCalendarUnitToDateField(NSCalendarUnit unit)
 {
-  // I'm just going to go in the order they appear in Apple's documentation
-  if (unit & NSEraCalendarUnit)
+  if (unit & NSCalendarUnitEra)
     return UCAL_ERA;
-  if (unit & NSYearCalendarUnit)
+  if (unit & NSCalendarUnitYear)
     return UCAL_YEAR;
-  if (unit & NSMonthCalendarUnit)
+  if (unit & NSCalendarUnitMonth)
     return UCAL_MONTH;
-  if (unit & NSDayCalendarUnit)
+  if (unit & NSCalendarUnitDay)
     return UCAL_DAY_OF_MONTH;
-  if (unit & NSHourCalendarUnit)
+  if (unit & NSCalendarUnitHour)
     return UCAL_HOUR_OF_DAY;
-  if (unit & NSMinuteCalendarUnit)
+  if (unit & NSCalendarUnitMinute)
     return UCAL_MINUTE;
-  if (unit & NSSecondCalendarUnit)
+  if (unit & NSCalendarUnitSecond)
     return UCAL_SECOND;
-  if (unit & NSWeekCalendarUnit)
+  if (unit & NSCalendarUnitWeekOfYear)
     return UCAL_WEEK_OF_YEAR;
-  if (unit & NSWeekdayCalendarUnit)
+  if (unit & NSCalendarUnitWeekday)
     return UCAL_DAY_OF_WEEK;
-  if (unit & NSWeekdayOrdinalCalendarUnit)
-    // FIXME: Is this right???
+  if (unit & NSCalendarUnitWeekdayOrdinal)
     return UCAL_DAY_OF_WEEK_IN_MONTH;
-  // ICU doesn't include a quarter DateField...
-  if (unit & NSQuarterCalendarUnit)
-    return (UCAL_MONTH + 2) / 3;
-  return -1;
+  return (UCalendarDateFields)-1;
 }
 #endif /* GS_USE_ICU */
 
 typedef struct {
   NSString      *identifier;
   NSString      *localeID;
-  NSTimeZone    *tz; 
+  NSTimeZone    *tz;
   void          *cal;
   NSInteger     firstWeekday;
   NSInteger     minimumDaysInFirstWeek;
-} Calendar; 
+} Calendar;
 #define my ((Calendar*)_NSCalendarInternal)
-#define aac ((Calendar*)(autoupdatingCalendar->_NSCalendarInternal))
 
 @interface NSCalendar (PrivateMethods)
+- (void*) _openCalendarFor: (NSTimeZone*)timeZone;
 - (void) _resetCalendar;
-- (void *) _UCalendar;
-- (NSString *) _localeIDWithLocale: (NSLocale*)locale;
-- (NSString *) _localeIDentifier;
+- (void*) _UCalendar;
+- (NSString*) _localeIDWithLocale: (NSLocale*)locale;
+- (NSString*) _localeIdentifier;
 - (void) _setLocaleIdentifier: (NSString*)identifier;
 @end
 
+static NSCalendar *autoupdatingCalendar = nil;
+static NSRecursiveLock *classLock = nil;
+
 #define TZ_NAME_LENGTH 1024
+#define SECOND_TO_MILLI 1000.0
+#define MILLI_TO_NANO 1000000
 
 @implementation NSCalendar (PrivateMethods)
-- (void) _resetCalendar
-{
+
 #if GS_USE_ICU == 1
+- (void*) _openCalendarFor: (NSTimeZone*)timeZone
+{
   NSString *tzName;
   NSUInteger tzLen;
   unichar cTzId[TZ_NAME_LENGTH];
   const char *cLocaleId;
   UErrorCode err = U_ZERO_ERROR;
-  
-  if (my->cal != NULL)
-    ucal_close (my->cal);
-  
+  UCalendarType type;
+
   cLocaleId = [my->localeID UTF8String];
-  tzName = [my->tz name];
+  tzName = [timeZone name];
   tzLen = [tzName length];
   if (tzLen > TZ_NAME_LENGTH)
-    tzLen = TZ_NAME_LENGTH;
+    {
+      tzLen = TZ_NAME_LENGTH;
+    }
   [tzName getCharacters: cTzId range: NSMakeRange(0, tzLen)];
 
+  if ([NSGregorianCalendar isEqualToString: my->identifier])
+    {
+      type = UCAL_GREGORIAN;
+    }
+  else
+    {
 #ifndef	UCAL_DEFAULT
 /*
  * Older versions of ICU used UCAL_TRADITIONAL rather than UCAL_DEFAULT
  * so if one is not available we use the other.
- */      
-#define	UCAL_DEFAULT UCAL_TRADITIONAL
+ */
+      type = UCAL_TRADITIONAL;
+#else
+      type = UCAL_DEFAULT;
 #endif
-  my->cal = 
-    ucal_open ((const UChar *)cTzId, tzLen, cLocaleId, UCAL_DEFAULT, &err);
+      // We do not need to call uloc_setKeywordValue() here to set the calendar on the locale
+      // as the calendar is already encoded in the locale id by _localeIDWithLocale:.
+    }
+
+  return ucal_open((const UChar*)cTzId, tzLen, cLocaleId, type, &err);
+}
+#endif
+
+- (void) _resetCalendar
+{
+#if GS_USE_ICU == 1
+  if (my->cal != NULL)
+    {
+      ucal_close(my->cal);
+    }
+
+  my->cal = [self _openCalendarFor: my->tz];
 
   if (NSNotFound == my->firstWeekday)
     {
@@ -147,59 +172,55 @@ typedef struct {
       ucal_setAttribute(my->cal, UCAL_MINIMAL_DAYS_IN_FIRST_WEEK,
         (int32_t)my->minimumDaysInFirstWeek);
     }
-
 #endif
 }
 
-- (void *) _UCalendar
+- (void*) _UCalendar
 {
   return my->cal;
 }
 
-- (NSString*) _localeIDWithLocale: (NSLocale *)locale
+- (NSString*) _localeIDWithLocale: (NSLocale*)locale
 {
   NSString *result;
   NSString *localeId;
   NSMutableDictionary *tmpDict;
-  
+
   localeId = [locale localeIdentifier];
-  tmpDict = [[NSLocale componentsFromLocaleIdentifier: localeId]
-    mutableCopyWithZone: NULL];
-  [tmpDict setObject: my->identifier forKey: NSLocaleCalendarIdentifier];
-  result = [NSLocale localeIdentifierFromComponents: tmpDict];
-  RELEASE(tmpDict);
-  
+  if (my->identifier)
+    {
+      tmpDict = [[NSLocale componentsFromLocaleIdentifier: localeId]
+                  mutableCopyWithZone: NULL];
+      [tmpDict removeObjectForKey: NSLocaleCalendar];
+      [tmpDict setObject: my->identifier forKey: NSLocaleCalendarIdentifier];
+      result = [NSLocale localeIdentifierFromComponents: tmpDict];
+      RELEASE(tmpDict);
+    }
+  else
+    {
+      result = localeId;
+    }
+
   return result;
 }
 
-- (NSString*) _localeIDentifier
+- (NSString*) _localeIdentifier
 {
   return my->localeID;
 }
 
-- (void) _setLocaleIdentifier: (NSString *) identifier
+- (void) _setLocaleIdentifier: (NSString*) identifier
 {
   if ([identifier isEqualToString: my->localeID])
-    return;
-  
-  RELEASE(my->localeID);
-  my->localeID = RETAIN(identifier);
+    {
+      return;
+    }
+
+  ASSIGN(my->localeID, identifier);
   [self _resetCalendar];
 }
-@end
 
-@implementation NSCalendar
-
-static NSCalendar *autoupdatingCalendar = nil;
-static NSRecursiveLock *classLock = nil;
-
-+ (void) initialize
-{
-  if (self == [NSLocale class])
-    classLock = [GSLazyRecursiveLock new];
-}
-
-+ (void) defaultsDidChange: (NSNotification*)n
+- (void) _defaultsDidChange: (NSNotification*)n
 {
   NSUserDefaults *defs;
   NSString *locale;
@@ -210,91 +231,88 @@ static NSRecursiveLock *classLock = nil;
   locale = [defs stringForKey: @"Locale"];
   calendar = [defs stringForKey: @"Calendar"];
   tz = [defs stringForKey: @"Local Time Zone"];
-  
-  if ([locale isEqual: aac->localeID] == NO
-    || [calendar isEqual: aac->identifier] == NO
-    || [tz isEqual: [(aac->tz) name]] == NO)
+
+  [classLock lock];
+  if ([locale isEqual: my->localeID] == NO
+    || [calendar isEqual: my->identifier] == NO
+    || [tz isEqual: [my->tz name]] == NO)
     {
-      [classLock lock];
-      RELEASE(aac->localeID);
-      RELEASE(aac->identifier);
-      RELEASE(aac->tz);
 #if GS_USE_ICU == 1
-      ucal_close(aac->cal);
+      ucal_close(my->cal);
 #endif
-      
-      aac->localeID = RETAIN(locale);
-      aac->identifier = RETAIN(calendar);
-      aac->tz = [[NSTimeZone alloc] initWithName: tz];
-      
-      [autoupdatingCalendar _resetCalendar];
-      [classLock unlock];
+
+      ASSIGN(my->localeID, locale);
+      ASSIGN(my->identifier, calendar);
+      RELEASE(my->tz);
+      my->tz = [[NSTimeZone alloc] initWithName: tz];
+
+      [self _resetCalendar];
+    }
+  [classLock unlock];
+}
+@end
+
+@implementation NSCalendar
+
++ (void) initialize
+{
+  if (self == [NSCalendar class])
+    {
+      classLock = [NSRecursiveLock new];
     }
 }
 
-+ (id) currentCalendar
++ (NSCalendar*) currentCalendar
 {
   NSCalendar *result;
-  NSLocale *locale;
-  NSCalendar *cal;
-  
-  locale = [NSLocale currentLocale];
-  cal = [locale objectForKey: NSLocaleCalendar];
-  result =
-    [[NSCalendar alloc] initWithCalendarIdentifier: [cal calendarIdentifier]];
-  
+  NSString *identifier;
+
+  // This identifier may be nil 
+  identifier = [[NSLocale currentLocale] objectForKey: NSLocaleCalendarIdentifier];
+  result = [[NSCalendar alloc] initWithCalendarIdentifier: identifier];
+
   return AUTORELEASE(result);
+}
+
++ (NSCalendar*) autoupdatingCurrentCalendar
+{
+  [classLock lock];
+  if (nil == autoupdatingCalendar)
+    {
+      autoupdatingCalendar = [[self currentCalendar] copy];
+      [[NSNotificationCenter defaultCenter]
+        addObserver: autoupdatingCalendar
+        selector: @selector(_defaultsDidChange:)
+        name: NSUserDefaultsDidChangeNotification
+        object: nil];
+    }
+
+  [classLock unlock];
+  return autoupdatingCalendar;
+}
+
+
++ (id) calendarWithIdentifier: (NSString*)identifier
+{
+  return AUTORELEASE([[self alloc] initWithCalendarIdentifier: identifier]);
 }
 
 - (id) init
 {
-  self = [self initWithCalendarIdentifier: nil];
-  return self;
+  return [self initWithCalendarIdentifier: nil];
 }
 
-- (id) initWithCalendarIdentifier: (NSString *) string
+- (id) initWithCalendarIdentifier: (NSString*)identifier
 {
   NSAssert(0 == _NSCalendarInternal, NSInvalidArgumentException);
-  _NSCalendarInternal = 
-    NSZoneCalloc([self zone], sizeof(Calendar), 1);
+  _NSCalendarInternal = NSZoneCalloc([self zone], sizeof(Calendar), 1);
 
   my->firstWeekday = NSNotFound;
   my->minimumDaysInFirstWeek = NSNotFound;
+  ASSIGN(my->identifier, identifier);
+  ASSIGN(my->tz, [NSTimeZone defaultTimeZone]);
+  [self setLocale: [NSLocale currentLocale]];
 
-  if ([string isEqualToString: NSGregorianCalendar])
-    my->identifier = NSGregorianCalendar;
-  else if ([string isEqualToString: NSBuddhistCalendar])
-    my->identifier = NSBuddhistCalendar;
-  else if ([string isEqualToString: NSChineseCalendar])
-    my->identifier = NSChineseCalendar;
-  else if ([string isEqualToString: NSHebrewCalendar])
-    my->identifier = NSHebrewCalendar;
-  else if ([string isEqualToString: NSIslamicCalendar])
-    my->identifier = NSIslamicCalendar;
-  else if ([string isEqualToString: NSIslamicCivilCalendar])
-    my->identifier = NSIslamicCivilCalendar;
-  else if ([string isEqualToString: NSJapaneseCalendar])
-    my->identifier = NSJapaneseCalendar;
-  else if ([string isEqualToString: NSRepublicOfChinaCalendar])
-    my->identifier = NSRepublicOfChinaCalendar;
-  else if ([string isEqualToString: NSPersianCalendar])
-    my->identifier = NSPersianCalendar;
-  else if ([string isEqualToString: NSIndianCalendar])
-    my->identifier = NSIndianCalendar;
-  else if ([string isEqualToString: NSISO8601Calendar])
-    my->identifier = NSISO8601Calendar;
-  else
-    {
-      RELEASE(self);
-      return nil;
-    }
-  
-  // It's much easier to keep a copy of the NSLocale's string representation
-  // than to have to build it everytime we have to open a UCalendar.
-  my->localeID = RETAIN([self _localeIDWithLocale: [NSLocale currentLocale]]);
-  my->tz = RETAIN([NSTimeZone defaultTimeZone]);
-  
-  [self _resetCalendar];
   return self;
 }
 
@@ -313,52 +331,145 @@ static NSRecursiveLock *classLock = nil;
   [super dealloc];
 }
 
-- (NSString *) calendarIdentifier
+- (NSString*) calendarIdentifier
 {
   return my->identifier;
 }
 
+- (NSInteger) component: (NSCalendarUnit)unit 
+               fromDate: (NSDate*)date
+{
+  NSDateComponents *comps = [self components: unit
+                                    fromDate: date];
+  NSInteger val = 0;
 
-- (NSDateComponents *) components: (NSUInteger) unitFlags
-                         fromDate: (NSDate *) date
+  switch (unit)
+    {
+    case NSCalendarUnitEra:
+      val = [comps era];
+      break;
+    case NSCalendarUnitYear:
+      val = [comps year];
+      break;
+    case NSCalendarUnitMonth:
+      val = [comps month];
+      break;
+    case NSCalendarUnitDay:
+      val = [comps day];
+      break;
+    case NSCalendarUnitHour:
+      val = [comps hour];
+      break;
+    case NSCalendarUnitMinute:
+      val = [comps minute];
+      break;
+    case NSCalendarUnitSecond:
+      val = [comps second];
+      break;
+    case NSCalendarUnitWeekday:
+      val = [comps weekday];
+      break;
+    case NSCalendarUnitWeekdayOrdinal:
+      val = [comps weekdayOrdinal];
+      break;
+    case NSCalendarUnitQuarter:
+      val = [comps quarter];
+      break;
+    case NSCalendarUnitWeekOfMonth: 
+      val = [comps weekOfMonth];
+      break;
+    case NSCalendarUnitWeekOfYear: 
+      val = [comps weekOfYear];
+      break;
+    case NSCalendarUnitYearForWeekOfYear:
+      val = [comps yearForWeekOfYear];
+      break;
+    case NSCalendarUnitNanosecond:
+      val = [comps nanosecond];
+      break;
+    case NSCalendarUnitCalendar:
+    case NSCalendarUnitTimeZone:
+      // in these cases do nothing since they are undefined.
+      break;
+    }
+
+  return val;
+}
+
+- (NSDateComponents*) components: (NSUInteger) unitFlags
+                         fromDate: (NSDate*) date
 {
 #if GS_USE_ICU == 1
   NSDateComponents *comps;
   UErrorCode err = U_ZERO_ERROR;
   UDate udate;
-  
-  udate = (UDate)floor([date timeIntervalSince1970] * 1000.0);
-  ucal_setMillis (my->cal, udate, &err);
+
+  udate = (UDate)floor([date timeIntervalSince1970] * SECOND_TO_MILLI);
+  ucal_setMillis(my->cal, udate, &err);
   if (U_FAILURE(err))
-    return nil;
-  
+    {
+      return nil;
+    }
+
   comps = [[NSDateComponents alloc] init];
-  if (unitFlags & NSEraCalendarUnit)
-    [comps setEra: ucal_get(my->cal, UCAL_ERA, &err)];
-  if (unitFlags & NSYearCalendarUnit)
-    [comps setYear: ucal_get(my->cal, UCAL_YEAR, &err)];
-  if (unitFlags & NSMonthCalendarUnit)
-    [comps setMonth: ucal_get(my->cal, UCAL_MONTH, &err)+1];
-  if (unitFlags & NSDayCalendarUnit)
-    [comps setDay: ucal_get(my->cal, UCAL_DAY_OF_MONTH, &err)];
-  if (unitFlags & NSHourCalendarUnit)
-    [comps setHour: ucal_get(my->cal, UCAL_HOUR_OF_DAY, &err)];
-  if (unitFlags & NSMinuteCalendarUnit)
-    [comps setMinute: ucal_get(my->cal, UCAL_MINUTE, &err)];
-  if (unitFlags & NSSecondCalendarUnit)
-    [comps setSecond: ucal_get(my->cal, UCAL_SECOND, &err)];
-  if (unitFlags & (NSWeekCalendarUnit|NSWeekOfYearCalendarUnit))
-    [comps setWeek: ucal_get(my->cal, UCAL_WEEK_OF_YEAR, &err)];
-  if (unitFlags & NSWeekdayCalendarUnit)
-    [comps setWeekday: ucal_get(my->cal, UCAL_DAY_OF_WEEK, &err)];
-  if (unitFlags & NSWeekdayOrdinalCalendarUnit)
-    [comps setWeekdayOrdinal:
-      ucal_get(my->cal, UCAL_DAY_OF_WEEK_IN_MONTH, &err)];
-  if (unitFlags & NSWeekOfMonthCalendarUnit)
-    [comps setWeekOfMonth: ucal_get(my->cal, UCAL_WEEK_OF_MONTH, &err)];
-  if (unitFlags & NSYearForWeekOfYearCalendarUnit)
-    [comps setYearForWeekOfYear: ucal_get(my->cal, UCAL_YEAR_WOY, &err)];
-  
+  if (unitFlags & NSCalendarUnitEra)
+    {
+      [comps setEra: ucal_get(my->cal, UCAL_ERA, &err)];
+    }
+  if (unitFlags & NSCalendarUnitYear)
+    {
+      [comps setYear: ucal_get(my->cal, UCAL_YEAR, &err)];
+    }
+  if (unitFlags & NSCalendarUnitMonth)
+    {
+      [comps setMonth: ucal_get(my->cal, UCAL_MONTH, &err) + 1];
+    }
+  if (unitFlags & NSCalendarUnitDay)
+    {
+      [comps setDay: ucal_get(my->cal, UCAL_DAY_OF_MONTH, &err)];
+    }
+  if (unitFlags & NSCalendarUnitHour)
+    {
+      [comps setHour: ucal_get(my->cal, UCAL_HOUR_OF_DAY, &err)];
+    }
+  if (unitFlags & NSCalendarUnitMinute)
+    {
+      [comps setMinute: ucal_get(my->cal, UCAL_MINUTE, &err)];
+    }
+  if (unitFlags & NSCalendarUnitSecond)
+    {
+      [comps setSecond: ucal_get(my->cal, UCAL_SECOND, &err)];
+    }
+  if (unitFlags & (NSWeekCalendarUnit | NSCalendarUnitWeekOfYear))
+    {
+      [comps setWeek: ucal_get(my->cal, UCAL_WEEK_OF_YEAR, &err)];
+    }
+  if (unitFlags & NSCalendarUnitWeekday)
+    {
+      [comps setWeekday: ucal_get(my->cal, UCAL_DAY_OF_WEEK, &err)];
+    }
+  if (unitFlags & NSCalendarUnitWeekdayOrdinal)
+    {
+      [comps setWeekdayOrdinal:
+               ucal_get(my->cal, UCAL_DAY_OF_WEEK_IN_MONTH, &err)];
+    }
+  if (unitFlags & NSCalendarUnitQuarter)
+    {
+      [comps setQuarter: (ucal_get(my->cal, UCAL_MONTH, &err) + 3) / 3];
+    }
+  if (unitFlags & NSCalendarUnitWeekOfMonth)
+    {
+      [comps setWeekOfMonth: ucal_get(my->cal, UCAL_WEEK_OF_MONTH, &err)];
+    }
+  if (unitFlags & NSCalendarUnitYearForWeekOfYear)
+    {
+      [comps setYearForWeekOfYear: ucal_get(my->cal, UCAL_YEAR_WOY, &err)];
+    }
+  if (unitFlags & NSCalendarUnitNanosecond)
+    {
+      [comps setNanosecond: ucal_get(my->cal, UCAL_MILLISECOND, &err) * MILLI_TO_NANO];
+    }
+
   return AUTORELEASE(comps);
 #else
   return nil;
@@ -388,20 +499,21 @@ do \
   } while (0)
 
 
-- (NSDateComponents *) components: (NSUInteger) unitFlags
-                         fromDate: (NSDate *) startingDate
-                           toDate: (NSDate *) resultDate
+- (NSDateComponents*) components: (NSUInteger) unitFlags
+                         fromDate: (NSDate*) startingDate
+                           toDate: (NSDate*) resultDate
                           options: (NSUInteger) opts
 {
 #if GS_USE_ICU == 1 && (U_ICU_VERSION_MAJOR_NUM > 4 \
-  || (U_ICU_VERSION_MAJOR_NUM == 4 && U_ICU_VERSION_MINOR_NUM >= 8))
+  || (U_ICU_VERSION_MAJOR_NUM == 4 && U_ICU_VERSION_MINOR_NUM >= 8) \
+  || defined(HAVE_ICU_H))
 
   NSDateComponents *comps = nil;
   UErrorCode err = U_ZERO_ERROR;
-  UDate udateFrom = (UDate)floor([startingDate timeIntervalSince1970] * 1000.0);
-  UDate udateTo = (UDate)floor([resultDate timeIntervalSince1970] * 1000.0);
+  UDate udateFrom = (UDate)floor([startingDate timeIntervalSince1970] * SECOND_TO_MILLI);
+  UDate udateTo = (UDate)floor([resultDate timeIntervalSince1970] * SECOND_TO_MILLI);
 
-  ucal_setMillis (my->cal, udateFrom, &err);
+  ucal_setMillis(my->cal, udateFrom, &err);
   if (U_FAILURE(err))
     {
       return nil;
@@ -413,14 +525,14 @@ do \
    * the largest to the smallest.
    */
   COMPONENT_DIFF(my->cal, unitFlags, comps, udateTo,
-    NSEraCalendarUnit, setEra:, UCAL_ERA, err);
+    NSCalendarUnitEra, setEra:, UCAL_ERA, err);
   COMPONENT_DIFF(my->cal, unitFlags, comps, udateTo,
-    NSYearCalendarUnit, setYear:, UCAL_YEAR, err);
+    NSCalendarUnitYear, setYear:, UCAL_YEAR, err);
   COMPONENT_DIFF(my->cal, unitFlags, comps, udateTo,
-    NSMonthCalendarUnit, setMonth:, UCAL_MONTH, err);
+    NSCalendarUnitMonth, setMonth:, UCAL_MONTH, err);
   COMPONENT_DIFF(my->cal, unitFlags, comps, udateTo,
-    NSWeekOfYearCalendarUnit, setWeek:, UCAL_WEEK_OF_YEAR, err);
-  if (!(unitFlags & NSWeekOfYearCalendarUnit))
+    NSCalendarUnitWeekOfYear, setWeek:, UCAL_WEEK_OF_YEAR, err);
+  if (!(unitFlags & NSCalendarUnitWeekOfYear))
     {
       /* We must avoid setting the same unit twice (it would be zero because
        * of the automatic advancement.
@@ -429,35 +541,33 @@ do \
         NSWeekCalendarUnit, setWeek:, UCAL_WEEK_OF_YEAR, err);
     }
   COMPONENT_DIFF(my->cal, unitFlags, comps, udateTo,
-    NSWeekOfMonthCalendarUnit, setWeekOfMonth:, UCAL_WEEK_OF_MONTH, err);
+    NSCalendarUnitWeekOfMonth, setWeekOfMonth:, UCAL_WEEK_OF_MONTH, err);
   COMPONENT_DIFF(my->cal, unitFlags, comps, udateTo,
-    NSDayCalendarUnit, setDay:, UCAL_DAY_OF_MONTH, err);
+    NSCalendarUnitDay, setDay:, UCAL_DAY_OF_MONTH, err);
   COMPONENT_DIFF(my->cal, unitFlags, comps, udateTo,
-    NSWeekdayOrdinalCalendarUnit, setWeekdayOrdinal:,
+    NSCalendarUnitWeekdayOrdinal, setWeekdayOrdinal:,
     UCAL_DAY_OF_WEEK_IN_MONTH, err);
   COMPONENT_DIFF(my->cal, unitFlags, comps, udateTo,
-    NSWeekdayCalendarUnit, setWeekday:, UCAL_DAY_OF_WEEK, err);
+    NSCalendarUnitWeekday, setWeekday:, UCAL_DAY_OF_WEEK, err);
   COMPONENT_DIFF(my->cal, unitFlags, comps, udateTo,
-    NSHourCalendarUnit, setHour:, UCAL_HOUR_OF_DAY, err);
+    NSCalendarUnitHour, setHour:, UCAL_HOUR_OF_DAY, err);
   COMPONENT_DIFF(my->cal, unitFlags, comps, udateTo,
-    NSMinuteCalendarUnit, setMinute:, UCAL_MINUTE, err);
+    NSCalendarUnitMinute, setMinute:, UCAL_MINUTE, err);
   COMPONENT_DIFF(my->cal, unitFlags, comps, udateTo,
-    NSSecondCalendarUnit, setSecond:, UCAL_SECOND, err);
-# if 0
+    NSCalendarUnitSecond, setSecond:, UCAL_SECOND, err);
   if (unitFlags & NSCalendarUnitNanosecond)
     {
-      int32_t ns;
+      int32_t ms;
 
-      ns = ucal_getFieldDifference(my->cal, udateTo, UCAL_MILLISECOND, &err)
-        * 1000000;
+      ms = ucal_getFieldDifference(my->cal, udateTo, UCAL_MILLISECOND, &err);
       if (U_FAILURE(err))
         {
           RELEASE(comps);
           return nil;
         }
-      [comps setNanosecond: ns];
+      [comps setNanosecond: ms * MILLI_TO_NANO];
     }
-# endif
+
   return AUTORELEASE(comps);
 
 #else
@@ -465,24 +575,31 @@ do \
 #endif
 }
 
-- (NSDate *) dateByAddingComponents: (NSDateComponents *) comps
-                             toDate: (NSDate *) date
+#undef COMPONENT_DIFF
+
+#define _ADD_COMPONENT(c, n)           \
+  if (opts & NSWrapCalendarComponents) \
+    ucal_roll(my->cal, c, n, &err); \
+  else \
+    ucal_add(my->cal, c, n, &err); \
+  if (U_FAILURE(err)) \
+    { \
+      return nil; \
+    }
+
+- (NSDate*) dateByAddingComponents: (NSDateComponents*) comps
+                             toDate: (NSDate*) date
                             options: (NSUInteger) opts
 {
 #if GS_USE_ICU == 1
   NSInteger amount;
   UErrorCode err = U_ZERO_ERROR;
   UDate udate;
-  
+
   [self _resetCalendar];
-  udate = (UDate)([date timeIntervalSince1970] * 1000.0);
-  ucal_setMillis (my->cal, udate, &err);
-  
-#define _ADD_COMPONENT(c, n) \
-  if (opts & NSWrapCalendarComponents) \
-    ucal_roll (my->cal, c, n, &err); \
-  else \
-    ucal_add (my->cal, c, n, &err);
+  udate = (UDate)([date timeIntervalSince1970] * SECOND_TO_MILLI);
+  ucal_setMillis(my->cal, udate, &err);
+
   if ((amount = [comps era]) != NSDateComponentUndefined)
     {
       _ADD_COMPONENT(UCAL_ERA, (int32_t)amount);
@@ -527,90 +644,121 @@ do \
     {
       _ADD_COMPONENT(UCAL_YEAR_WOY, (int32_t)amount);
     }
-#undef _ADD_COMPONENT
-  
-  udate = ucal_getMillis (my->cal, &err);
+  if ((amount = [comps nanosecond]) != NSDateComponentUndefined)
+    {
+      _ADD_COMPONENT(UCAL_MILLISECOND, (int32_t)(amount / MILLI_TO_NANO));
+    }
+
+  udate = ucal_getMillis(my->cal, &err);
   if (U_FAILURE(err))
-    return nil;
-  
-  return [NSDate dateWithTimeIntervalSince1970: (udate / 1000.0)];
+    {
+      return nil;
+    }
+
+  return [NSDate dateWithTimeIntervalSince1970: (udate / SECOND_TO_MILLI)];
 #else
   return nil;
 #endif
 }
 
-- (NSDate *) dateFromComponents: (NSDateComponents *) comps
+#undef _ADD_COMPONENT
+
+- (NSDate*) dateFromComponents: (NSDateComponents*) comps
 {
 #if GS_USE_ICU == 1
   NSInteger amount;
   UDate udate;
   UErrorCode err = U_ZERO_ERROR;
-  
-  [self _resetCalendar];
-  ucal_clear (my->cal);
-  
+  void *cal;
+  NSTimeZone *timeZone;
+
+  timeZone = [comps timeZone];
+  if (timeZone == nil)
+    {
+      timeZone = [self timeZone];
+    }
+  cal = [self _openCalendarFor: timeZone];
+  if (!cal)
+    {
+      return nil;
+    }
+  ucal_clear(cal);
+
   if ((amount = [comps era]) != NSDateComponentUndefined)
     {
-      ucal_set (my->cal, UCAL_ERA, (int32_t)amount);
+      ucal_set(cal, UCAL_ERA, (int32_t)amount);
     }
   if ((amount = [comps year]) != NSDateComponentUndefined)
     {
-      ucal_set (my->cal, UCAL_YEAR, (int32_t)amount);
+      ucal_set (cal, UCAL_YEAR, (int32_t)amount);
     }
   if ((amount = [comps month]) != NSDateComponentUndefined)
     {
-      ucal_set (my->cal, UCAL_MONTH, amount-1);
+      ucal_set (cal, UCAL_MONTH, amount - 1);
     }
   if ((amount = [comps day]) != NSDateComponentUndefined)
     {
-      ucal_set (my->cal, UCAL_DAY_OF_MONTH, (int32_t)amount);
+      ucal_set (cal, UCAL_DAY_OF_MONTH, (int32_t)amount);
     }
   if ((amount = [comps hour]) != NSDateComponentUndefined)
     {
-      ucal_set (my->cal, UCAL_HOUR_OF_DAY, (int32_t)amount);
+      ucal_set (cal, UCAL_HOUR_OF_DAY, (int32_t)amount);
     }
   if ((amount = [comps minute]) != NSDateComponentUndefined)
     {
-      ucal_set (my->cal, UCAL_MINUTE, (int32_t)amount);
+      ucal_set (cal, UCAL_MINUTE, (int32_t)amount);
     }
   if ((amount = [comps second]) != NSDateComponentUndefined)
     {
-      ucal_set (my->cal, UCAL_SECOND, (int32_t)amount);
+      ucal_set (cal, UCAL_SECOND, (int32_t)amount);
     }
   if ((amount = [comps week]) != NSDateComponentUndefined)
     {
-      ucal_set (my->cal, UCAL_WEEK_OF_YEAR, (int32_t)amount);
+      ucal_set (cal, UCAL_WEEK_OF_YEAR, (int32_t)amount);
     }
   if ((amount = [comps weekday]) != NSDateComponentUndefined)
     {
-      ucal_set (my->cal, UCAL_DAY_OF_WEEK, (int32_t)amount);
+      ucal_set (cal, UCAL_DAY_OF_WEEK, (int32_t)amount);
+    }
+  if ((amount = [comps weekdayOrdinal]) != NSDateComponentUndefined)
+    {
+      ucal_set (cal, UCAL_DAY_OF_WEEK_IN_MONTH, (int32_t)amount);
     }
   if ((amount = [comps weekOfMonth]) != NSDateComponentUndefined)
     {
-      ucal_set (my->cal, UCAL_WEEK_OF_MONTH, (int32_t)amount);
+      ucal_set (cal, UCAL_WEEK_OF_MONTH, (int32_t)amount);
     }
   if ((amount = [comps yearForWeekOfYear]) != NSDateComponentUndefined)
     {
-      ucal_set (my->cal, UCAL_YEAR_WOY, (int32_t)amount);
+      ucal_set (cal, UCAL_YEAR_WOY, (int32_t)amount);
     }
-  
-  udate = ucal_getMillis (my->cal, &err);
+  if ((amount = [comps nanosecond]) != NSDateComponentUndefined)
+    {
+      ucal_set (cal, UCAL_MILLISECOND, (int32_t)(amount / MILLI_TO_NANO));
+    }
+
+  udate = ucal_getMillis(cal, &err);
+  ucal_close(cal);
   if (U_FAILURE(err))
-    return nil;
-  
-  return [NSDate dateWithTimeIntervalSince1970: (udate / 1000.0)];
+    {
+      return nil;
+    }
+
+  return [NSDate dateWithTimeIntervalSince1970: (udate / SECOND_TO_MILLI)];
 #else
   return nil;
 #endif
 }
 
-- (NSLocale *) locale
+- (NSLocale*) locale
 {
   return AUTORELEASE([[NSLocale alloc] initWithLocaleIdentifier: my->localeID]);
 }
 
-- (void) setLocale: (NSLocale *) locale
+- (void) setLocale: (NSLocale*) locale
 {
+  // It's much easier to keep a copy of the NSLocale's string representation
+  // than to have to build it everytime we have to open a UCalendar.
   [self _setLocaleIdentifier: [self _localeIDWithLocale: locale]];
 }
 
@@ -623,7 +771,7 @@ do \
 {
   my->firstWeekday = weekday;
 #if GS_USE_ICU == 1
-  ucal_setAttribute (my->cal, UCAL_FIRST_DAY_OF_WEEK, my->firstWeekday);
+  ucal_setAttribute(my->cal, UCAL_FIRST_DAY_OF_WEEK, my->firstWeekday);
 #endif
 }
 
@@ -636,116 +784,100 @@ do \
 {
   my->minimumDaysInFirstWeek = (int32_t)mdw;
 #if GS_USE_ICU == 1
-  ucal_setAttribute (my->cal, UCAL_MINIMAL_DAYS_IN_FIRST_WEEK,
+  ucal_setAttribute(my->cal, UCAL_MINIMAL_DAYS_IN_FIRST_WEEK,
     my->minimumDaysInFirstWeek);
 #endif
 }
 
-- (NSTimeZone *) timeZone
+- (NSTimeZone*) timeZone
 {
   return my->tz;
 }
 
-- (void) setTimeZone: (NSTimeZone *) tz
+- (void) setTimeZone: (NSTimeZone*) tz
 {
   if ([tz isEqual: my->tz])
-    return;
-  
-  RELEASE(my->tz);
-  my->tz = RETAIN(tz);
+    {
+      return;
+    }
+
+  ASSIGN(my->tz, tz);
   [self _resetCalendar];
 }
 
-
 - (NSRange) maximumRangeOfUnit: (NSCalendarUnit) unit
 {
+  NSRange result = NSMakeRange (0, 0);
 #if GS_USE_ICU == 1
   UCalendarDateFields dateField;
-  NSRange result;
   UErrorCode err = U_ZERO_ERROR;
-  
+
   [self _resetCalendar];
-  dateField = _NSCalendarUnitToDateField (unit);
-  // We really don't care if there are any errors...
-  result.location =
-    (NSUInteger)ucal_getLimit (my->cal, dateField, UCAL_MINIMUM, &err);
-  result.length = 
-    (NSUInteger)ucal_getLimit (my->cal, dateField, UCAL_MAXIMUM, &err)
-    - result.location + 1;
-  // ICU's month is 0-based, while NSCalendar is 1-based
-  if (dateField == UCAL_MONTH)
-    result.location += 1;
-  
-  return result;
-#else
-  return NSMakeRange (0, 0);
+  dateField = _NSCalendarUnitToDateField(unit);
+  if (dateField != (UCalendarDateFields)-1)
+    {
+      // We really don't care if there are any errors...
+      result.location =
+        (NSUInteger)ucal_getLimit(my->cal, dateField, UCAL_MINIMUM, &err);
+      result.length =
+        (NSUInteger)ucal_getLimit(my->cal, dateField, UCAL_MAXIMUM, &err)
+        - result.location + 1;
+      // ICU's month is 0-based, while NSCalendar is 1-based
+      if (dateField == UCAL_MONTH)
+        {
+          result.location += 1;
+        }
+    }
 #endif
+
+  return result;
 }
 
 - (NSRange) minimumRangeofUnit: (NSCalendarUnit) unit
 {
+  NSRange result = NSMakeRange (0, 0);
 #if GS_USE_ICU == 1
   UCalendarDateFields dateField;
-  NSRange result;
   UErrorCode err = U_ZERO_ERROR;
-  
+
   [self _resetCalendar];
-  dateField = _NSCalendarUnitToDateField (unit);
-  // We really don't care if there are any errors...
-  result.location =
-    (NSUInteger)ucal_getLimit (my->cal, dateField, UCAL_GREATEST_MINIMUM, &err);
-  result.length = 
-    (NSUInteger)ucal_getLimit (my->cal, dateField, UCAL_LEAST_MAXIMUM, &err)
-    - result.location + 1;
-  // ICU's month is 0-based, while NSCalendar is 1-based
-  if (dateField == UCAL_MONTH)
-    result.location += 1;
-  
-  return result;
-#else
-  return NSMakeRange (0, 0);
+  dateField = _NSCalendarUnitToDateField(unit);
+  if (dateField != (UCalendarDateFields)-1)
+    {
+      // We really don't care if there are any errors...
+      result.location =
+        (NSUInteger)ucal_getLimit(my->cal, dateField, UCAL_GREATEST_MINIMUM, &err);
+      result.length =
+        (NSUInteger)ucal_getLimit(my->cal, dateField, UCAL_LEAST_MAXIMUM, &err)
+        - result.location + 1;
+      // ICU's month is 0-based, while NSCalendar is 1-based
+      if (dateField == UCAL_MONTH)
+        {
+          result.location += 1;
+        }
+    }
 #endif
+  return result;
 }
 
 - (NSUInteger) ordinalityOfUnit: (NSCalendarUnit) smaller
                          inUnit: (NSCalendarUnit) larger
-                        forDate: (NSDate *) date
+                        forDate: (NSDate*) date
 {
   return 0;
 }
 
 - (NSRange) rangeOfUnit: (NSCalendarUnit) smaller
                  inUnit: (NSCalendarUnit) larger
-                forDate: (NSDate *) date
+                forDate: (NSDate*) date
 {
   return NSMakeRange (0, 0);
 }
 
-+ (id) autoupdatingCurrentCalendar
-{
-  NSCalendar *result;
-
-  [classLock lock];
-  if (nil == autoupdatingCalendar)
-    {
-      autoupdatingCalendar = [[self currentCalendar] copy];
-      [[NSNotificationCenter defaultCenter]
-        addObserver: self
-        selector: @selector(defaultsDidChange:)
-        name: NSUserDefaultsDidChangeNotification
-        object: nil];
-    }
-
-  result = RETAIN(autoupdatingCalendar);
-  [classLock unlock];
-  return AUTORELEASE(result);
-}
-
-
 - (BOOL) rangeOfUnit: (NSCalendarUnit) unit
            startDate: (NSDate **) datep
-            interval: (NSTimeInterval *)tip
-             forDate: (NSDate *)date
+            interval: (NSTimeInterval*)tip
+             forDate: (NSDate*)date
 {
   return NO;
 }
@@ -753,7 +885,7 @@ do \
 - (BOOL) isEqual: (id) obj
 {
 #if GS_USE_ICU == 1
-  return (BOOL)ucal_equivalentTo (my->cal, [obj _UCalendar]);
+  return (BOOL)ucal_equivalentTo(my->cal, [obj _UCalendar]);
 #else
   if ([obj isKindOfClass: [self class]])
     {
@@ -763,10 +895,99 @@ do \
         return NO;
       if (![my->tz isEqual: [obj timeZone]])
         return NO;
+      if (my->firstWeekday != [obj firstWeekday])
+        return NO;
+      if (my->minimumDaysInFirstWeek != [obj minimumDaysInFirstWeek])
+        return NO;
       return YES;
     }
-  
+
   return NO;
+#endif
+}
+
+
+- (void) getEra: (NSInteger*)eraValuePointer
+           year: (NSInteger*)yearValuePointer
+          month: (NSInteger*)monthValuePointer
+            day: (NSInteger*)dayValuePointer
+       fromDate: (NSDate*)date
+{
+#if GS_USE_ICU == 1
+  UErrorCode err = U_ZERO_ERROR;
+  UDate udate;
+  [self _resetCalendar];
+  ucal_clear (my->cal);
+  
+  udate = (UDate)floor([date timeIntervalSince1970] * 1000.0);
+  ucal_setMillis (my->cal, udate, &err);
+  if (U_FAILURE(err))
+    return;
+  
+  if (eraValuePointer != NULL)
+    *eraValuePointer = ucal_get(my->cal, UCAL_ERA, &err);
+  if (yearValuePointer != NULL)
+    *yearValuePointer = ucal_get(my->cal, UCAL_YEAR, &err);
+  if (monthValuePointer != NULL)
+    *monthValuePointer = ucal_get(my->cal, UCAL_MONTH, &err) + 1;
+  if (dayValuePointer != NULL)
+    *dayValuePointer = ucal_get(my->cal, UCAL_DAY_OF_MONTH, &err);
+#endif
+}
+
+- (void) getHour: (NSInteger*)hourValuePointer
+          minute: (NSInteger*)minuteValuePointer
+          second: (NSInteger*)secondValuePointer
+      nanosecond: (NSInteger*)nanosecondValuePointer
+        fromDate: (NSDate*)date
+{ 
+#if GS_USE_ICU == 1
+  UErrorCode err = U_ZERO_ERROR;
+  UDate udate;
+  [self _resetCalendar];
+  ucal_clear (my->cal);
+
+  udate = (UDate)floor([date timeIntervalSince1970] * 1000.0);
+  ucal_setMillis (my->cal, udate, &err);
+  if (U_FAILURE(err))
+    return;
+	
+  if (hourValuePointer != NULL)
+    *hourValuePointer = ucal_get(my->cal, UCAL_HOUR_OF_DAY, &err);
+  if (minuteValuePointer != NULL)
+    *minuteValuePointer = ucal_get(my->cal, UCAL_MINUTE, &err);
+  if (secondValuePointer != NULL)
+    *secondValuePointer = ucal_get(my->cal, UCAL_SECOND, &err);
+  if (nanosecondValuePointer != NULL)
+    *nanosecondValuePointer = ucal_get(my->cal, UCAL_MILLISECOND, &err) * 1000;
+#endif
+}
+
+- (void) getEra: (NSInteger*)eraValuePointer 
+yearForWeekOfYear: (NSInteger*)yearValuePointer 
+     weekOfYear: (NSInteger*)weekValuePointer 
+        weekday: (NSInteger*)weekdayValuePointer 
+       fromDate: (NSDate*)date
+{
+#if GS_USE_ICU == 1
+  UErrorCode err = U_ZERO_ERROR;
+  UDate udate;
+  [self _resetCalendar];
+  ucal_clear (my->cal);
+
+  udate = (UDate)floor([date timeIntervalSince1970] * 1000.0);
+  ucal_setMillis (my->cal, udate, &err);
+  if (U_FAILURE(err))
+    return;
+	
+  if (eraValuePointer != NULL)
+    *eraValuePointer = ucal_get(my->cal, UCAL_ERA, &err);
+  if (yearValuePointer != NULL)
+    *yearValuePointer = ucal_get(my->cal, UCAL_YEAR_WOY, &err);
+  if (weekValuePointer != NULL)
+    *weekValuePointer = ucal_get(my->cal, UCAL_WEEK_OF_YEAR, &err);
+  if (weekdayValuePointer != NULL)
+    *weekdayValuePointer = ucal_get(my->cal, UCAL_DAY_OF_WEEK, &err);
 #endif
 }
 
@@ -781,17 +1002,18 @@ do \
 {
   NSString	*s = [decoder decodeObject];
 
-  [self initWithCalendarIdentifier: s];
-  [self _setLocaleIdentifier: [decoder decodeObject]];
-  [self setTimeZone: [decoder decodeObject]];
-  
+  if (nil != (self = [self initWithCalendarIdentifier: s]))
+    {
+      [self _setLocaleIdentifier: [decoder decodeObject]];
+      [self setTimeZone: [decoder decodeObject]];
+    }
   return self;
 }
 
 - (id) copyWithZone: (NSZone*)zone
 {
   NSCalendar *result;
-  
+
   if (NSShouldRetainWithZone(self, zone))
     {
       return RETAIN(self);
@@ -803,7 +1025,7 @@ do \
       [result _setLocaleIdentifier: my->localeID];
       [result setTimeZone: my->tz];
     }
-  
+
   return result;
 }
 
@@ -828,6 +1050,8 @@ typedef struct {
   NSInteger quarter;
   NSInteger weekOfMonth;
   NSInteger yearForWeekOfYear;
+  BOOL leapMonth;
+  NSInteger nanosecond;
   NSCalendar *cal;
   NSTimeZone *tz;
 } DateComp;
@@ -849,7 +1073,7 @@ typedef struct {
 {
   if (nil != (self = [super init]))
     {
-      _NSDateComponentsInternal = 
+      _NSDateComponentsInternal =
         NSZoneCalloc([self zone], sizeof(DateComp), 1);
 
       my->era = NSDateComponentUndefined;
@@ -865,9 +1089,11 @@ typedef struct {
       my->quarter = NSDateComponentUndefined;
       my->weekOfMonth = NSDateComponentUndefined;
       my->yearForWeekOfYear = NSDateComponentUndefined;
+      my->leapMonth = NO;
+      my->nanosecond = NSDateComponentUndefined;
       my->cal = NULL;
       my->tz = NULL;
-     } 
+     }
   return self;
 }
 
@@ -906,6 +1132,11 @@ typedef struct {
   return my->second;
 }
 
+- (NSInteger) nanosecond
+{
+  return my->nanosecond;
+}
+
 - (NSInteger) week
 {
   return my->week;
@@ -941,23 +1172,24 @@ typedef struct {
   return my->yearForWeekOfYear;
 }
 
-- (NSCalendar *) calendar
+- (BOOL) leapMonth
+{
+  return my->leapMonth;
+}
+
+- (NSCalendar*) calendar
 {
   return my->cal;
 }
 
-- (NSTimeZone *) timeZone
+- (NSTimeZone*) timeZone
 {
   return my->tz;
 }
 
-- (NSDate *) date
+- (NSDate*) date
 {
   NSCalendar* cal = [self calendar];
-  NSTimeZone* zone = [self timeZone];
-
-  if (zone != NULL)
-    [cal setTimeZone: zone];
 
   return [cal dateFromComponents: self];
 }
@@ -998,6 +1230,11 @@ typedef struct {
   my->second = v;
 }
 
+- (void) setNanosecond: (NSInteger) v
+{
+  my->nanosecond = v;
+}
+
 - (void) setWeek: (NSInteger) v
 {
   my->week = v;
@@ -1033,14 +1270,111 @@ typedef struct {
   my->yearForWeekOfYear = v;
 }
 
-- (void) setCalendar: (NSCalendar *) cal
+- (void) setLeapMonth: (BOOL) v
+{
+  my->leapMonth = v;
+}
+
+- (void) setCalendar: (NSCalendar*) cal
 {
   ASSIGN(my->cal, cal);
 }
 
-- (void) setTimeZone: (NSTimeZone *) tz
+- (void) setTimeZone: (NSTimeZone*) tz
 {
   ASSIGN(my->tz, tz);
+}
+
+- (BOOL) isValidDate
+{
+  if (my->cal == nil)
+    {
+      return NO;
+    }
+  return [self isValidDateInCalendar: my->cal];
+}
+
+- (BOOL) isValidDateInCalendar: (NSCalendar*) calendar
+{
+  return [calendar dateFromComponents: self] != nil;
+}
+
+- (NSInteger) valueForComponent: (NSCalendarUnit) unit
+{
+  switch (unit)
+    {
+      case NSCalendarUnitEra: return my->era;
+      case NSCalendarUnitYear: return my->year;
+      case NSCalendarUnitMonth: return my->month;
+      case NSCalendarUnitDay: return my->day;
+      case NSCalendarUnitHour: return my->hour;
+      case NSCalendarUnitMinute: return my->minute;
+      case NSCalendarUnitSecond: return my->second;
+      case NSCalendarUnitWeekday: return my->weekday;
+      case NSCalendarUnitWeekdayOrdinal: return my->weekdayOrdinal;
+      case NSCalendarUnitQuarter: return my->quarter;
+      case NSCalendarUnitWeekOfMonth: return my->weekOfMonth;
+      case NSCalendarUnitWeekOfYear: return my->week;
+      case NSWeekCalendarUnit: return my->week;
+      case NSCalendarUnitYearForWeekOfYear: return my->yearForWeekOfYear;
+      case NSCalendarUnitNanosecond: return my->nanosecond;
+      default: return 0;
+    }
+}
+
+- (void) setValue: (NSInteger) value
+     forComponent: (NSCalendarUnit) unit
+{
+  switch (unit)
+    {
+      case NSCalendarUnitEra:
+        my->era = value;
+        break;
+      case NSCalendarUnitYear:
+        my->year = value;
+        break;
+      case NSCalendarUnitMonth:
+        my->month = value;
+        break;
+      case NSCalendarUnitDay:
+          my->day = value;
+        break;
+      case NSCalendarUnitHour:
+        my->hour = value;
+        break;
+      case NSCalendarUnitMinute:
+        my->minute = value;
+        break;
+      case NSCalendarUnitSecond:
+        my->second = value;
+        break;
+      case NSCalendarUnitWeekday:
+        my->weekday = value;
+        break;
+      case NSCalendarUnitWeekdayOrdinal:
+        my->weekdayOrdinal = value;
+        break;
+      case NSCalendarUnitQuarter:
+        my->quarter = value;
+        break;
+      case NSCalendarUnitWeekOfMonth:
+        my->weekOfMonth = value;
+        break;
+      case NSCalendarUnitWeekOfYear:
+        my->week = value;
+        break;
+      case NSWeekCalendarUnit:
+        my->week = value;
+        break;
+      case NSCalendarUnitYearForWeekOfYear:
+        my->yearForWeekOfYear = value;
+        break;
+      case NSCalendarUnitNanosecond:
+        my->nanosecond = value;
+        break;
+      default:
+        break;
+    }
 }
 
 - (id) copyWithZone: (NSZone*)zone
@@ -1052,7 +1386,7 @@ typedef struct {
   else
     {
       NSDateComponents  *c = [[NSDateComponents allocWithZone: zone] init];
-      
+
       memcpy(c->_NSDateComponentsInternal, _NSDateComponentsInternal,
         sizeof(DateComp));
       /* We gave objects to the copy, so we need to retain them too.

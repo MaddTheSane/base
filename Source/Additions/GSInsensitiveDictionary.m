@@ -18,8 +18,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */
 
 
@@ -61,6 +60,7 @@
 {
 @public
   GSIMapTable_t	map;
+  unsigned long	_version;
 }
 @end
 
@@ -115,7 +115,8 @@ static SEL	objSel;
     {
       NSUInteger	count = map.nodeCount;
       SEL		sel = @selector(encodeObject:);
-      IMP		imp = [aCoder methodForSelector: sel];
+      id (*imp)(id,SEL,id)
+	= (id (*)(id,SEL,id))[aCoder methodForSelector: sel];
       GSIMapEnumerator_t	enumerator = GSIMapEnumeratorForMap(&map);
       GSIMapNode	node = GSIMapEnumeratorNextNode(&enumerator);
 
@@ -152,7 +153,8 @@ static SEL	objSel;
       id		key;
       id		value;
       SEL		sel = @selector(decodeValueOfObjCType:at:);
-      IMP		imp = [aCoder methodForSelector: sel];
+      void (*imp)(id,SEL,const char*,void*)
+	= (void (*)(id,SEL,const char*,void*))[aCoder methodForSelector: sel];
       const char	*type = @encode(id);
 
       [aCoder decodeValueOfObjCType: @encode(NSUInteger)
@@ -195,7 +197,7 @@ static SEL	objSel;
       node = GSIMapNodeForKey(&map, (GSIMapKey)(id)keys[i]);
       if (node)
 	{
-	  IF_NO_GC(RETAIN(objs[i]));
+	  IF_NO_ARC(RETAIN(objs[i]);)
 	  RELEASE(node->value.obj);
 	  node->value.obj = objs[i];
 	}
@@ -220,8 +222,9 @@ static SEL	objSel;
   if (c > 0)
     {
       NSEnumerator	*e = [other keyEnumerator];
-      IMP		nxtObj = [e methodForSelector: nxtSel];
-      IMP		otherObj = [other methodForSelector: objSel];
+      id (*nxtObj)(id, SEL) = (id (*)(id,SEL))[e methodForSelector: nxtSel];
+      id (*otherObj)(id, SEL, id)
+	= (id (*)(id,SEL,id))[other methodForSelector: objSel];
       BOOL		isProxy = [other isProxy];
       NSUInteger	i;
 
@@ -233,20 +236,13 @@ static SEL	objSel;
 
 	  if (isProxy == YES)
 	    {
-	      k = [e nextObject];
+	      if (nil == (k = [e nextObject])) break;
 	      o = [other objectForKey: k];
 	    }
 	  else
 	    {
-	      k = (*(id(*)(id, SEL))nxtObj)(e, nxtSel);
-	      o = (*(id(*)(id, SEL, id))otherObj)(other, objSel, k);
-	    }
-	  k = [k copyWithZone: z];
-	  if (k == nil)
-	    {
-	      DESTROY(self);
-	      [NSException raise: NSInvalidArgumentException
-			  format: @"Tried to init dictionary with nil key"];
+	      if (nil == (k = (*nxtObj)(e, nxtSel))) break;
+	      o = (*otherObj)(other, objSel, k);
 	    }
 	  if (shouldCopy)
 	    {
@@ -271,7 +267,8 @@ static SEL	objSel;
 	    }
 	  else
 	    {
-	      GSIMapAddPairNoRetain(&map, (GSIMapKey)k, (GSIMapVal)o);
+	      GSIMapAddPair(&map, (GSIMapKey)k, (GSIMapVal)o);
+	      RELEASE(o);
 	    }
 	}
     }
@@ -293,7 +290,8 @@ static SEL	objSel;
 	{
 	  GSIMapEnumerator_t	enumerator;
 	  GSIMapNode		node;
-	  IMP			otherObj = [other methodForSelector: objSel];
+	  id (*otherObj)(id, SEL, id)
+	    = (id (*)(id,SEL,id))[other methodForSelector: objSel];
 
 	  enumerator = GSIMapEnumeratorForMap(&map);
 	  while ((node = GSIMapEnumeratorNextNode(&enumerator)) != 0)
@@ -345,6 +343,15 @@ static SEL	objSel;
   return nil;
 }
 
+- (NSUInteger) countByEnumeratingWithState: (NSFastEnumerationState*)state
+                                   objects: (__unsafe_unretained id[])stackbuf
+                                     count: (NSUInteger)len
+{
+  state->mutationsPtr = (unsigned long *)self;
+  return GSIMapCountByEnumeratingWithStateObjectsCount
+    (&map, state, stackbuf, len);
+}
+
 @end
 
 @implementation _GSMutableInsensitiveDictionary
@@ -360,6 +367,13 @@ static SEL	objSel;
 - (id) copyWithZone: (NSZone*)zone
 {
   NSDictionary	*copy = [_GSInsensitiveDictionary allocWithZone: zone];
+
+  return [copy initWithDictionary: self copyItems: NO];
+}
+
+- (id) mutableCopyWithZone: (NSZone*)z
+{
+  NSMutableDictionary	*copy = [_GSMutableInsensitiveDictionary allocWithZone: z];
 
   return [copy initWithDictionary: self copyItems: NO];
 }
@@ -392,6 +406,7 @@ static SEL	objSel;
 {
   GSIMapNode	node;
 
+  _version++;
   if (aKey == nil)
     {
       NSException	*e;
@@ -413,7 +428,7 @@ static SEL	objSel;
   node = GSIMapNodeForKey(&map, (GSIMapKey)aKey);
   if (node)
     {
-      IF_NO_GC(RETAIN(anObject));
+      IF_NO_ARC(RETAIN(anObject);)
       RELEASE(node->value.obj);
       node->value.obj = anObject;
     }
@@ -421,11 +436,14 @@ static SEL	objSel;
     {
       GSIMapAddPair(&map, (GSIMapKey)aKey, (GSIMapVal)anObject);
     }
+  _version++;
 }
 
 - (void) removeAllObjects
 {
+  _version++;
   GSIMapCleanMap(&map);
+  _version++;
 }
 
 - (void) removeObjectForKey: (id)aKey
@@ -435,7 +453,18 @@ static SEL	objSel;
       NSWarnMLog(@"attempt to remove nil key from dictionary %@", self);
       return;
     }
+  _version++;
   GSIMapRemoveKey(&map, (GSIMapKey)aKey);
+  _version++;
+}
+
+- (NSUInteger) countByEnumeratingWithState: (NSFastEnumerationState*)state
+                                   objects: (__unsafe_unretained id[])stackbuf
+                                     count: (NSUInteger)len
+{
+  state->mutationsPtr = &_version;
+  return GSIMapCountByEnumeratingWithStateObjectsCount
+    (&map, state, stackbuf, len);
 }
 
 @end

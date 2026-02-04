@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */
 
 #import "common.h"
@@ -627,15 +626,11 @@ descriptorOrComparator: (id)descriptorOrComparator
   while (stackSize > 1)
     {
       NSInteger n = stackSize -2;
-      if (  (n >= 1
-              && runStack[n-1].length <= (runStack[n].length
-                                          + runStack[n+1].length)
-            )
-         || (n >= 2 
-              && runStack[n-2].length <= (runStack[n].length 
-                                          + runStack[n-1].length)
-            )
-         )
+
+      if ((n >= 1 && runStack[n-1].length
+	  <= (runStack[n].length + runStack[n+1].length))
+        || (n >= 2 && runStack[n-2].length
+	  <= (runStack[n].length + runStack[n-1].length)))
         {
           if (runStack[n-1].length < runStack[n+1].length)
             {
@@ -1026,8 +1021,9 @@ descriptorOrComparator: (id)descriptorOrComparator
   r1 = runStack[i];
   r2 = runStack[i+1];
   NSDebugMLLog(@"GSTimSort",
-    @"Merging stack location %lu (stack size: %lu, run %@ with %@)", i,
-    stackSize, NSStringFromRange(r1), NSStringFromRange(r2));
+    @"Merging stack location %lu (stack size: %lu, run %@ with %@)",
+    (unsigned long)i, (unsigned long)stackSize,
+    NSStringFromRange(r1), NSStringFromRange(r2));
 
   /* Do some housekeeping on the stack: We combine the two runs
    * being merged and move around the last run on the stack
@@ -1054,7 +1050,7 @@ descriptorOrComparator: (id)descriptorOrComparator
     }
   NSDebugMLLog(@"GSTimSort",
     @"Insertion point for r2 in r1: %lu, r1 for the merge is now %@.",
-    insert, NSStringFromRange(r1));
+    (unsigned long)insert, NSStringFromRange(r1));
 
   // Find an insertion point for the last element of r1 into r2. Subtracting the
   // location from that point gives us the length of the subrange we need to

@@ -9,6 +9,16 @@
 
 #include "config.h"
 
+/* Branch prediction macros
+ */
+#if !defined(likely)
+#define likely(x)      __builtin_expect(!!(x), 1)
+#endif
+
+#if !defined(unlikely)
+#define unlikely(x)    __builtin_expect(!!(x), 0)
+#endif
+
 #if	defined(HAVE_STRING_H)
 /* For POSIX strerror_r() and others
  */
@@ -83,6 +93,22 @@
 #    include <unistd.h>
 #    undef __block
 #  endif
+#endif
+
+/* Redefine some functions/variables when using the MSVC ABI on Windows.
+ */
+#ifdef _MSC_VER
+#  include <io.h>
+#  define strncasecmp _strnicmp
+#  define strcasecmp _stricmp
+#  define write(fd, buffer, count) _write(fd, buffer, count)
+#  define close(fd) _close(fd)
+
+   // time.h
+#  define tzset _tzset
+#  define tzname _tzname
+#  define timezone _timezone
+#  define daylight _daylight
 #endif
 
 #endif /* COMMON_H */

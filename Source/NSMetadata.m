@@ -1,7 +1,7 @@
 /**Interface for NSMetadataQuery for GNUStep
    Copyright (C) 2012 Free Software Foundation, Inc.
 
-   Written by: Gregory Casamento
+   Written by: Gregory John Casamento <greg.casamento@gmail.com>
    Date: 2012
    
    This file is part of the GNUstep Base Library.
@@ -14,14 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
-
-   AutogsdocSource: NSMetadata.m
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */ 
 
 #import "common.h"
@@ -38,15 +35,6 @@
 #import "Foundation/NSPredicate.h"
 #import "Foundation/NSString.h"
 #import "Foundation/NSTimer.h"
-
-// Metadata item constants...
-NSString * const NSMetadataItemFSNameKey = @"NSMetadataItemFSNameKey";
-NSString * const NSMetadataItemDisplayNameKey = @"NSMetadataItemDisplayNameKey";
-NSString * const NSMetadataItemURLKey = @"NSMetadataItemURLKey";
-NSString * const NSMetadataItemPathKey = @"NSMetadataItemPathKey";
-NSString * const NSMetadataItemFSSizeKey = @"NSMetadataItemFSSizeKey";
-NSString * const NSMetadataItemFSCreationDateKey = @"NSMetadataItemFSCreationDateKey";
-NSString * const NSMetadataItemFSContentChangeDateKey = @"NSMetadataItemFSContentChangeDateKey";
 
 @implementation NSMetadataItem
 
@@ -95,27 +83,6 @@ NSString * const NSMetadataItemFSContentChangeDateKey = @"NSMetadataItemFSConten
 
 @end
 
-// Metdata Query Constants...
-NSString * const NSMetadataQueryUserHomeScope
-  = @"NSMetadataQueryUserHomeScope";
-NSString * const NSMetadataQueryLocalComputerScope
-  = @"NSMetadataQueryLocalComputerScope";
-NSString * const NSMetadataQueryNetworkScope
-  = @"NSMetadataQueryNetworkScope";
-NSString * const NSMetadataQueryUbiquitousDocumentsScope
-  = @"NSMetadataQueryUbiquitousDocumentsScope";
-NSString * const NSMetadataQueryUbiquitousDataScope
-  = @"NSMetadataQueryUbiquitousDataScope";
-
-NSString * const NSMetadataQueryDidFinishGatheringNotification
-  = @"NSMetadataQueryDidFinishGatheringNotification";
-NSString * const NSMetadataQueryDidStartGatheringNotification
-  = @"NSMetadataQueryDidStartGatheringNotification";
-NSString * const NSMetadataQueryDidUpdateNotification
-  = @"NSMetadataQueryDidUpdateNotification";
-NSString * const NSMetadataQueryGatheringProgressNotification
-  = @"NSMetadataQueryGatheringProgressNotification";
-
 @interface	NSMetadataQueryInternal : NSObject
 {
 @public
@@ -152,7 +119,7 @@ NSString * const NSMetadataQueryGatheringProgressNotification
   [super dealloc];
 }
 
-- (id<NSMetadataQueryDelegate>) delegate;
+- (id<NSMetadataQueryDelegate>) delegate
 {
   return this->_delegate;
 }
@@ -167,7 +134,7 @@ NSString * const NSMetadataQueryGatheringProgressNotification
   [self subclassResponsibility: _cmd];
 }
 
-- (NSArray *) groupedResults;
+- (NSArray *) groupedResults
 {
   return [self subclassResponsibility: _cmd];
 }
@@ -248,7 +215,7 @@ NSString * const NSMetadataQueryGatheringProgressNotification
   return this->_scopes;
 }
 
-- (void) setDelegate: (id<NSMetadataQueryDelegate>)delegate;
+- (void) setDelegate: (id<NSMetadataQueryDelegate>)delegate
 {
   this->_delegate = delegate;
 }

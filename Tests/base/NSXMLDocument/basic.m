@@ -2,10 +2,15 @@
 #import <Foundation/NSAutoreleasePool.h>
 #import <Foundation/NSXMLDocument.h>
 #import <Foundation/NSXMLElement.h>
+#import "GNUstepBase/GSConfig.h"
 
 int main()
 {
   NSAutoreleasePool *arp = [NSAutoreleasePool new];
+  START_SET("NSXMLDocument")
+#if !GS_USE_LIBXML
+    SKIP("library built without libxml2")
+#else
   NSArray *nodes = nil;
   NSXMLDocument *node;
   NSXMLDocument *node2;
@@ -69,6 +74,8 @@ int main()
   PASS_RUNS([node setRootElement: nil], "setting a nil root is ignored");
   PASS_EQUAL([node rootElement], elem, "root element remains");
 
+  DESTROY(elem);
+  DESTROY(node);
   node = [[NSXMLDocument alloc] initWithXMLString:documentXML
 					  options:0
 					    error:NULL];
@@ -91,7 +98,11 @@ int main()
 					     error:NULL];
   PASS([node isEqual: node2],
        "Equal documents are equivalent");
+  RELEASE(node2);
+  RELEASE(node);
+#endif
 
+  END_SET("NSXMLDocument")
   [arp release];
   arp = nil;
 

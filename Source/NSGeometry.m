@@ -1,7 +1,7 @@
 /** NSGeometry.m - geometry functions
  * Copyright (C) 1993, 1994, 1995 Free Software Foundation, Inc.
  *
- * Written by:  Adam Fedor <fedor@boulder.colorado.edu>
+ * Written by:  Adam Fedor <fedor@gnu.org>
  * Date: Mar 1995
  *
  * This file is part of the GNUstep Base Library.
@@ -14,12 +14,11 @@
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
+ * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02111 USA.
+ * Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSGeometry class reference</title>
    $Date$ $Revision$
@@ -100,6 +99,50 @@ NSIntegralRect(NSRect aRect)
   rect.size.height = ceil(NSMaxY(aRect)) - rect.origin.y;
   return rect;
 }
+
+NSRect
+NSIntegralRectWithOptions(NSRect aRect, NSAlignmentOptions options)
+{
+  NSRect rect;
+  CGFloat maxX, maxY;
+
+  if (NSIsEmptyRect(aRect))
+    return NSMakeRect(0, 0, 0, 0);
+
+  if (options & NSAlignMinXInward)
+    rect.origin.x = ceil(NSMinX(aRect));
+  else if (options & NSAlignMinXOutward)
+    rect.origin.x = floor(NSMinX(aRect));
+  else
+    rect.origin.x = round(NSMinX(aRect));
+
+  if (options & NSAlignMinYInward)
+    rect.origin.y = ceil(NSMinY(aRect));
+  else if (options & NSAlignMinYOutward)
+    rect.origin.y = floor(NSMinY(aRect));
+  else
+    rect.origin.y = round(NSMinY(aRect));
+
+  if (options & NSAlignMaxXInward)
+    maxX = floor(NSMaxX(aRect));
+  else if (options & NSAlignMaxXOutward)
+    maxX = ceil(NSMaxX(aRect));
+  else
+    maxX = round(NSMaxX(aRect));
+
+  if (options & NSAlignMaxYInward)
+    maxY = floor(NSMaxY(aRect));
+  else if (options & NSAlignMaxYOutward)
+    maxY = ceil(NSMaxY(aRect));
+  else
+    maxY = round(NSMaxY(aRect));
+
+  rect.size.width = maxX - rect.origin.x;
+  rect.size.height = maxY - rect.origin.y;
+
+  return rect;
+}
+
 
 void 	
 NSDivideRect(NSRect aRect,
@@ -499,3 +542,13 @@ NSEqualPoints(NSPoint aPoint, NSPoint bPoint)
     && almostEqual(aPoint.y, bPoint.y)) ? YES : NO;
 }
 
+BOOL
+NSEdgeInsetsEqual(NSEdgeInsets e1, NSEdgeInsets e2)
+{
+  return (
+    almostEqual(e1.top, e2.top)
+    && almostEqual(e1.left, e2.left)
+    && almostEqual(e1.bottom, e2.bottom)
+    && almostEqual(e1.right, e2.right)
+  );
+}

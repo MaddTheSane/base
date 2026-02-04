@@ -25,8 +25,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    AutogsdocSource: Additions/GSXML.m
 
@@ -42,6 +41,7 @@
 #import <Foundation/NSObject.h>
 #import <Foundation/NSString.h>
 #import <Foundation/NSDictionary.h>
+#import <Foundation/NSStream.h>
 #else
 #import <Foundation/Foundation.h>
 #endif
@@ -84,11 +84,12 @@ extern "C" {
 - (NSString*) stringByUnescapingXML;
 @end
 
+GS_EXPORT_CLASS
 @interface GSXMLDocument : NSObject <NSCopying>
 {
   void	*lib;	// pointer to xmllib pointer of xmlDoc struct
-  BOOL	_ownsLib;
   id	_parent;
+  BOOL	_ownsLib;
 }
 + (GSXMLDocument*) documentWithVersion: (NSString*)version;
 
@@ -113,6 +114,7 @@ extern "C" {
 
 
 
+GS_EXPORT_CLASS
 @interface GSXMLNamespace : NSObject <NSCopying>
 {
   void	*lib;          /* pointer to struct xmlNs in the gnome xmllib */
@@ -134,10 +136,12 @@ extern "C" {
 
 /* XML Node */
 
+GS_EXPORT_CLASS
 @interface GSXMLNode : NSObject <NSCopying>
 {
   void  *lib;      /* pointer to struct xmlNode from libxml */
   id	_parent;
+  BOOL	_ownsLib;
 }
 
 + (NSString*) descriptionFromType: (NSInteger)type;
@@ -183,16 +187,19 @@ extern "C" {
 
 @end
 
+GS_EXPORT_CLASS
 @interface GSXMLAttribute : GSXMLNode
 - (NSString*) value;
 @end
 
+GS_EXPORT_CLASS
 @interface GSXMLParser : NSObject
 {
-   id			src;		/* source for parsing	*/
-   void			*lib;		/* parser context	*/
-   GSSAXHandler		*saxHandler;	/* handler for parsing	*/
-   NSMutableString	*messages;	/* append messages here	*/
+  id			src;		/* source for parsing	*/
+  void			*lib;		/* parser context	*/
+  GSSAXHandler		*saxHandler;	/* handler for parsing	*/
+  NSMutableString	*messages;	/* append messages here	*/
+  BOOL			resolve;
 }
 + (NSString*) loadEntity: (NSString*)publicId at: (NSString*)location;
 + (GSXMLParser*) parser;
@@ -222,6 +229,8 @@ extern "C" {
 	withContentsOfURL: (NSURL*)url;
 - (id) initWithSAXHandler: (GSSAXHandler*)handler
 		 withData: (NSData*)data;
+- (id) initWithSAXHandler: (GSSAXHandler*)handler
+	 withInputStream: (NSInputStream*)stream;
 
 - (BOOL) keepBlanks: (BOOL)yesno;
 - (NSInteger) lineNumber;
@@ -230,16 +239,19 @@ extern "C" {
 - (BOOL) parse: (NSData*)data;
 - (NSString*) publicID;
 - (void) saveMessages: (BOOL)yesno;
+- (BOOL) resolveEntities: (BOOL)yesno;
 - (BOOL) substituteEntities: (BOOL)yesno;
 - (NSString*) systemID;
 
 @end
 
+GS_EXPORT_CLASS
 @interface GSHTMLParser : GSXMLParser
 {
 }
 @end
 
+GS_EXPORT_CLASS
 @interface GSSAXHandler : NSObject
 {
   void		*lib;	// xmlSAXHandlerPtr
@@ -346,9 +358,11 @@ extern "C" {
 
 @end
 
+GS_EXPORT_CLASS
 @interface GSTreeSAXHandler : GSSAXHandler
 @end
 
+GS_EXPORT_CLASS
 @interface GSHTMLSAXHandler : GSSAXHandler
 @end
 
@@ -380,6 +394,7 @@ extern "C" {
  * NSLog (@"Got %@", [result stringValue]);
  *
  */
+GS_EXPORT_CLASS
 @interface GSXPathContext : NSObject
 {
   void		*_lib;		// xmlXPathContext
@@ -401,6 +416,7 @@ extern "C" {
  * the returned type of each GSXPath query to make sure it's what you
  * meant it to be.
  */
+GS_EXPORT_CLASS
 @interface GSXPathObject : NSObject
 {
   void		*_lib;		// xmlXPathObject
@@ -411,6 +427,7 @@ extern "C" {
 /**
  * For XPath queries returning true/false.
  */
+GS_EXPORT_CLASS
 @interface GSXPathBoolean : GSXPathObject
 - (BOOL) booleanValue;
 @end
@@ -418,6 +435,7 @@ extern "C" {
 /**
  * For XPath queries returning a number.
  */
+GS_EXPORT_CLASS
 @interface GSXPathNumber : GSXPathObject
 - (double) doubleValue;
 @end
@@ -425,6 +443,7 @@ extern "C" {
 /**
  * For XPath queries returning a string.
  */
+GS_EXPORT_CLASS
 @interface GSXPathString : GSXPathObject
 - (NSString *) stringValue;
 @end
@@ -432,6 +451,7 @@ extern "C" {
 /**
  * For XPath queries returning a node set.
  */
+GS_EXPORT_CLASS
 @interface GSXPathNodeSet : GSXPathObject
 - (NSUInteger) count;
 - (NSUInteger) length;
@@ -524,6 +544,7 @@ extern "C" {
  * containing the fault details.
  * </p>
  */
+GS_EXPORT_CLASS
 @interface	GSXMLRPC : NSObject <NSURLHandleClient>
 {
 @private

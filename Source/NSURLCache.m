@@ -1,4 +1,4 @@
-/* Implementation for NSURLCache for GNUstep
+/** Implementation for NSURLCache for GNUstep
    Copyright (C) 2006 Software Foundation, Inc.
 
    Written by:  Richard Frith-Macdonald <rfm@gnu.org>
@@ -14,15 +14,20 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #import "common.h"
+
+#import "GSPThread.h"
+
+#if	GS_HAVE_NSURLSESSION
+#import <Foundation/NSURLSession.h>
+#endif
 
 #define	EXPOSE_NSURLCache_IVARS	1
 #import "GSURLPrivate.h"
@@ -42,6 +47,7 @@ typedef struct {
 
 
 static NSURLCache	*shared = nil;
+static gs_mutex_t       cacheLock = GS_MUTEX_INIT_STATIC;
 
 @implementation	NSURLCache
 
@@ -58,9 +64,9 @@ static NSURLCache	*shared = nil;
 
 + (void) setSharedURLCache: (NSURLCache *)cache
 {
-  [gnustep_global_lock lock];
+  GS_MUTEX_LOCK(cacheLock);
   ASSIGN(shared, cache);
-  [gnustep_global_lock unlock];
+  GS_MUTEX_UNLOCK(cacheLock);
 }
 
 - (void) dealloc
@@ -78,7 +84,7 @@ static NSURLCache	*shared = nil;
 {
   NSURLCache	*c;
 
-  [gnustep_global_lock lock];
+  GS_MUTEX_LOCK(cacheLock);
   if (shared == nil)
     {
       NSString	*path = nil;
@@ -91,7 +97,7 @@ static NSURLCache	*shared = nil;
       
     }
   c = RETAIN(shared);
-  [gnustep_global_lock unlock];
+  GS_MUTEX_UNLOCK(cacheLock);
   return AUTORELEASE(c);
 }
 
@@ -214,4 +220,28 @@ static NSURLCache	*shared = nil;
 }
 
 @end
+
+#if	GS_HAVE_NSURLSESSION
+@implementation NSURLCache (NSURLSessionTaskAdditions)
+
+- (void) storeCachedResponse: (NSCachedURLResponse*)cachedResponse 
+                 forDataTask: (NSURLSessionDataTask*)dataTask
+{
+  [self storeCachedResponse: cachedResponse 
+                 forRequest: [dataTask currentRequest]];
+}
+
+- (NSCachedURLResponse*) cachedResponseForDataTask:
+  (NSURLSessionDataTask*)dataTask 
+{
+  return [self cachedResponseForRequest: [dataTask currentRequest]];
+}
+
+- (void) removeCachedResponseForDataTask: (NSURLSessionDataTask*)dataTask
+{
+  [self removeCachedResponseForRequest: [dataTask currentRequest]];
+}
+
+@end
+#endif
 

@@ -14,36 +14,38 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSTask class reference</title>
-   $Date$ $Revision$
    */
 
 #import "common.h"
+#import "GSPThread.h"
 #define	EXPOSE_NSTask_IVARS	1
+#import "Foundation/FoundationErrors.h"
 #import "Foundation/NSAutoreleasePool.h"
 #import "Foundation/NSCharacterSet.h"
 #import "Foundation/NSData.h"
 #import "Foundation/NSDate.h"
 #import "Foundation/NSEnumerator.h"
+#import "Foundation/NSError.h"
 #import "Foundation/NSException.h"
 #import "Foundation/NSFileHandle.h"
 #import "Foundation/NSFileManager.h"
 #import "Foundation/NSMapTable.h"
 #import "Foundation/NSProcessInfo.h"
 #import "Foundation/NSRunLoop.h"
+#import "Foundation/NSLock.h"
 #import "Foundation/NSNotification.h"
 #import "Foundation/NSNotificationQueue.h"
 #import "Foundation/NSTask.h"
 #import "Foundation/NSThread.h"
 #import "Foundation/NSTimer.h"
-#import "Foundation/NSLock.h"
+#import "Foundation/NSURL.h"
 #import "GNUstepBase/NSString+GNUstepBase.h"
 #import "GNUstepBase/NSTask+GNUstepBase.h"
 #import "GSPrivate.h"
@@ -58,20 +60,20 @@
 #  include <windows.h>
 #endif
 
-#if	defined(HAVE_SYS_SIGNAL_H)
-#  include <sys/signal.h>
-#elif	defined(HAVE_SIGNAL_H)
+#if	defined(HAVE_SIGNAL_H)
 #  include <signal.h>
+#elif	defined(HAVE_SYS_SIGNAL_H)
+#  include <sys/signal.h>
 #endif
 
 #if	defined(HAVE_SYS_FILE_H)
 #  include	<sys/file.h>
 #endif
 
-#if	defined(HAVE_SYS_FCNTL_H)
-#  include <sys/fcntl.h>
-#elif	defined(HAVE_FCNTL_H)
+#if	defined(HAVE_FCNTL_H)
 #  include <fcntl.h>
+#elif	defined(HAVE_SYS_FCNTL_H)
+#  include <sys/fcntl.h>
 #endif
 
 #ifdef	HAVE_SYS_IOCTL_H
@@ -82,6 +84,14 @@
 #endif
 #ifdef	HAVE_SYS_PARAM_H
 #include <sys/param.h>
+#endif
+
+#if defined(__linux__) && !defined(_WIN32) && defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 29))
+/* posix_spawn is available on Linux, and we need glibc > 2.28 for:
+ * - posix_spawn_file_actions_addchdir_np() which was added in glibc 2.29
+ */
+#include <spawn.h>
+#define USE_POSIX_SPAWN 1
 #endif
 
 
@@ -220,8 +230,8 @@ pty_slave(const char* name)
 #endif
 
 @interface NSTask (Private)
-- (NSString *) _fullLaunchPath;
 - (void) _collectChild;
+- (void) _notifyOfTermination;
 - (void) _terminatedChild: (int)status reason: (NSTaskTerminationReason)reason;
 @end
 
@@ -247,7 +257,9 @@ pty_slave(const char* name)
 {
   if (self == [NSTask class])
     {
-      [gnustep_global_lock lock];
+      static gs_mutex_t	classLock = GS_MUTEX_INIT_STATIC;
+
+      GS_MUTEX_LOCK(classLock);
       if (tasksLock == nil)
         {
           tasksLock = [NSRecursiveLock new];
@@ -278,7 +290,7 @@ pty_slave(const char* name)
                 NSObjectMapValueCallBacks, 0);
           [[NSObject leakAt: &activeTasks] release];
         }
-      [gnustep_global_lock unlock];
+      GS_MUTEX_UNLOCK(classLock);
 
 #ifndef _WIN32
       signal(SIGCHLD, handleSignal);
@@ -317,6 +329,7 @@ pty_slave(const char* name)
   RELEASE(_standardError);
   RELEASE(_standardInput);
   RELEASE(_standardOutput);
+  RELEASE(_launchingThread);
   [super dealloc];
 }
 
@@ -336,7 +349,7 @@ pty_slave(const char* name)
   if (_currentDirectoryPath == nil)
     {
       [self setCurrentDirectoryPath:
-		[[NSFileManager defaultManager] currentDirectoryPath]];
+	[[NSFileManager defaultManager] currentDirectoryPath]];
     }
   return _currentDirectoryPath;
 }
@@ -391,11 +404,8 @@ pty_slave(const char* name)
     {
       return NO;
     }
-  if (_hasCollected == NO)
-    {
-      [self _collectChild];
-    }
-  if (_hasTerminated == YES)
+  [self _collectChild];
+  if (_hasCollected)
     {
       return NO;
     }
@@ -407,10 +417,18 @@ pty_slave(const char* name)
  * Raises an NSInvalidArgumentException if the launch path is not
  * set or if the subtask cannot be started for some reason
  * (eg. the executable does not exist or the task has already been launched).
+ * The actual launching is done in a concrete subclass; this method just
+ * takes care of actions common to all subclasses.
  */
 - (void) launch
 {
-  [self subclassResponsibility: _cmd];
+  NSError	*e;
+
+  if (NO == [self launchAndReturnError: &e])
+    {
+      [NSException raise: NSInvalidArgumentException
+		  format: @"%@", e ? [e description] : @"Unable to launch"];
+    }
 }
 
 /**
@@ -448,6 +466,23 @@ pty_slave(const char* name)
   kill(-_taskId, SIGCONT);
 #endif
 #endif
+  return YES;
+}
+
+/**
+ * Checks to see if the task is currently running.
+ */
+- (BOOL) running
+{
+  if (_hasLaunched == NO)
+    {
+      return NO;
+    }
+  [self _collectChild];
+  if (_hasCollected)
+    {
+      return NO;
+    }
   return YES;
 }
 
@@ -658,12 +693,16 @@ pty_slave(const char* name)
       [NSException raise: NSInvalidArgumentException
                   format: @"NSTask - task has not yet launched"];
     }
+
+  /* The _hasTerminated flag records whether this method has been called,
+   * not whether the task has *actually* terminated (_hasCollected does that).
+   */
   if (_hasTerminated)
     {
       return;
     }
-
   _hasTerminated = YES;
+
 #ifndef _WIN32
 #ifdef	HAVE_KILLPG
   killpg(_taskId, SIGTERM);
@@ -685,11 +724,8 @@ pty_slave(const char* name)
       [NSException raise: NSInvalidArgumentException
                   format: @"NSTask - task has not yet launched"];
     }
+  [self _collectChild];
   if (_hasCollected == NO)
-    {
-      [self _collectChild];
-    }
-  if (_hasTerminated == NO)
     {
       [NSException raise: NSInvalidArgumentException
                   format: @"NSTask - task has not yet terminated"];
@@ -709,11 +745,8 @@ pty_slave(const char* name)
       [NSException raise: NSInvalidArgumentException
                   format: @"NSTask - task has not yet launched"];
     }
+  [self _collectChild];
   if (_hasCollected == NO)
-    {
-      [self _collectChild];
-    }
-  if (_hasTerminated == NO)
     {
       [NSException raise: NSInvalidArgumentException
                   format: @"NSTask - task has not yet terminated"];
@@ -841,12 +874,12 @@ pty_slave(const char* name)
  */
 - (void) waitUntilExit
 {
-  CREATE_AUTORELEASE_POOL(arp);
+  ENTER_POOL
   NSRunLoop     *loop = [NSRunLoop currentRunLoop];
   NSTimer	*timer = nil;
   NSDate	*limit = nil;
 
-  IF_NO_GC([[self retain] autorelease];)
+  IF_NO_ARC([[self retain] autorelease];)
   while ([self isRunning])
     {
       /* Poll at 0.1 second intervals.
@@ -865,64 +898,184 @@ pty_slave(const char* name)
     }
   [timer invalidate];
 
-  /* Run loop one last time (with limit date in past) so that any
-   * notification about the task ending is sent immediately.
+  /* Run loop twice more (with limit date in past) so that if the
+   * notification about the task ending is to be delivered in this
+   * thread it is delivered before this method completes. (Twice
+   * because the first time runs the _notifyOfTermination performer,
+   * which queues the notification, and the second dequeues and posts
+   * the notification.)
+   * If the task was launched in another thread, the notification
+   * is delivered when that thread executes its run loop.
    */
   limit = [NSDate dateWithTimeIntervalSinceNow: 0.0];
   [loop runMode: NSDefaultRunLoopMode beforeDate: limit];
-  IF_NO_GC([arp release];)
+  [loop runMode: NSDefaultRunLoopMode beforeDate: limit];
+  LEAVE_POOL
+}
+
+// macOS 10.13 methods...
+
++ (NSTask *) launchedTaskWithExecutableURL: (NSURL *)url 
+  arguments: (NSArray *)arguments 
+  error: (NSError **)error 
+  terminationHandler: (GSTaskTerminationHandler)terminationHandler
+{
+  NSTask	*task = [self launchedTaskWithLaunchPath: [url path]
+					       arguments: arguments];
+  task->_handler = terminationHandler;
+  if (error)
+    {
+      *error = nil;
+     } 
+  return task;
+}
+
+- (BOOL) launchAndReturnError: (NSError **)error
+{
+  NSFileManager	*mgr = [NSFileManager defaultManager];
+  NSDictionary	*info;
+  NSString	*path;
+  BOOL		ok;
+
+  ASSIGN(_launchingThread, [NSThread currentThread]);
+
+  path = [self currentDirectoryPath];
+  if (NO == [mgr fileExistsAtPath: path isDirectory: &ok])
+    {
+      if (error)
+	{
+	  NSDictionary	*info = [NSDictionary dictionaryWithObjectsAndKeys:
+	    @"does not exist", NSLocalizedDescriptionKey,
+	    path, NSFilePathErrorKey,
+	    nil];
+	  *error = [NSError errorWithDomain: NSCocoaErrorDomain
+				       code: NSFileNoSuchFileError
+				   userInfo: info];
+	}
+      return NO;
+    }
+  if (NO == ok)
+    {
+      if (error)
+	{
+	  *error = [NSError _systemError: ENOTDIR];
+	  [*error _setObject: path forKey: NSFilePathErrorKey];
+	}
+      return NO;
+    }
+  if (NO == [mgr isExecutableFileAtPath: path])
+    {
+      if (error)
+	{
+	  *error = [NSError _systemError: EACCES];
+	  [*error _setObject: path forKey: NSFilePathErrorKey];
+	}
+      return NO;
+    }
+  if (nil == _launchPath)
+    {
+      if (error)
+	{
+	  info = [NSDictionary dictionaryWithObjectsAndKeys:
+	    @"task has no launch path set", NSLocalizedDescriptionKey, nil];
+	  *error = [NSError errorWithDomain: NSCocoaErrorDomain
+				       code: 0
+				   userInfo: info];
+	}
+      return NO;
+    }
+  if (nil == [self validatedLaunchPath])
+    {
+      if (error)
+	{
+	  info = [NSDictionary dictionaryWithObjectsAndKeys:
+	    @"task has invalid launch path", NSLocalizedDescriptionKey,
+	    _launchPath, NSFilePathErrorKey,
+	    nil];
+	  *error = [NSError errorWithDomain: NSCocoaErrorDomain
+				       code: 0
+				   userInfo: info];
+	}
+      return NO;
+    }
+
+  return YES;
+}
+
+- (NSURL *) executableURL
+{
+  return [NSURL URLWithString: [self launchPath]];
+}
+
+- (void) setExecutableURL: (NSURL *)url
+{
+  [self setLaunchPath: [url path]];
+}
+
+- (NSURL *) currentDirectoryURL
+{
+  return [NSURL URLWithString: [self currentDirectoryPath]];
+}
+
+- (void) setCurrentDirectoryURL: (NSURL *)url
+{
+  [self setCurrentDirectoryPath: [url path]];
 }
 @end
 
 @implementation	NSTask (Private)
-
-- (NSString *) _fullLaunchPath
-{
-  NSString	*val;
-
-  if (_launchPath == nil)
-    {
-      [NSException raise: NSInvalidArgumentException
-                  format: @"NSTask - no launch path set"];
-    }
-  val = [self validatedLaunchPath];
-  if (val == nil)
-    {
-      [NSException raise: NSInvalidArgumentException
-		  format: @"NSTask - launch path (%@) not valid", _launchPath];
-    }
-
-  return val;
-}
 
 - (void) _collectChild
 {
   [self subclassResponsibility: _cmd];
 }
 
+- (void) _notifyOfTermination
+{
+  NSNotificationQueue   *q;
+  NSNotification        *n;
+
+  n = [NSNotification notificationWithName: NSTaskDidTerminateNotification
+                                    object: self
+                                  userInfo: nil];
+
+  q = [NSNotificationQueue defaultQueue];
+  [q enqueueNotification: n
+            postingStyle: NSPostASAP
+            coalesceMask: NSNotificationNoCoalescing
+                forModes: nil];
+
+  if (_handler != NULL)
+    {
+      CALL_BLOCK_NO_ARGS(_handler);
+    }
+}
+
 - (void) _terminatedChild: (int)status reason: (NSTaskTerminationReason)reason
 {
   [tasksLock lock];
-  IF_NO_GC([[self retain] autorelease];)
+  IF_NO_ARC([[self retain] autorelease];)
   NSMapRemove(activeTasks, (void*)(intptr_t)_taskId);
   [tasksLock unlock];
   _terminationStatus = status;
   _terminationReason = reason;
   _hasCollected = YES;
-  _hasTerminated = YES;
+  _hasTerminated = YES;	// As if the -terminate method was called
   if (_hasNotified == NO)
     {
-      NSNotification	*n;
-
       _hasNotified = YES;
-      n = [NSNotification notificationWithName: NSTaskDidTerminateNotification
-					object: self
-				      userInfo: nil];
-
-      [[NSNotificationQueue defaultQueue] enqueueNotification: n
-		    postingStyle: NSPostASAP
-		    coalesceMask: NSNotificationNoCoalescing
-			forModes: nil];
+      if (_launchingThread != [NSThread currentThread]
+        && [_launchingThread isExecuting] == YES)
+	{
+	  [self performSelector: @selector(_notifyOfTermination)
+		       onThread: _launchingThread
+		     withObject: nil
+		  waitUntilDone: NO];
+	}
+      else
+	{
+	  [self _notifyOfTermination];
+	}
     }
 }
 
@@ -994,15 +1147,18 @@ GSPrivateCheckTasks()
       [NSException raise: NSInvalidArgumentException
                   format: @"NSTask - task has not yet launched"];
     }
+
+  /* The _hasTerminated flag records whether this method has been called,
+   * not whether the task has *actually* terminated (_hasCollected does that).
+   */
   if (_hasTerminated)
     {
       return;
     }
-
+  _hasTerminated = YES;
   /* We use exit code 10 to denote a process termination.
    * Windows does nt have an exit code to denote termination this way.
    */
-  _hasTerminated = YES;
   TerminateProcess(procInfo.hProcess, WIN_SIGNALLED);
 }
 
@@ -1103,7 +1259,8 @@ quotedFromString(NSString *aString)
     }
 }
 
-- (void) launch
+// 10.13 method...
+- (BOOL) launchAndReturnError: (NSError **)error
 {
   STARTUPINFOW		start_info;
   NSString      	*lpath;
@@ -1124,11 +1281,25 @@ quotedFromString(NSString *aString)
 
   if (_hasLaunched)
     {
-      [NSException raise: NSInvalidArgumentException
-                  format: @"NSTask - task has already been launched"];
+      if (error)
+	{
+	  NSDictionary      *info;
+
+	  info = [NSDictionary dictionaryWithObjectsAndKeys:
+	    @"task has already been launched", NSLocalizedDescriptionKey, nil];
+	  *error = [NSError errorWithDomain: NSCocoaErrorDomain
+				       code: 0
+				   userInfo: info];
+	}
+      return NO;
     }
 
-  lpath = [self _fullLaunchPath];
+  if (NO == [super launchAndReturnError: error])
+    {
+      return NO;
+    }
+
+  lpath = [self validatedLaunchPath];
   wexecutable = (const unichar*)[lpath fileSystemRepresentation];
 
   args = [[NSMutableString alloc] initWithString: quotedFromString(lpath)];
@@ -1268,22 +1439,22 @@ quotedFromString(NSString *aString)
     NULL,      			/* thread attrs */
     1,         			/* inherit handles */
     0
-    |CREATE_NO_WINDOW
-/* One would have thought the the CREATE_NO_WINDOW flag should be used,
- * but apparently this breaks for old 16bit applications/tools on XP.
- * So maybe we want to leave it out?
+/* We don't want a subtask to be run min a window since that would prevent
+ * startup of background tasks.  If a subtask wants a window, it should
+ * create it itself.
  */
-//    |DETACHED_PROCESS
+    |CREATE_NO_WINDOW
 /* We don't set the DETACHED_PROCESS flag as it actually means that the
  * child task should get a new Console allocated ... and that means it
  * will pop up a console window ... which looks really bad.
  */
+//    |DETACHED_PROCESS
     |CREATE_UNICODE_ENVIRONMENT,
     envp,			/* env block */
     (const unichar*)[[self currentDirectoryPath] fileSystemRepresentation],
     &start_info,
     &procInfo);
-  if (result == 0)
+  if (0 == result)
     {
       last = [NSError _last];
     }
@@ -1295,8 +1466,11 @@ quotedFromString(NSString *aString)
 
   if (0 == result)
     {
-      [NSException raise: NSInvalidArgumentException
-        format: @"NSTask - Error launching task: %@ ... %@", lpath, last];
+      if (error)
+	{
+	  *error = last;
+	}
+      return NO;
     }
 
   _taskId = procInfo.dwProcessId;
@@ -1323,6 +1497,8 @@ quotedFromString(NSString *aString)
       [hdl closeFile];
       [toClose removeObjectAtIndex: 0];
     }
+
+  return YES;
 }
 
 - (void) _collectChild
@@ -1373,7 +1549,7 @@ GSPrivateCheckTasks()
 #if	defined(WAITDEBUG)
 	      [tasksLock lock];
 	      t = (NSTask*)NSMapGet(activeTasks, (void*)(intptr_t)result);
-	      IF_NO_GC([[t retain] autorelease];)
+	      IF_NO_ARC([[t retain] autorelease];)
 	      [tasksLock unlock];
 	      if (t != nil)
 		{
@@ -1386,7 +1562,7 @@ GSPrivateCheckTasks()
 	    {
 	      [tasksLock lock];
 	      t = (NSTask*)NSMapGet(activeTasks, (void*)(intptr_t)result);
-	      IF_NO_GC([[t retain] autorelease];)
+	      IF_NO_ARC([[t retain] autorelease];)
 	      [tasksLock unlock];
 	      if (t != nil)
 		{
@@ -1429,8 +1605,10 @@ GSPrivateCheckTasks()
   return found;
 }
 
-- (void) launch
+// 10.13 method...
+- (BOOL) launchAndReturnError: (NSError **)error
 {
+  NSDictionary      	*info;
   NSMutableArray	*toClose;
   NSString      	*lpath;
   int			pid;
@@ -1451,11 +1629,23 @@ GSPrivateCheckTasks()
 
   if (_hasLaunched)
     {
-      [NSException raise: NSInvalidArgumentException
-                  format: @"NSTask - task has already been launched"];
+      if (error)
+	{
+	  info = [NSDictionary dictionaryWithObjectsAndKeys:
+	    @"task has already been launched", NSLocalizedDescriptionKey, nil];
+	  *error = [NSError errorWithDomain: NSCocoaErrorDomain
+				       code: 0
+				   userInfo: info];
+	}
+      return NO;
     }
 
-  lpath = [self _fullLaunchPath];
+  if (NO == [super launchAndReturnError: error])
+    {
+      return NO;
+    }
+
+  lpath = [self validatedLaunchPath];
   executable = [lpath fileSystemRepresentation];
   args[0] = executable;
 
@@ -1516,17 +1706,170 @@ GSPrivateCheckTasks()
     }
   edesc = [hdl fileDescriptor];
 
-#ifdef __APPLE__
-  /* Use fork instead of vfork on Darwin because setsid() fails under
-   * Darwin 7 (aka OS X 10.3) and later while the child is in the vfork.
+#if defined(USE_POSIX_SPAWN)
+  /* On Linux with glibc > 2.28, use posix_spawn instead of fork() as fork()
+   * is inherently unstable in a multithreaded environment. posix_spawn provides
+   * a safer alternative that doesn't duplicate the entire process memory space.
+   * 
+   * Note: We require glibc > 2.28 because we need:
+   * - posix_spawn_file_actions_addchdir_np() (added in glibc 2.29)
    */
-#define vfork fork
+  {
+    posix_spawn_file_actions_t file_actions;
+    posix_spawnattr_t attr;
+    int spawn_result;
+
+    /* Initialize spawn attributes and file actions */
+    if (posix_spawn_file_actions_init(&file_actions) != 0)
+      {
+        if (error)
+          {
+            *error = [NSError _last];
+          }
+        return NO;
+      }
+
+    if (posix_spawnattr_init(&attr) != 0)
+      {
+        posix_spawn_file_actions_destroy(&file_actions);
+        if (error)
+          {
+            *error = [NSError _last];
+          }
+        return NO;
+      }
+
+    /* Set flags to create a new process group and reset signals.
+     * POSIX_SPAWN_SETSID detaches from controlling terminal (like setsid()).
+     * It's reliably supported in glibc 2.26+ (2017).
+     */
+    short flags = POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF;
+#if defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 29))
+    flags |= POSIX_SPAWN_SETSID;
 #endif
-  pid = vfork();
+    posix_spawnattr_setflags(&attr, flags);
+    posix_spawnattr_setpgroup(&attr, 0);  /* 0 = new process group */
+
+    /* Reset all signals to default */
+    sigset_t default_signals;
+    sigfillset(&default_signals);
+    posix_spawnattr_setsigdefault(&attr, &default_signals);
+
+    if (_usePseudoTerminal == YES)
+      {
+        int s;
+        s = pty_slave(slave_name);
+        if (s < 0)
+          {
+            posix_spawn_file_actions_destroy(&file_actions);
+            posix_spawnattr_destroy(&attr);
+            if (error)
+              {
+                *error = [NSError _last];
+              }
+            return NO;
+          }
+
+        /* Set up stdin, stdout and stderr using file actions */
+        posix_spawn_file_actions_adddup2(&file_actions, s, 0);
+        posix_spawn_file_actions_adddup2(&file_actions, s, 1);
+        posix_spawn_file_actions_adddup2(&file_actions, s, 2);
+        if (s != 0 && s != 1 && s != 2)
+          {
+            posix_spawn_file_actions_addclose(&file_actions, s);
+          }
+      }
+    else
+      {
+        /* Set up stdin, stdout and stderr by duplicating descriptors */
+        if (idesc != 0)
+          {
+            posix_spawn_file_actions_adddup2(&file_actions, idesc, 0);
+          }
+        if (odesc != 1)
+          {
+            posix_spawn_file_actions_adddup2(&file_actions, odesc, 1);
+          }
+        if (edesc != 2)
+          {
+            posix_spawn_file_actions_adddup2(&file_actions, edesc, 2);
+          }
+      }
+
+    /* Close file descriptors we don't need in the child */
+    for (i = 3; i < NOFILE && i < 256; i++)
+      {
+        posix_spawn_file_actions_addclose(&file_actions, i);
+      }
+
+    /* Change working directory for the spawned process.
+     * This uses a GNU extension available in glibc 2.29+ (2019).
+     * If building on an older system, this will require updating glibc
+     * or falling back to fork() implementation.
+     */
+    if (posix_spawn_file_actions_addchdir_np(&file_actions, path) != 0)
+      {
+        posix_spawn_file_actions_destroy(&file_actions);
+        posix_spawnattr_destroy(&attr);
+        if (error)
+          {
+            *error = [NSError _last];
+          }
+        return NO;
+      }
+
+    /* Spawn the process */
+    spawn_result = posix_spawn(&pid, executable, &file_actions, &attr,
+                               (char* const*)args, (char* const*)envl);
+
+#if defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 29))
+    /* If POSIX_SPAWN_SETSID failed (e.g., in containers), fall back to fork()
+     * which can use TIOCNOTTY ioctl to detach from the controlling terminal.
+     * This provides compatibility with the original behavior.
+     */
+    if (spawn_result == EINVAL || spawn_result == EPERM)
+      {
+        /* Clean up and fall through to fork() implementation */
+        posix_spawn_file_actions_destroy(&file_actions);
+        posix_spawnattr_destroy(&attr);
+        goto use_fork_implementation;
+      }
+#endif
+
+    /* Clean up spawn structures */
+    posix_spawn_file_actions_destroy(&file_actions);
+    posix_spawnattr_destroy(&attr);
+
+    if (spawn_result != 0)
+      {
+        if (error)
+          {
+            *error = [NSError _last];
+          }
+        return NO;
+      }
+  }
+  
+  goto skip_fork_implementation;
+#endif /* USE_POSIX_SPAWN */
+
+use_fork_implementation:
+  /* NB. we use fork() rather than vfork() because the bahavior of vfork()
+   * is undefined when we assign to variables or make system calls (as we
+   * do below) other than a very limited set.
+   * For performance it might be possible to use vfork on systems where
+   * there is a guarantee that vfork() is safe, but when in doubt we must
+   * assume the standard POSIX behavior.
+   */
+  {
+  pid = fork();
   if (pid < 0)
     {
-      [NSException raise: NSInvalidArgumentException
-                  format: @"NSTask - failed to create child process"];
+      if (error)
+	{
+	  *error = [NSError _last];
+	}
+      return NO;
     }
   if (pid == 0)
     {
@@ -1585,22 +1928,16 @@ GSPrivateCheckTasks()
 	      exit(1);			/* Failed to open slave!	*/
 	    }
 
-	  /* Set up stdin, stdout and stderr by duplicating descriptors as
-	   * necessary and closing the originals (to ensure we won't have a
-	   * pipe left with two write descriptors etc).
+	  /* Set up stdin, stdout and stderr by duplicating descriptor as
+	   * necessary and closing the original.
 	   */
-	  if (s != 0)
-	    {
-	      dup2(s, 0);
-	    }
-	  if (s != 1)
-	    {
-	      dup2(s, 1);
-	    }
-	  if (s != 2)
-	    {
-	      dup2(s, 2);
-	    }
+          if (dup2(s, 0) != 0) exit(1);
+          if (dup2(s, 1) != 1) exit(1);
+          if (dup2(s, 2) != 2) exit(1);
+          if (s != 0 && s != 1 && s != 2)
+            {
+              (void)close(s);
+            }
 	}
       else
 	{
@@ -1610,32 +1947,51 @@ GSPrivateCheckTasks()
 	   */
 	  if (idesc != 0)
 	    {
-	      dup2(idesc, 0);
+	      if (dup2(idesc, 0) != 0) exit(1);
 	    }
 	  if (odesc != 1)
 	    {
-	      dup2(odesc, 1);
+	      if (dup2(odesc, 1) != 1) exit(1);
 	    }
 	  if (edesc != 2)
 	    {
-	      dup2(edesc, 2);
+	      if (dup2(edesc, 2) != 2) exit(1);
 	    }
 	}
 
       /*
        * Close any extra descriptors.
        */
+#if	defined(HAVE_CLOSEFROM)
+      closefrom(3);
+#elif	defined(F_CLOSEM)
+      (void)fcntl(3, F_CLOSEM, 0);
+#elif	defined(_SC_OPEN_MAX)
+      i = sysconf(_SC_OPEN_MAX);
+      while (i-- > 3)
+	{
+	  (void)close(i);
+	}
+#else
       for (i = 3; i < NOFILE; i++)
 	{
-	  (void) close(i);
+	  (void)close(i);
 	}
+#endif
 
-      chdir(path);
-      execve(executable, (char**)args, (char**)envl);
-      exit(-1);
+      if (0 != chdir(path))
+        {
+          _exit(-1);
+        }
+
+      (void)execve(executable, (char**)args, (char**)envl);
+      _exit(-1);
     }
   else
     {
+#if defined(USE_POSIX_SPAWN)
+skip_fork_implementation:
+#endif
       _taskId = pid;
       _hasLaunched = YES;
       ASSIGN(_launchPath, lpath);	// Actual path used.
@@ -1654,6 +2010,9 @@ GSPrivateCheckTasks()
 	  [toClose removeObjectAtIndex: 0];
 	}
     }
+  }  /* end of fork() implementation */
+
+  return YES;
 }
 
 - (void) setStandardError: (id)hdl
@@ -1726,6 +2085,7 @@ GSPrivateCheckTasks()
 
 - (BOOL) usePseudoTerminal
 {
+  int		desc;
   int		master;
   NSFileHandle	*fh;
 
@@ -1742,13 +2102,21 @@ GSPrivateCheckTasks()
 				     closeOnDealloc: YES];
   [self setStandardInput: fh];
   RELEASE(fh);
-  master = dup(master);
-  fh = [[NSFileHandle alloc] initWithFileDescriptor: master
+
+  if ((desc = dup(master)) < 0)
+    {
+      return NO;
+    }
+  fh = [[NSFileHandle alloc] initWithFileDescriptor: desc
 				     closeOnDealloc: YES];
   [self setStandardOutput: fh];
   RELEASE(fh);
-  master = dup(master);
-  fh = [[NSFileHandle alloc] initWithFileDescriptor: master
+
+  if ((desc = dup(master)) < 0)
+    {
+      return NO;
+    }
+  fh = [[NSFileHandle alloc] initWithFileDescriptor: desc
 				     closeOnDealloc: YES];
   [self setStandardError: fh];
   RELEASE(fh);

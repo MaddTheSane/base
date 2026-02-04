@@ -12,12 +12,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSMessagePortNameServer class reference</title>
    $Date$ $Revision$
@@ -41,17 +40,17 @@
 
 #include <sys/stat.h>
 
-#if	defined(HAVE_SYS_SIGNAL_H)
-#  include	<sys/signal.h>
-#elif	defined(HAVE_SIGNAL_H)
+#if	defined(HAVE_SIGNAL_H)
 #  include	<signal.h>
+#elif	defined(HAVE_SYS_SIGNAL_H)
+#  include	<sys/signal.h>
 #endif
 
 
-#if	defined(HAVE_SYS_FCNTL_H)
-#  include	<sys/fcntl.h>
-#elif	defined(HAVE_FCNTL_H)
+#if	defined(HAVE_FCNTL_H)
 #  include	<fcntl.h>
+#elif	defined(HAVE_SYS_FCNTL_H)
+#  include	<sys/fcntl.h>
 #endif
 
 #include <sys/un.h>
@@ -278,7 +277,7 @@ static NSMapTable *portToNamesMap;
       data = [GSMimeDocument encodeBase64: data];
       name = [[NSString alloc] initWithData: data
 				   encoding: NSASCIIStringEncoding];
-      IF_NO_GC([name autorelease];)
+      IF_NO_ARC([name autorelease];)
     }
   [serverLock lock];
   if (!base_path)
@@ -323,6 +322,7 @@ static NSMapTable *portToNamesMap;
 {
   FILE	*f;
   char	socket_path[512];
+  int	len;
   int	pid;
   struct stat sb;
 
@@ -331,14 +331,45 @@ static NSMapTable *portToNamesMap;
   f = fopen([path fileSystemRepresentation], "rt");
   if (!f)
     {
-      NSDebugLLog(@"NSMessagePort", @"not live, couldn't open file (%m)");
+      NSDebugLLog(@"NSMessagePort", @"not live, couldn't open %@ (%m)", path);
+      return NO;
+    }
+
+  if (fstat(fileno(f), &sb) < 0)
+    {
+      NSDebugLLog(@"NSMessagePort", @"not live, couldn't stat %@ (%m)", path);
+      fclose(f);
+      return NO;
+    }
+  if (sb.st_uid != getuid() && sb.st_uid != geteuid())
+    {
+      NSDebugLLog(@"NSMessagePort", @"not live, %@ not owned by us", path);
+      fclose(f);
+      return NO;
+    }
+  if ((sb.st_mode & 0777) != 0600)
+    {
+      NSDebugLLog(@"NSMessagePort", @"not live, %@ not correct access", path);
+      fclose(f);
       return NO;
     }
 
   fgets(socket_path, sizeof(socket_path), f);
-  if (strlen(socket_path) > 0) socket_path[strlen(socket_path) - 1] = 0;
+  len = strlen(socket_path);
+  if (len == 0 || socket_path[len - 1] != '\n')
+    {
+      fclose(f);
+      NSDebugLLog(@"NSMessagePort", @"not live, couldn't get file in %@", path);
+      return NO;
+    }
+  socket_path[len - 1] = '\0';
 
-  fscanf(f, "%i", &pid);
+  if (fscanf(f, "%i", &pid) != 1)
+    {
+      fclose(f);
+      NSDebugLLog(@"NSMessagePort", @"not live, couldn't read PID in %@", path);
+      return NO;
+    }
 
   fclose(f);
 
@@ -363,7 +394,7 @@ static NSMapTable *portToNamesMap;
 
       memset(&sockAddr, '\0', sizeof(sockAddr));
       sockAddr.sun_family = AF_LOCAL;
-      strncpy(sockAddr.sun_path, socket_path, sizeof(sockAddr.sun_path));
+      strncpy(sockAddr.sun_path, socket_path, sizeof(sockAddr.sun_path) - 1);
 
       if ((desc = socket(PF_LOCAL, SOCK_STREAM, PF_UNSPEC)) < 0)
 	{
@@ -375,6 +406,7 @@ static NSMapTable *portToNamesMap;
 	}
       if (connect(desc, (struct sockaddr*)&sockAddr, SUN_LEN(&sockAddr)) < 0)
 	{
+          close(desc);
 	  unlink([path fileSystemRepresentation]);
 	  unlink(socket_path);
 	  NSDebugLLog(@"NSMessagePort", @"not live, can't connect (%m)");

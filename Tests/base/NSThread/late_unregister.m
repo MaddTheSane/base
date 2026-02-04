@@ -2,96 +2,102 @@
 #import <Foundation/NSThread.h>
 #import <Foundation/NSLock.h>
 #import <Foundation/NSNotification.h>
-#include <pthread.h>
 
-
-
-
-@interface ThreadExpectation : NSObject <NSLocking>
+#if defined(_WIN32)
+int main(void)
 {
-  NSCondition *condition;
+  testHopeful = YES;
+  START_SET("Late unregistering of NSThread")
+  PASS(NO, "FIXME: Results in a deadlock in MinGW with Clang");
+  END_SET("Late unregistering of NSThread")
+  return 0;
+}
+
+#else
+
+#if defined(_WIN32)
+#include <process.h>
+#else
+#include <pthread.h>
+#endif
+
+@interface ThreadExpectation : NSObject
+{
   NSThread *origThread;
   BOOL done;
   BOOL deallocated;
 }
 
-- (void)onThreadExit: (NSNotification*)n;
-- (BOOL)isDone;
+- (void) onThreadExit: (NSNotification*)n;
+- (BOOL) isDone;
 @end
 
 @implementation ThreadExpectation
 
-- (id)init
+- (id) init
 {
   if (nil == (self = [super init]))
     {
       return nil;
     }
-  condition = [NSCondition new];
   return self;
 }
 
 
 
-- (void)inThread: (NSThread*)thread
+- (void) inThread: (NSThread*)thread
 {
+  NSNotificationCenter  *nc = [NSNotificationCenter defaultCenter];
+
   /* We explicitly don't retain this so that we can check that it actually says
    * alive until the notification is sent. That check is implicit since
    * PASS_EQUAL in the -onThreadExit method will throw or crash if that isn't
    * the case.
    */
   origThread = thread;
-  [[NSNotificationCenter defaultCenter] addObserver: self
-                                           selector: @selector(onThreadExit:)
-                                               name: NSThreadWillExitNotification
-                                             object: thread];
+  [nc addObserver: self
+         selector: @selector(onThreadExit:)
+             name: NSThreadWillExitNotification
+           object: thread];
 }
 
-- (void)onThreadExit: (NSNotification*)thr
+- (void) onThreadExit: (NSNotification*)thr
 {
-  NSThread *current = [NSThread currentThread];
+  NSThread      *current = [NSThread currentThread];
+  NSThread      *passed = [thr object];
 
-  PASS_EQUAL(origThread,current,
-    "Correct thread reference can be obtained on exit");
+  PASS_EQUAL(passed, origThread,
+    "NSThreadWillExitNotification passes expected thread")
+  PASS_EQUAL(origThread, current,
+    "Correct thread reference can be obtained on exit")
+  PASS([passed isExecuting],
+    "exiting thread is still executing at point of notification")
+  PASS(![passed isFinished],
+    "exiting thread is not finished at point of notification")
+
   [[NSNotificationCenter defaultCenter] removeObserver: self];
   origThread = nil;
-  [condition lock];
   done = YES;
-  [condition broadcast];
-  [condition unlock];
 }
 
-- (BOOL)isDone
+- (BOOL) isDone
 {
   return done;
 }
 
-- (void)waitUntilDate: (NSDate*)date
-{
-  [condition waitUntilDate: date];
-}
-
-- (void)lock
-{
-  [condition lock];
-}
-
-- (void)unlock
-{
-  [condition unlock];
-}
-
-- (void)dealloc
-{
-  DESTROY(condition);
-  [super dealloc];
-}
 @end
 
-void *thread(void *expectation)
+#if defined(_WIN32)
+void __cdecl
+#else
+void *
+#endif
+thread(void *expectation)
 {
   [(ThreadExpectation*)expectation inThread: [NSThread currentThread]];
-  return nil;
+#if !defined(_WIN32)
+  return NULL;
+#endif
 }
 
 
@@ -106,24 +112,29 @@ void *thread(void *expectation)
  */
 int main(void)
 {
-  pthread_t thr;
-  pthread_attr_t attr;
-  void *ret;
-  pthread_attr_init(&attr);
-  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
   NSAutoreleasePool *arp = [NSAutoreleasePool new];
   ThreadExpectation *expectation = [ThreadExpectation new];
+  
+#if defined(_WIN32)
+  _beginthread(thread, 0, expectation);
+#else
+  pthread_t thr;
+  pthread_attr_t attr;
+  pthread_attr_init(&attr);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
   pthread_create(&thr, &attr, thread, expectation);
+#endif
 
-  NSDate *start = [NSDate date];
-  [expectation lock];
-  while (![expectation isDone] && [start timeIntervalSinceNow] > -5.0f)
+  int attempts = 10;
+  while (![expectation isDone] && attempts > 0)
   {
-    [expectation waitUntilDate: [NSDate dateWithTimeIntervalSinceNow: 0.5f]];
+    [NSThread sleepUntilDate: [NSDate dateWithTimeIntervalSinceNow: 1]];
+    attempts -= 1;
   }
   PASS([expectation isDone], "Notification for thread exit was sent");
-  [expectation unlock];
   DESTROY(expectation);
   DESTROY(arp);
   return 0;
 }
+
+#endif

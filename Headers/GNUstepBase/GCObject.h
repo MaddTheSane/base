@@ -19,8 +19,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    AutogsdocSource: Additions/GCObject.m
    AutogsdocSource: Additions/GCArray.m
@@ -56,6 +55,7 @@ typedef struct {
   } flags;
 } gcInfo;
 
+GS_EXPORT_CLASS
 @interface GCObject : NSObject
 {
   gcInfo	gc;
@@ -81,6 +81,7 @@ typedef struct {
 - (void) gcSetVisited: (BOOL)flag;
 @end
 
+GS_EXPORT_CLASS
 @interface GCArray : NSArray
 {
   gcInfo	gc;
@@ -90,7 +91,7 @@ typedef struct {
 }
 @end
 
-
+GS_EXPORT_CLASS
 @interface GCMutableArray : NSMutableArray
 {
   gcInfo	gc;
@@ -101,6 +102,7 @@ typedef struct {
 }
 @end
 
+GS_EXPORT_CLASS
 @interface GCDictionary : NSDictionary
 {
   gcInfo	gc;
@@ -108,6 +110,7 @@ typedef struct {
 }
 @end
 
+GS_EXPORT_CLASS
 @interface GCMutableDictionary : NSMutableDictionary
 {
   gcInfo	gc;

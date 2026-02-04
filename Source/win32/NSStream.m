@@ -17,8 +17,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    */
 #include "common.h"
@@ -950,6 +949,16 @@
   outs = AUTORELEASE([[GSInetOutputStream alloc]
     initToAddr: address port: port]);
   sock = socket(PF_INET, SOCK_STREAM, 0);
+
+  if (!ins)
+    {
+#if     defined(PF_INET6)
+      ins = AUTORELEASE([[GSInet6InputStream alloc]
+        initToAddr: address port: port]);
+      outs = AUTORELEASE([[GSInet6OutputStream alloc]
+        initToAddr: address port: port]);
+#endif
+    }
 
   /*
    * Windows only permits a single event to be associated with a socket

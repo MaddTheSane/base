@@ -1,4 +1,4 @@
-/* Interface for NSURLProtectionSpace for GNUstep
+/**Interface for NSURLProtectionSpace for GNUstep
    Copyright (C) 2006 Software Foundation, Inc.
 
    Written by:  Richard Frith-Macdonald <frm@gnu.org>
@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSURLProtectionSpace_h_GNUSTEP_BASE_INCLUDE
@@ -36,28 +35,38 @@ extern "C" {
 
 @class NSString;
 
-extern NSString * const NSURLProtectionSpaceFTPProxy;	/** An FTP proxy */
-extern NSString * const NSURLProtectionSpaceHTTPProxy;	/** An HTTP proxy */
-extern NSString * const NSURLProtectionSpaceHTTPSProxy;	/** An HTTPS proxy */
-extern NSString * const NSURLProtectionSpaceSOCKSProxy;	/** A SOCKS proxy */
+GS_EXPORT NSString * const NSURLProtectionSpaceFTPProxy;	/** An FTP proxy */
+GS_EXPORT NSString * const NSURLProtectionSpaceHTTPProxy;	/** An HTTP proxy */
+GS_EXPORT NSString * const NSURLProtectionSpaceHTTPSProxy;	/** An HTTPS proxy */
+GS_EXPORT NSString * const NSURLProtectionSpaceSOCKSProxy;	/** A SOCKS proxy */
 
-/** Default authentication */
-extern NSString * const NSURLAuthenticationMethodDefault;
+/** Default authentication (Basic) */
+GS_EXPORT NSString * const NSURLAuthenticationMethodDefault;
 
 /** HTML form authentication */
-extern NSString * const NSURLAuthenticationMethodHTMLForm;
+GS_EXPORT NSString * const NSURLAuthenticationMethodHTMLForm;
 
 /** HTTP Basic authentication */
-extern NSString * const NSURLAuthenticationMethodHTTPBasic;
+GS_EXPORT NSString * const NSURLAuthenticationMethodHTTPBasic;
 
 /** HTTP Digest authentication */
-extern NSString * const NSURLAuthenticationMethodHTTPDigest;
+GS_EXPORT NSString * const NSURLAuthenticationMethodHTTPDigest;
 
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_5,GS_API_LATEST) && GS_API_VERSION( 11300,GS_API_LATEST)
+GS_EXPORT NSString * const NSURLAuthenticationMethodNTLM;
+GS_EXPORT NSString * const NSURLAuthenticationMethodNegotiate;
+#endif
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6,GS_API_LATEST) && GS_API_VERSION( 11300,GS_API_LATEST)
+GS_EXPORT NSString * const NSURLAuthenticationMethodClientCertificate;
+GS_EXPORT NSString * const NSURLAuthenticationMethodServerTrust;
+#endif
 
 /**
  * Class to encapsulate a protection space ... where authentication is
  * required.
  */
+GS_EXPORT_CLASS
 @interface NSURLProtectionSpace : NSObject <NSCopying>
 {
 #if	GS_EXPOSE(NSURLProtectionSpace)
@@ -128,6 +137,14 @@ authenticationMethod: (NSString *)authenticationMethod;
  * will be sent over a secure mechanism.
  */
 - (BOOL) receivesCredentialSecurely;
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6,GS_API_LATEST) && GS_API_VERSION( 11300,GS_API_LATEST)
+#if GS_HAS_DECLARED_PROPERTIES
+@property (readonly, copy) NSArray *distinguishedNames;
+#else
+- (NSArray *) distinguishedNames;
+#endif
+#endif
 
 @end
 

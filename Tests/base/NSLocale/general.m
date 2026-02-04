@@ -20,8 +20,14 @@ int main(void)
   if (!NSLOCALE_SUPPORTED)
     SKIP("NSLocale not supported\nThe ICU library was not available when GNUstep-base was built")
 
+  PASS_EQUAL([NSLocale canonicalLocaleIdentifierFromString: @"es_ES"],
+    @"es_ES", "canonical version of es_ES")
+  PASS_EQUAL([NSLocale canonicalLocaleIdentifierFromString: @"zh-Hant_TW"],
+    @"zh_TW", "canonical version of zh-Hant_TW")
+
   // These tests don't really work all that well.  I need to come up with
   // something better.  Most of the ones that fail are because nil is returned.
+  testHopeful = YES;
   locale = [[NSLocale alloc] initWithLocaleIdentifier: @"es_ES_PREEURO"];
   PASS_EQUAL([locale objectForKey: NSLocaleIdentifier],
     @"es_ES@currency=ESP",
@@ -64,7 +70,6 @@ int main(void)
     "NSLocaleCurrencyCode key returns 'ESP'");
   PASS_EQUAL([locale objectForKey: NSLocaleCollatorIdentifier],
     @"es_ES@currency=ESP", "NSLocaleCollatorIdentifier for Spain");
-  testHopeful = YES;
   PASS_EQUAL([locale objectForKey: NSLocaleGroupingSeparator],
     @".",
     "NSLocaleGroupingSeparator key returns '.'");
@@ -102,7 +107,7 @@ int main(void)
   
   locale = [[NSLocale alloc] initWithLocaleIdentifier: @"zh-Hant_TW"];
   PASS_EQUAL([locale objectForKey: NSLocaleCountryCode], @"TW",
-    "zh-Hant_TW country code is zh");
+    "zh-Hant_TW country code is TW");
   PASS_EQUAL([locale objectForKey: NSLocaleLanguageCode], @"zh",
     "zh-Hant_TW language code is zh");
   PASS_EQUAL([locale localeIdentifier], @"zh_TW",
@@ -110,7 +115,18 @@ int main(void)
   PASS_EQUAL([locale objectForKey: NSLocaleScriptCode], nil,
     "zh-Hant_TW has no script code");
   RELEASE(locale);
-  
+
+  locale = [[NSLocale alloc] initWithLocaleIdentifier: @"zh-Hans_CN"];
+  PASS_EQUAL([locale objectForKey: NSLocaleCountryCode], @"CN",
+    "zh-Hans_CN country code is CN");
+  PASS_EQUAL([locale objectForKey: NSLocaleLanguageCode], @"zh",
+    "zh-Hans_CN language code is zh");
+  PASS_EQUAL([locale localeIdentifier], @"zh_CN",
+    "'zh-Hans_CN' is stored as 'zh_CN'");
+  PASS_EQUAL([locale objectForKey: NSLocaleScriptCode], nil,
+    "zh-Hans_CN has no script code");
+  RELEASE(locale);
+
   PASS_EQUAL([NSLocale canonicalLocaleIdentifierFromString: nil], nil,
     "Canonical identifier for nil is nil");
   PASS_EQUAL([NSLocale canonicalLocaleIdentifierFromString: @""], @"",

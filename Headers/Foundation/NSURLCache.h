@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSURLCache_h_GNUSTEP_BASE_INCLUDE
@@ -54,6 +53,7 @@ typedef enum
 /**
  * Encapsulates a cached response to a URL load request.
  */
+GS_EXPORT_CLASS
 @interface NSCachedURLResponse : NSObject <NSCoding, NSCopying>
 {
 #if	GS_EXPOSE(NSCachedURLResponse)
@@ -100,6 +100,7 @@ typedef enum
 @end
 
 
+GS_EXPORT_CLASS
 @interface NSURLCache : NSObject
 {
 #if	GS_EXPOSE(NSURLCache)
@@ -193,6 +194,19 @@ typedef enum
  */
 - (void) storeCachedResponse: (NSCachedURLResponse *)cachedResponse
 		  forRequest: (NSURLRequest *)request;
+
+@end
+
+@class NSURLSessionDataTask;
+
+@interface NSURLCache (NSURLSessionTaskAdditions)
+
+- (void) storeCachedResponse: (NSCachedURLResponse*)cachedResponse 
+                 forDataTask: (NSURLSessionDataTask*)dataTask;
+
+- (NSCachedURLResponse*) cachedResponseForDataTask: (NSURLSessionDataTask*)dataTask;
+
+- (void) removeCachedResponseForDataTask: (NSURLSessionDataTask*)dataTask;
 
 @end
 

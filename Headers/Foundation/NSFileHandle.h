@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
     AutogsdocSource: NSFileHandle.m
     AutogsdocSource: NSPipe.m
@@ -37,19 +36,31 @@ extern "C" {
 #endif
 
 @class NSData;
+@class NSError;
 @class NSString;
+@class NSURL;
 
+GS_EXPORT_CLASS
 @interface NSFileHandle : NSObject
 
 // Allocating and Initializing a FileHandle Object
 
-+ (id) fileHandleForReadingAtPath: (NSString*)path;
-+ (id) fileHandleForWritingAtPath: (NSString*)path;
-+ (id) fileHandleForUpdatingAtPath: (NSString*)path;
-+ (id) fileHandleWithStandardError;
-+ (id) fileHandleWithStandardInput;
-+ (id) fileHandleWithStandardOutput;
-+ (id) fileHandleWithNullDevice;
++ (instancetype) fileHandleForReadingAtPath: (NSString*)path;
++ (instancetype) fileHandleForWritingAtPath: (NSString*)path;
++ (instancetype) fileHandleForUpdatingAtPath: (NSString*)path;
++ (instancetype) fileHandleWithStandardError;
++ (instancetype) fileHandleWithStandardInput;
++ (instancetype) fileHandleWithStandardOutput;
++ (instancetype) fileHandleWithNullDevice;
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
++ (instancetype) fileHandleForReadingFromURL: (NSURL*)url
+				       error: (NSError**)error;
++ (instancetype) fileHandleForWritingToURL: (NSURL*)url
+				     error: (NSError**)error;
++ (instancetype) fileHandleForUpdatingURL: (NSURL*)url
+				    error: (NSError**)error;
+#endif
 
 - (id) initWithFileDescriptor: (int)desc;
 - (id) initWithFileDescriptor: (int)desc closeOnDealloc: (BOOL)flag;
@@ -65,8 +76,28 @@ extern "C" {
 
 - (NSData*) availableData;
 - (NSData*) readDataToEndOfFile;
-- (NSData*) readDataOfLength: (unsigned int)len;
+- (NSData*) readDataOfLength: (NSUInteger)len;
 - (void) writeData: (NSData*)item;
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_15, GS_API_LATEST)
+/**
+ * Writes the specified data synchronously to the file handle.
+ */
+- (BOOL) writeData: (NSData *)data 
+             error: (NSError **)error;
+
+/**
+ * Reads the data synchronously up to the specified number of bytes.
+ */
+- (NSData *) readDataUpToLength: (NSUInteger)length 
+                          error: (NSError **)error;
+
+/**
+ * Reads the data synchronously up to the end of file or maximum number of
+ * bytes.
+ */
+- (NSData *) readDataToEndOfFileAndReturnError: (NSError **)error;
+#endif
 
 // Asynchronous I/O operations
 
@@ -84,6 +115,30 @@ extern "C" {
 - (unsigned long long) offsetInFile;
 - (unsigned long long) seekToEndOfFile;
 - (void) seekToFileOffset: (unsigned long long)pos;
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_15, GS_API_LATEST)
+/**
+ * Get the current position of the file pointer within the file.
+ */
+- (BOOL) getOffset: (unsigned long long *)offsetInFile 
+             error: (NSError **)error;
+
+/**
+ * Sets the file pointer at the end of the file and returns the new file offset.
+ */
+- (BOOL) seekToEndReturningOffset: (unsigned long long *)offsetInFile 
+                            error: (NSError **)error;
+
+/**
+ * Sets the file pointer to the specified offset within the file.
+ */
+- (BOOL) seekToOffset: (unsigned long long)offset 
+                error: (NSError **)error;
+
+- (BOOL) truncateAtOffset: (unsigned long long)offset 
+                    error: (NSError **)error;
+
+#endif
 
 // Operations on file
 
@@ -155,6 +210,7 @@ GS_EXPORT NSString * const NSFileHandleNotificationMonitorModes;
  */
 GS_EXPORT NSString * const NSFileHandleOperationException;
 
+GS_EXPORT_CLASS
 @interface NSPipe : NSObject
 {
 #if	GS_EXPOSE(NSPipe)
@@ -263,6 +319,18 @@ GS_EXPORT NSString * const NSFileHandleOperationException;
  */
 - (BOOL) sslHandshakeEstablished: (BOOL*)result outgoing: (BOOL)isOutgoing;
 
+/** If the session verified a certificate from the remote end, returns the
+ * name of the certificate issuer in the form "C=xxxx,O=yyyy,CN=zzzz" as
+ * described in RFC2253.  Otherwise returns nil.
+ */
+- (NSString*) sslIssuer;
+
+/** If the session verified a certificate from the remote end, returns the
+ * name of the certificate owner in the form "C=xxxx,O=yyyy,CN=zzzz" as
+ * described in RFC2253.  Otherwise returns nil.
+ */
+- (NSString*) sslOwner;
+
 /** Deprecated ... use -sslSetOptions: instead
  */
 - (void) sslSetCertificate: (NSString*)certFile
@@ -275,7 +343,7 @@ GS_EXPORT NSString * const NSFileHandleOperationException;
  * be set.<br />
  * You may use the same options as property settings with the GNUstep
  * implementation of NSStream.<br />
- * Expects key value pairs with the follwing names/meanings:
+ * Expects key value pairs with the following names/meanings:
  * <deflist>
  *   <term>GSTLSCAFile</term>
  *   <desc>A string identifying the full path to the file containing any
@@ -302,6 +370,18 @@ GS_EXPORT NSString * const NSFileHandleOperationException;
  *   <desc>A boolean specifying whether diagnostic debug is to be enabled
  *   to log information about a connection where the handshake fails.<br />
  *   </desc>
+ *   <term>GSTLSIssuers</term>
+ *   <desc>An array of distinguished names (in RFC4514 format) listing the
+ *   permitted issuers of the remote certificate.  If this is present and the
+ *   issuer of the remote certificate is not in the array, the connection
+ *   handshake is failed.
+ *   </desc>
+ *   <term>GSTLSOwners</term>
+ *   <desc>An array of distinguished names (in RFC4514 format) listing the
+ *   permitted owners/subjects of the remote certificate.  If this is present
+ *   and the owner/subject of the remote certificate is not in the array, the
+ *   connection handshake is failed.
+ *   </desc>
  *   <term>GSTLSPriority</term>
  *   <desc>A GNUTLS priority string describing the ciphers etc which may be
  *   used for the connection.  In addition the string may be one of
@@ -317,6 +397,18 @@ GS_EXPORT NSString * const NSFileHandleOperationException;
  *   <desc>The full path of a file containing certificate revocation
  *   information for certificates issued by our trusted authorites but
  *   no longer valid.
+ *   </desc>
+ *   <term>GSTLSServerName</term>
+ *   <desc>By default the TLS layer when making an HTTPS request sets the
+ *   'Server Name Indication' (SNI) to be the name of the host in the URL
+ *   that is being fetched.<br />
+ *   This option allows the SNI to be set for other connections and permits
+ *   overriding of the default behavior for HTTPS requests.  Setting the
+ *   value of GSTLSServerName to an empty string will prevent the SNI from
+ *   being sent in the TLS handshake (this is sometimes desirable to prevent
+ *   information leakage; the SNI information is sent unencrypted).<br />
+ *   Some web servers require SNI in order to tell what hostname an HTTPS
+ *   request is for and decide which certificate to present to the client.
  *   </desc>
  *   <term>GSTLSVerify</term>
  *   <desc>A boolean specifying whether we should require the remote end to
@@ -365,6 +457,14 @@ GS_EXPORT NSString * const GSTLSDebug;
  */
 GS_EXPORT NSString * const GSTLSPriority;
 
+/** Dictionary key for an array of issuers to use in certificate verification.
+ */
+GS_EXPORT NSString * const GSTLSIssuers;
+
+/** Dictionary key for an array of owners to use in certificate verification.
+ */
+GS_EXPORT NSString * const GSTLSOwners;
+
 /** Dictionary key for a list of hosts to use in certificate verification.
  */
 GS_EXPORT NSString * const GSTLSRemoteHosts;
@@ -373,6 +473,11 @@ GS_EXPORT NSString * const GSTLSRemoteHosts;
  * file.
  */
 GS_EXPORT NSString * const GSTLSRevokeFile;
+
+/** Dictionary key for the value controlling the Server Name Indication
+ * (SNI) sent as part of the TLS handshake.
+ */
+GS_EXPORT NSString * const GSTLSServerName;
 
 /** Dictionary key for a boolean to enable certificate verification.
  */

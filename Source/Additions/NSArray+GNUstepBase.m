@@ -18,8 +18,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
 */
 #import "common.h"
@@ -38,7 +37,7 @@
   NSUInteger	lower = 0;
   NSUInteger	index;
   SEL		oaiSel;
-  IMP		oai;
+  id		(*oai)(id,SEL,NSUInteger);
 
   if (item == nil)
     {
@@ -52,7 +51,7 @@
     }
 
   oaiSel = @selector(objectAtIndex:);
-  oai = [self methodForSelector: oaiSel];
+  oai = (id(*)(id,SEL,NSUInteger))[self methodForSelector: oaiSel];
   /*
    *	Binary search for an item equal to the one to be inserted.
    */
@@ -95,7 +94,7 @@
   NSUInteger	index;
   NSComparisonResult	(*imp)(id, SEL, id);
   SEL		oaiSel;
-  IMP		oai;
+  id		(*oai)(id,SEL,NSUInteger);
 
   if (item == nil)
     {
@@ -115,7 +114,7 @@
     }
 
   oaiSel = @selector(objectAtIndex:);
-  oai = [self methodForSelector: oaiSel];
+  oai = (id(*)(id,SEL,NSUInteger))[self methodForSelector: oaiSel];
   /*
    *	Binary search for an item equal to the one to be inserted.
    */

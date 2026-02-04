@@ -28,7 +28,9 @@
 #endif
 
 #include <sys/types.h>
+#ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
+#endif
 
 #import "GSPrivate.h"
 #import "GSNetwork.h"
@@ -40,6 +42,11 @@
 #if HAVE_ARPA_NAMESER_H
 #include <arpa/nameser.h>
 #endif
+
+#ifndef WSAAPI
+#define WSAAPI
+#endif
+
 
 /*
  * WARNING: Don't even consider trying to compile this on a system where
@@ -63,6 +70,7 @@ static int	inet_pton6(const char *src, uint8_t *dst);
  *	Paul Vixie, 1996.
  */
 int
+WSAAPI
 inet_pton(int af, const char *src, void *dst)
 {
 

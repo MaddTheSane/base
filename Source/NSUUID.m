@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    */
 
@@ -43,7 +42,7 @@ static const int kUUIDByteCount = 16;
  */
 @implementation NSUUID
 
-+ (id) UUID
++ (instancetype) UUID
 {
   id    u;
 
@@ -51,7 +50,7 @@ static const int kUUIDByteCount = 16;
   return AUTORELEASE(u);
 }
 
-- (id) init
+- (instancetype) init
 {
   gsuuid_t      localUUID;
   int           result;
@@ -65,7 +64,7 @@ static const int kUUIDByteCount = 16;
   return [self initWithUUIDBytes: localUUID];
 }
 
-- (id) initWithUUIDString: (NSString *)string
+- (instancetype) initWithUUIDString: (NSString *)string
 {
   gsuuid_t      localUUID;
   const char    *cString;
@@ -81,7 +80,7 @@ static const int kUUIDByteCount = 16;
   return [self initWithUUIDBytes: localUUID];
 }
 
-- (id) initWithUUIDBytes: (gsuuid_t)bytes
+- (instancetype) initWithUUIDBytes: (gsuuid_t)bytes
 {
   if (nil != (self = [super init]))
     {
@@ -90,7 +89,7 @@ static const int kUUIDByteCount = 16;
   return self;
 }
 
-- (NSString *)UUIDString
+- (NSString *) UUIDString
 {
   char           uuidChars[kUUIDStringLength + 1];
   NSString      *string;
@@ -188,7 +187,7 @@ static int uuid_from_string(const char *string, unsigned char *uuid)
   char	unformatted[kUnformattedUUIDStringLength];
   int	i;
 
-  if (strlen(string) != kUUIDStringLength)
+  if (NULL == string || strlen(string) != kUUIDStringLength)
     {
       return -1;
     }
@@ -211,21 +210,42 @@ static int uuid_from_string(const char *string, unsigned char *uuid)
 	    }
 	}
     }
-  strncpy(unformatted, string, 8);
-  strncpy(unformatted+8, string+9, 4);
-  strncpy(unformatted+12, string+14, 4);
-  strncpy(unformatted+16, string+19, 4);
-  strncpy(unformatted+20, string+24, 12);
+  memcpy(unformatted, string, 8);
+  memcpy(unformatted+8, string+9, 4);
+  memcpy(unformatted+12, string+14, 4);
+  memcpy(unformatted+16, string+19, 4);
+  memcpy(unformatted+20, string+24, 12);
 
   for (i = 0; i < kUUIDByteCount; i++)
     {
-      {
-	char thisDigit[3];
-	thisDigit[0] = unformatted[2*i];
-	thisDigit[1] = unformatted[2*i+1];
-	thisDigit[2] = 0;
-	uuid[i] = strtoul(thisDigit, NULL, kUUIDByteCount);
-      }
+      int	hi = unformatted[2*i];
+      int	lo = unformatted[2*i+1];
+
+      if (isdigit(hi))
+	{
+	  hi -= '0';
+	}
+      else if (isupper(hi))
+	{
+	  hi = hi - 'A' + 10;
+	}
+      else
+	{
+	  hi = hi - 'a' + 10;
+	}
+      if (isdigit(lo))
+	{
+	  lo -= '0';
+	}
+      else if (isupper(lo))
+	{
+	  lo = lo - 'A' + 10;
+	}
+      else
+	{
+	  lo = lo - 'a' + 10;
+	}
+      uuid[i] = (hi << 4) | lo;
     }
   return 0;
 }
@@ -240,17 +260,17 @@ static void string_from_uuid(const unsigned char *uuid, char *string)
       unsigned char byte = uuid[i];
       char thisPair[3];
       snprintf(thisPair, 3, "%02X", byte);
-      strncpy(unformatted + 2*i, thisPair, 2);
+      memcpy(unformatted + 2*i, thisPair, 2);
     }
-  strncpy(string, unformatted, 8);
+  memcpy(string, unformatted, 8);
   string[8] = '-';
-  strncpy(string + 9, unformatted + 8, 4);
+  memcpy(string + 9, unformatted + 8, 4);
   string[13] = '-';
-  strncpy(string + 14, unformatted + 12, 4);
+  memcpy(string + 14, unformatted + 12, 4);
   string[18] = '-';
-  strncpy(string + 19, unformatted + 16, 4);
+  memcpy(string + 19, unformatted + 16, 4);
   string[23] = '-';
-  strncpy(string + 24, unformatted + 20, 12);
+  memcpy(string + 24, unformatted + 20, 12);
   string[kUUIDStringLength] = '\0';
 }
 
@@ -260,7 +280,7 @@ static int random_uuid(unsigned char *uuid)
   unsigned char timeByte;
   unsigned char sequenceByte;
 
-  /* Only supporting Version 4 UUIDs (see RFC4412, section 4.4),
+  /* Only supporting Version 4 UUIDs (see RFC4122, section 4.4),
    * consistent with Apple.  Other variants suffer from privacy
    * problems (and are more work...)
    */

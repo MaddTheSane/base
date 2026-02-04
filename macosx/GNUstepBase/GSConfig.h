@@ -198,19 +198,6 @@ typedef	gsuaddr gsaddr;
 #define	GSNativeChar	char
 #endif
 
-/*
- * Types used to avoid exposing pthread header in NSLock.h
- * NB. These types should *never* be used except to provide enough space
- * in a class layout for the type of data actually used by the pthread
- * implementation of the current platform.
- */
-typedef	struct {
-  uint8_t	dummy[48];
-} gs_cond_t;
-typedef	struct {
-  uint8_t	dummy[64];
-} gs_mutex_t;
-
 #define	OBJC2RUNTIME 1
 #define BASE_NATIVE_OBJC_EXCEPTIONS 0
 #ifdef __LP64__

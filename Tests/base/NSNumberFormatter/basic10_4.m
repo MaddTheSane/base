@@ -52,12 +52,19 @@ int main()
     PASS(NSNumberFormatterBehaviorDefault == [fmt formatterBehavior],
      "a new formatter can have the default behavior set")
 
+    /* It is not guaranteed by ICU that UNUM_NAN_SYMBOL is "NaN".
+     * On Windows, NaN has a negative signum and returns "-NaN".
+     */
+    testHopeful = YES;
     str = [fmt stringFromNumber: [NSDecimalNumber notANumber]];
     PASS_EQUAL(str, @"NaN", "notANumber special case")
+    testHopeful = NO;
 
     START_SET("NSLocale")
       NSLocale  *sys;
       NSLocale  *en;
+      const unichar uspc[1] = {0x00a0};
+      NSString *spc = [NSString stringWithCharacters: uspc length: 1];
       if (!NSLOCALE_SUPPORTED)
         SKIP("NSLocale not supported\nThe ICU library was not available when GNUstep-base was built")
       
@@ -156,15 +163,14 @@ int main()
         "prefix and suffix used properly");
 
       num = [[[NSNumber alloc] initWithFloat: -1234.56] autorelease];
-     
-      /* Different versions of ICU use different formats, so we need to
-       * permit alternative results.
-       */
       str = [fmt stringFromNumber: num];
-      PASS([str isEqual: @"(R$1.235)"] || [str isEqual: @"_R$1.235"],
+      PASS(([str isEqual: @"(R$1.235)"] || [str isEqual: @"_R$1.235"]
+        || [str isEqual: [NSString stringWithFormat: @"_R$%@%@",
+        spc, @"1.235"]]),
         "negativeFormat used for -ve number");
 
       [fmt setNumberStyle: NSNumberFormatterNoStyle];
+      [fmt setMinusSign: @"_"];
       
       testHopeful = YES;
       PASS_EQUAL([fmt stringFromNumber: num], @"_01235",

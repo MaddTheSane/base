@@ -16,12 +16,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSProcessInfo_h_GNUSTEP_BASE_INCLUDE
@@ -29,6 +28,10 @@
 #import	<GNUstepBase/GSVersionMacros.h>
 
 #import	<Foundation/NSObject.h>
+
+#ifdef __ANDROID__
+#include <jni.h>
+#endif
 
 #if	defined(__cplusplus)
 extern "C" {
@@ -39,6 +42,24 @@ extern "C" {
 @class NSDictionary;
 @class NSData;
 @class NSMutableSet;
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_9,GS_API_LATEST) 
+typedef uint64_t NSActivityOptions;
+enum
+{
+  NSActivityIdleDisplaySleepDisabled = (1ULL << 40),
+  NSActivityIdleSystemSleepDisabled = (1ULL << 20),
+  NSActivitySuddenTerminationDisabled = (1ULL << 14),
+  NSActivityAutomaticTerminationDisabled = (1ULL << 15),
+
+  NSActivityUserInitiated = (0x00FFFFFFULL | NSActivityIdleSystemSleepDisabled),
+  NSActivityUserInitiatedAllowingIdleSystemSleep = (NSActivityUserInitiated & ~NSActivityIdleSystemSleepDisabled),
+
+  NSActivityBackground = 0x000000FFULL,
+
+  NSActivityLatencyCritical = 0xFF00000000ULL,
+};
+#endif
 
 #if OS_API_VERSION(GS_API_MACOSX,GS_API_LATEST)
 
@@ -76,12 +97,21 @@ enum {
 #endif	/* OS_API_VERSION(GS_API_MACOSX,GS_API_LATEST) */
 
 
+GS_EXPORT_CLASS
 @interface NSProcessInfo: NSObject
 
 /**
  * Returns the shared NSProcessInfo object for the current process.
  */
 + (NSProcessInfo*) processInfo;
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6,GS_API_LATEST) 
+#if GS_HAS_DECLARED_PROPERTIES
+@property (readonly) NSUInteger systemUptime;
+#else
+- (NSUInteger) systemUptime;
+#endif
+#endif
 
 /**
  * Returns an array containing the arguments supplied to start this
@@ -190,12 +220,31 @@ enum {
 - (void) setProcessName: (NSString*)newName;
 
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_5,GS_API_LATEST) 
-/** Not implemented */
+/** Returns the number of CPUs or Cores detected on the device */
 - (NSUInteger) processorCount;
-/** Not implemented */
+/** Returns the number of CPUs or Cores actively on the running device */
 - (NSUInteger) activeProcessorCount;
-/** Not implemented */
+/** Amount of physical Memory */
 - (unsigned long long) physicalMemory;
+#endif
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6,GS_API_LATEST) 
+- (void) enableSuddenTermination;
+- (void) disableSuddenTermination;
+#endif
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_9,GS_API_LATEST) 
+DEFINE_BLOCK_TYPE_NO_ARGS(GSPerformActivityBlock, void);
+DEFINE_BLOCK_TYPE(GSPerformExpiringActivityBlock, void, BOOL);
+
+- (id) beginActivityWithOptions: (NSActivityOptions)options
+                         reason: (NSString *)reason;
+- (void) endActivity:(id<NSObject>)activity;
+- (void) performActivityWithOptions:(NSActivityOptions)options
+                            reason: (NSString *)reason
+                        usingBlock: (GSPerformActivityBlock)block;
+- (void) performExpiringActivityWithReason: (NSString *)reason
+            usingBlock: (GSPerformExpiringActivityBlock)block;
 #endif
 @end
 
@@ -220,6 +269,20 @@ enum {
 + (void) initializeWithArguments: (char**)argv
                            count: (int)argc
                      environment: (char**)env;
+
+#ifdef __ANDROID__
+- (jobject) androidContext;
+- (NSString *) androidFilesDir;
+- (NSString *) androidCacheDir;
+#endif
+
+/** Changes the environment variables returned by this process info instance
+ * and if possible also changes the underlying process environment variables
+ * available to other libraries.  Returns YES if the lower level environment
+ * was changed as well as the environment dictionary of the receiver.
+ */
+- (BOOL) setValue: (NSString*)string inEnvironment: (NSString*)key;
+
 @end
 
 /**
@@ -232,6 +295,17 @@ enum {
  * to do when using GNUstep libraries embedded within other frameworks.
  */
 GS_EXPORT void GSInitializeProcess(int argc, char **argv, char **envp);
+
+#ifdef __ANDROID__
+/**
+ * Android process initialization function.
+ * This should be called on Android to initialize GNUstep with the JNI
+ * environment and application context, which is used to set up support
+ * for the Android data directory and asset loading via NSBundle.
+ */
+GS_EXPORT void GSInitializeProcessAndroid(JNIEnv *env, jobject context);
+GS_EXPORT void GSInitializeProcessAndroidWithArgs(JNIEnv *env, jobject context, int argc, char **argv, char **envp);
+#endif
 
 /**
  * Function for rapid testing to see if a debug level is set.<br />

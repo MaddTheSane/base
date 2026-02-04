@@ -1,4 +1,4 @@
-/* Interface for NSURLRequest for GNUstep
+/**Interface for NSURLRequest for GNUstep
    Copyright (C) 2006 Software Foundation, Inc.
 
    Written by:  Richard Frith-Macdonald <frm@gnu.org>
@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSURLRequest_h_GNUSTEP_BASE_INCLUDE
@@ -41,12 +40,17 @@ extern "C" {
 @class NSString;
 @class NSURL;
 
-enum
-{
-  NSURLRequestUseProtocolCachePolicy,
-  NSURLRequestReloadIgnoringCacheData,
-  NSURLRequestReturnCacheDataElseLoad,
-  NSURLRequestReturnCacheDataDontLoad
+enum {
+    NSURLRequestUseProtocolCachePolicy = 0,
+
+    NSURLRequestReloadIgnoringLocalCacheData = 1,
+    NSURLRequestReloadIgnoringLocalAndRemoteCacheData = 4,
+    NSURLRequestReloadIgnoringCacheData = NSURLRequestReloadIgnoringLocalCacheData,
+
+    NSURLRequestReturnCacheDataElseLoad = 2,
+    NSURLRequestReturnCacheDataDontLoad = 3,
+
+    NSURLRequestReloadRevalidatingCacheData = 5
 };
 /**
  * <deflist>
@@ -76,12 +80,56 @@ enum
  */
 typedef NSUInteger NSURLRequestCachePolicy;
 
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_7,GS_API_LATEST)
+enum
+{
+    NSURLNetworkServiceTypeDefault    = 0,  // Standard internet traffic
+    NSURLNetworkServiceTypeVoIP       = 1,  // Voice over IP control traffic
+    NSURLNetworkServiceTypeVideo      = 2,  // Video traffic
+    NSURLNetworkServiceTypeBackground = 3,  // Background traffic
+    NSURLNetworkServiceTypeVoice      = 4,  // Voice data
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_12,GS_API_LATEST)
+    NSURLNetworkServiceTypeCallSignaling = 11    // Call Signaling - enumeration cases
+#endif
+};
+/**
+ * <deflist>
+ *   <term>NSURLNetworkServiceTypeDefault</term>
+ *   <desc>
+ *     Specifies standard network traffic. Most connections should be made using this service type
+ *     this is the default.
+ *   </desc>
+ *   <term>NSURLNetworkServiceTypeVoIP</term>
+ *   <desc>
+ *     Specifies that the request is for VoIP traffic.
+ *   </desc>
+ *   <term>NSURLNetworkServiceTypeVideo</term>
+ *   <desc>
+ *     Specifies that the request is for video traffic.
+ *   </desc>
+ *   <term>NSURLNetworkServiceTypeBackground</term>
+ *   <desc>
+ *     Specifies that the request is for background traffic.
+ *   </desc>
+ *   <term>NSURLNetworkServiceTypeVoice</term>
+ *   <desc>
+ *     Specifies that the request is for voice traffic.
+ *   </desc>
+ *   <term>NSURLNetworkServiceTypeCallSignaling</term>
+ *   <desc>
+ *     Call Signaling - enumeration cases.
+ *   </desc>
+ * </deflist>
+ */
+typedef NSUInteger NSURLRequestNetworkServiceType;
+#endif
 
 /**
  * This class encapsulates information about a request to load a
  * URL, how to cache the results, and when to deal with a slow/hung
  * load process by timing out.
  */
+GS_EXPORT_CLASS
 @interface NSURLRequest : NSObject <NSCoding, NSCopying, NSMutableCopying>
 {
 #if	GS_EXPOSE(NSURLRequest)
@@ -94,15 +142,15 @@ typedef NSUInteger NSURLRequestCachePolicy;
  * and with the default cache policy (NSURLRequestUseProtocolCachePolicy)
  * and a sixty second timeout.
  */
-+ (id) requestWithURL: (NSURL *)URL;
++ (instancetype) requestWithURL: (NSURL *)URL;
 
 /**
  * Returns an autoreleased instance initialised with the specified URL,
  * cachePolicy, and timeoutInterval.
  */
-+ (id) requestWithURL: (NSURL *)URL
-	  cachePolicy: (NSURLRequestCachePolicy)cachePolicy
-      timeoutInterval: (NSTimeInterval)timeoutInterval;
++ (instancetype) requestWithURL: (NSURL *)URL
+                    cachePolicy: (NSURLRequestCachePolicy)cachePolicy
+                timeoutInterval: (NSTimeInterval)timeoutInterval;
 
 /**
  * Returns the cache policy associated with the receiver.
@@ -114,15 +162,15 @@ typedef NSUInteger NSURLRequestCachePolicy;
  * and with the default cache policy (NSURLRequestUseProtocolCachePolicy)
  * and a sixty second timeout.
  */
-- (id) initWithURL: (NSURL *)URL;
+- (instancetype) initWithURL: (NSURL *)URL;
 
 /**
  * Initialises the receiver with the specified URL,
  * cachePolicy, and timeoutInterval.
  */
-- (id) initWithURL: (NSURL *)URL
-       cachePolicy: (NSURLRequestCachePolicy)cachePolicy
-   timeoutInterval: (NSTimeInterval)timeoutInterval;
+- (instancetype) initWithURL: (NSURL *)URL
+                 cachePolicy: (NSURLRequestCachePolicy)cachePolicy
+             timeoutInterval: (NSTimeInterval)timeoutInterval;
 
 /**
  * Returns the main document URL for the receiver.<br />
@@ -150,6 +198,7 @@ typedef NSUInteger NSURLRequestCachePolicy;
 
 /**
  */
+GS_EXPORT_CLASS
 @interface NSMutableURLRequest : NSURLRequest
 
 /**
@@ -221,6 +270,16 @@ typedef NSUInteger NSURLRequestCachePolicy;
  */
 - (NSString *) valueForHTTPHeaderField: (NSString *)field;
 
+#if OS_API_VERSION(MAC_OS_VERSION_11_0, GS_API_LATEST)
+/**
+ * Indicates whether the URL loading system assumes the host is HTTP/3 capable.
+ *
+ * This method returns the current assumption of the URL loading system regarding
+ * the server's HTTP capabilities.
+ */
+- (BOOL) assumesHTTP3Capable;
+#endif
+
 @end
 
 
@@ -271,11 +330,42 @@ typedef NSUInteger NSURLRequestCachePolicy;
 - (void) setHTTPShouldHandleCookies: (BOOL)should;
 
 /**
- * Sets the value for the sapecified header field, replacing any
- * previously set value.
+ * Sets the value for the specified header field, replacing any
+ * previously set value. Setting a nil value deletes a previously set
+ * header field.
  */
 - (void) setValue: (NSString *)value forHTTPHeaderField: (NSString *)field;
 
+#if OS_API_VERSION(MAC_OS_VERSION_11_0, GS_API_LATEST)
+/**
+ * Sets whether the URL loading system should assume the host is HTTP/3 capable.
+ *
+ * This method configures the URL loading system's assumptions about the
+ * server's HTTP capabilities, optimizing the connection process if HTTP/3 is
+ * supported.
+ */
+- (void) setAssumesHTTP3Capable: (BOOL)capable;
+#endif
+
+@end
+
+@protocol GSLogDelegate;
+@interface NSMutableURLRequest (GNUstep)
+
+/** Sets a flag to turn on low level debug logging for this request and the
+ * corresponding response.  The previous vaue of the setting is returned.
+ */
+- (int) setDebug: (int)d;
+
+/** Sets a delegate object to override logging of low level I/O of the
+ * request as it is sent and the corresponding response as it arrives.<br />
+ * The delegate object is not retained, so it is the responsibility of the
+ * caller to ensure that it persists until all I/O has completed.<br />
+ * This has no effect unless debug is turned on, but if debug is turned on
+ * it permits the delegate to override the default behavior of writing the
+ * data to stderr.
+ */
+- (id<GSLogDelegate>) setDebugLogDelegate: (id<GSLogDelegate>)d;
 @end
 
 #if	defined(__cplusplus)

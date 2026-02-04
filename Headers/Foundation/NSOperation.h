@@ -1,9 +1,8 @@
 /**Interface for NSOperation for GNUStep
-   Copyright (C) 2009,2010 Free Software Foundation, Inc.
+   Copyright (C) 2008-2022 Free Software Foundation, Inc.
 
    Written by:  Gregory Casamento <greg.casamento@gmail.com>
    Written by:  Richard Frith-Macdonald <rfm@gnu.org>
-   Date: 2009,2010
 
    This file is part of the GNUstep Base Library.
 
@@ -15,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    */
 
@@ -37,7 +35,8 @@ extern "C" {
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
 #import <GNUstepBase/GSBlocks.h>
 DEFINE_BLOCK_TYPE_NO_ARGS(GSOperationCompletionBlock, void);
-#endif
+DEFINE_BLOCK_TYPE_NO_ARGS(GSBlockOperationBlock, void);
+#endif  
 
 @class NSMutableArray;
 
@@ -51,6 +50,7 @@ enum {
 
 typedef NSInteger NSOperationQueuePriority;
 
+GS_EXPORT_CLASS
 @interface NSOperation : NSObject
 {
 #if	GS_NONFRAGILE
@@ -92,7 +92,7 @@ typedef NSInteger NSOperationQueuePriority;
 /** Returns all the dependencies of the receiver in the order in which they
  * were added.
  */
-- (NSArray *)dependencies;
+- (NSArray *) dependencies;
 
 /** This method should return YES if the -cancel method has been called.<br />
  * NB. a cancelled operation may still be executing.
@@ -130,7 +130,7 @@ typedef NSInteger NSOperationQueuePriority;
  * This is the method which actually performs the operation ...
  * the default implementation does nothing.<br />
  * You MUST ensure that your implemention of -main does not raise any
- * exception or call [NSThread-exit] as either of these will terminate
+ * exception or call [NSThread+exit] as either of these will terminate
  * the operation prematurely resulting in the operation never reaching
  * the -isFinished state.<br />
  * If you are writing a concurrent subclass, you should override -start
@@ -138,7 +138,7 @@ typedef NSInteger NSOperationQueuePriority;
  */
 - (void) main;
 
-/** Returns the priority set using the -setQueuePriority method, or
+/** Returns the priority set using the -setQueuePriority: method, or
  * NSOperationQueuePriorityNormal if no priority has been set.
  */
 - (NSOperationQueuePriority) queuePriority;
@@ -199,6 +199,31 @@ typedef NSInteger NSOperationQueuePriority;
 
 @end
 
+GS_EXPORT_CLASS
+@interface NSBlockOperation : NSOperation
+{
+  @private
+    NSMutableArray *_executionBlocks;
+    void *_reserved;
+}
+
+// Managing the blocks in the Operation
+/**
+ * Creates and returns an NSBlockOperationObject and adds the block.
+ */
++ (instancetype) blockOperationWithBlock: (GSBlockOperationBlock)block;
+
+/**
+ * Adds the execution block to the NSOperationBlock.
+ */
+- (void) addExecutionBlock: (GSBlockOperationBlock)block;
+
+/**
+ * Returns the block added to the NSOperationBlock.
+ */
+- (NSArray *) executionBlocks;
+
+@end
 
 /**
  * NSOperationQueue
@@ -209,6 +234,18 @@ enum {
    NSOperationQueueDefaultMaxConcurrentOperationCount = -1
 };
 
+/**
+ * An NSOperationQueue manages a number of NSOperation objects, scheduling
+ * them for execution and managing their dependencies.
+ *
+ * Depending on the configuration of the queue, operations may be executed
+ * concurrently or serially.
+ *
+ * Worker threads are named "NSOperationQ_&lt;number&gt;" by default, but
+ * you can set a name for the queue using the -setName: method.
+ * The suffix "_&lt;number&gt;"" is automatically added to the thread name.
+ */
+GS_EXPORT_CLASS
 @interface NSOperationQueue : NSObject
 {
 #if	GS_NONFRAGILE
@@ -241,6 +278,10 @@ enum {
  */
 - (void) addOperations: (NSArray *)ops
      waitUntilFinished: (BOOL)shouldWait;
+  
+/** This method wraps a block in an operation and adds it to the queue.
+ */
+- (void) addOperationWithBlock: (GSBlockOperationBlock)block;
 #endif
 
 /** Cancels all outstanding operations in the queue.
@@ -294,6 +335,8 @@ enum {
  */
 - (void) waitUntilAllOperationsAreFinished;
 @end
+
+
 
 #if	defined(__cplusplus)
 }

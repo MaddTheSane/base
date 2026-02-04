@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSPortMessage class reference</title>
    $Date$ $Revision$
@@ -71,6 +70,7 @@
   self = [super init];
   if (self != nil)
     {
+      _msgid = 0;
       _send = RETAIN(aPort);
       _recv = RETAIN(anotherPort);
       _components = [[NSMutableArray allocWithZone: [self zone]]
@@ -97,6 +97,7 @@
 - (BOOL) sendBeforeDate: (NSDate*)when
 {
   return [_send sendBeforeDate: when
+			 msgid: _msgid
 		    components: _components
 			  from: _recv
 		      reserved: 0];

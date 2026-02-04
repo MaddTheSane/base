@@ -17,12 +17,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSCalendarDate class reference</title>
    $Date$ $Revision$
@@ -57,9 +56,6 @@
 @end
 @class	GSAbsTimeZone;
 @interface	GSAbsTimeZone : NSObject	// Help the compiler
-@end
-@class	NSGDate;
-@interface	NSGDate : NSObject	// Help the compiler
 @end
 
 
@@ -396,7 +392,6 @@ GSPrivateTimeNow(void)
       absAbrIMP = (NSString* (*)(id,SEL,id))
 	[absClass instanceMethodForSelector: abrSEL];
 
-      GSObjCAddClassBehavior(self, [NSGDate class]);
       [pool release];
     }
 }
@@ -461,6 +456,11 @@ GSPrivateTimeNow(void)
 					  second: second
 					timeZone: aTimeZone];
   return AUTORELEASE(d);
+}
+
+- (NSTimeInterval) timeIntervalSinceReferenceDate
+{
+  return _seconds_since_ref;
 }
 
 /**

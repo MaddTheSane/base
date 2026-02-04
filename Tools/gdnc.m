@@ -13,13 +13,16 @@
    You should have received a copy of the GNU General Public
    License along with this program; see the file COPYING.
    If not, write to the Free Software Foundation,
-   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+   31 Milk Street #960789 Boston, MA 02196 USA.
 
    */
 
 #import	"common.h"
 
 #include <stdio.h>
+#ifdef _WIN32
+#include <io.h>
+#endif
 
 #import	"Foundation/NSArray.h"
 #import	"Foundation/NSAutoreleasePool.h"
@@ -46,20 +49,20 @@
 #endif
 
 
-#if	defined(HAVE_SYS_FCNTL_H)
-#  include	<sys/fcntl.h>
-#elif	defined(HAVE_FCNTL_H)
+#if	defined(HAVE_FCNTL_H)
 #  include	<fcntl.h>
+#elif	defined(HAVE_SYS_FCNTL_H)
+#  include	<sys/fcntl.h>
 #endif
 
 #ifdef	HAVE_SYSLOG_H
 #include <syslog.h>
 #endif
 
-#if	defined(HAVE_SYS_SIGNAL_H)
-#  include	<sys/signal.h>
-#elif	defined(HAVE_SIGNAL_H)
+#if	defined(HAVE_SIGNAL_H)
 #  include	<signal.h>
+#elif	defined(HAVE_SYS_SIGNAL_H)
+#  include	<sys/signal.h>
 #endif
 
 #ifndef NSIG
@@ -99,13 +102,13 @@ gdnc_log (int prio, const char *ebuf)
     }
   else if (prio == LOG_INFO)
     {
-      write (1, ebuf, strlen (ebuf));
-      write (1, "\n", 1);
+      fprintf (stdout, "%s\n", ebuf);
+      fflush (stdout);
     }
   else
     {
-      write (2, ebuf, strlen (ebuf));
-      write (2, "\n", 1);
+      fprintf (stderr, "%s\n", ebuf);
+      fflush (stderr);
     }
 
   if (prio == LOG_CRIT)
@@ -425,7 +428,6 @@ ihandler(int sig)
   NSString		*service;
   BOOL			isNetwork = NO;
   BOOL			isPublic = NO;
-  BOOL			isLocal = NO;
   NSPort		*port;
   NSPortNameServer	*ns;
   NSUserDefaults	*defs;
@@ -451,11 +453,6 @@ ihandler(int sig)
     {
       isNetwork = YES;
     }
-  else
-    {
-      isLocal = YES;
-    }
-
 
   if (isNetwork)
     {
@@ -467,17 +464,7 @@ ihandler(int sig)
     {
       service = GDNC_SERVICE;
       ns = [NSSocketPortNameServer sharedInstance];
-      if (isLocal == YES)
-	{
-	  port = (NSPort*)[NSSocketPort portWithNumber: 0
-						onHost: [NSHost localHost]
-					  forceAddress: @"127.0.0.1"
-					      listener: YES];
-	}
-      else
-	{
-	  port = (NSPort*)[NSSocketPort port];
-	}
+      port = (NSPort*)[NSSocketPort port];
     }
   else
     {
@@ -506,7 +493,7 @@ ihandler(int sig)
     {
       if ([conn registerName: service withNameServer: ns] == NO)
 	{
-	  NSLog(@"gdnc - unable to register with name server as %@ - quiting.",
+	  NSLog(@"gdnc - unable to register with name server as %@ - quitting.",
 	    service);
 	  DESTROY(self);
 	  return self;
@@ -521,7 +508,7 @@ ihandler(int sig)
 
       if (host == nil)
 	{
-	  NSLog(@"gdnc - unknown NSHost argument  ... %@ - quiting.", hostname);
+	  NSLog(@"gdnc - unknown NSHost argument  ... %@ - quitting.", hostname);
 	  DESTROY(self);
 	  return self;
 	}
@@ -775,7 +762,7 @@ ihandler(int sig)
   NSMutableArray	*byName;
   NSMutableArray	*byObject;
   unsigned		pos;
-  GDNCNotification	*notification = nil;
+  GDNCNotification	*notification;
 
   byName = [observersForNames objectForKey: notificationName];
   byObject = [observersForObjects objectForKey: notificationObject];
@@ -806,15 +793,17 @@ ihandler(int sig)
 	}
     }
 
+  if ([observers count] == 0)
+    {
+      return;
+    }
+
   /*
    *	Build notification object to queue for observer.
    */
-  if ([observers count] > 0)
-    {
-      notification = [GDNCNotification notificationWithName: notificationName
-						     object: notificationObject
-						       data: d];
-    }
+  notification = [GDNCNotification notificationWithName: notificationName
+                                                 object: notificationObject
+                                                   data: d];
 
   /*
    *	Add the object to the queue for this observer depending on suspension
@@ -1213,7 +1202,7 @@ main(int argc, char** argv, char** env)
 #endif
 	signal(sym, ihandler);
       }
-#ifndef __MINGW__
+#ifndef _WIN32
     signal(SIGPIPE, SIG_IGN);
     signal(SIGTTOU, SIG_IGN);
     signal(SIGTTIN, SIG_IGN);

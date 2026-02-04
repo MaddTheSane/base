@@ -18,8 +18,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
 */
 
@@ -42,7 +41,7 @@ static BOOL     debugTemporarilyDisabled = NO;
 
 BOOL GSDebugSet(NSString *level)
 {
-  static IMP debugImp = 0;
+  static id (*debugImp)(id,SEL,id) = 0;
   static SEL debugSel;
 
   if (debugTemporarilyDisabled == YES)
@@ -56,7 +55,7 @@ BOOL GSDebugSet(NSString *level)
 	{
 	  [[NSProcessInfo processInfo] debugSet];
 	}
-      debugImp = [_debug_set methodForSelector: debugSel];
+      debugImp = (id (*)(id,SEL,id))[_debug_set methodForSelector: debugSel];
       if (debugImp == 0)
 	{
 	  fprintf(stderr, "Unable to set up with [NSProcessInfo-debugSet]\n");

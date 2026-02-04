@@ -13,12 +13,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-   MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */ 
 
 #ifndef __GSURLPrivate_h_
@@ -56,10 +55,16 @@
  * Private accessors for URL loading classes
  */
 
+@interface	NSURL (Private)
+- (NSString*) _requestPath: (BOOL)withoutQuery;
+@end
+
 @interface	NSURLRequest (Private)
 - (BOOL) _debug;
+- (id<GSLogDelegate>) _debugLogDelegate;
 - (id) _propertyForKey: (NSString*)key;
 - (void) _setProperty: (id)value forKey: (NSString*)key;
+- (NSDictionary *) _insensitiveHeaders;
 @end
 
 
@@ -72,16 +77,28 @@
 
 
 @interface      NSURLProtocol (Private)
-+ (Class) _classToHandleRequest:(NSURLRequest *)request;
++ (Class) _classToHandleRequest: (NSURLRequest *)request;
++ (id<NSURLProtocolClient>) _ProtocolClient;
 @end
 
-/*
- * Internal class for handling HTTP authentication
+
+/* Internal class for handling HTTP protocol client messages
  */
-@class	GSLazyLock;
+@interface _NSURLProtocolClient : NSObject <NSURLProtocolClient>
+{
+  NSURLRequestCachePolicy  _cachePolicy;
+  NSMutableArray           *_cacheableData;
+  NSURLResponse            *_cacheableResponse;
+}
+@end
+
+
+/* Internal class for handling HTTP authentication
+ */
+@class	NSLock;
 @interface GSHTTPAuthentication : NSObject
 {
-  GSLazyLock		*_lock;
+  NSLock		*_lock;
   NSURLCredential	*_credential;
   NSURLProtectionSpace	*_space;
   NSString		*_nonce;

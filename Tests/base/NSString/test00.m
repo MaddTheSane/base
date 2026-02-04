@@ -4,6 +4,12 @@
 #import <Foundation/NSAutoreleasePool.h>
 #import <Foundation/NSCharacterSet.h>
 
+#ifdef  GNUSTEP_BASE_LIBRARY
+@interface NSString (Test)
+- (NSString*) _unicodeString;
+@end
+#endif
+
 static BOOL rangesEqual(NSRange r1, NSRange r2)
 {
   if (&r1 == &r2) 
@@ -172,6 +178,18 @@ static void strRange(char *s0, char *s1, unsigned int opts,
   us0 = nil; 
   us1 = nil; 
   
+#ifdef  GNUSTEP_BASE_LIBRARY
+  /* The _unicodeString method is a private/hidden method the strings in the
+   * base library provide to return an autorelease copy of themselves which
+   * is guaranteed to use a 16bit internal character representation and be a
+   * subclass of GSUnicodeString.
+   */
+  PASS_RUNS(cs0 = [NSString stringWithCString: s0];
+    us0 = [cs0 _unicodeString];
+    cs1 = [NSString stringWithCString: s1];
+    us1 = [cs1 _unicodeString];,
+    "create strings for range is ok");
+#else
   PASS_RUNS(cs0 = [NSString stringWithCString: s0];
     l = [cs0 length];
     d = [NSMutableData dataWithLength: (l * 2)];
@@ -186,6 +204,7 @@ static void strRange(char *s0, char *s1, unsigned int opts,
     [cs1 getCharacters: b];
     us1 = [NSString stringWithCharacters: b length: l];,
     "create strings for range is ok");
+#endif
   
   res = [cs0 rangeOfString: cs1 options: opts range: range];
   PASS(rangesEqual(res,want), "CCString range for '%s' and '%s' is ok",s0,s1);
@@ -365,6 +384,8 @@ int main()
     NSMakeRange(2,3), NSMakeRange(0,0));
   strRange("hello", "ell", NSLiteralSearch,
     NSMakeRange(0,5), NSMakeRange(1,3));
+  strRange("hello", "o", NSLiteralSearch,
+    NSMakeRange(0,5), NSMakeRange(4,1));
   strRange("hello", "lo", NSLiteralSearch,
     NSMakeRange(2,3), NSMakeRange(3,2));
   strRange("boaboaboa", "abo", NSLiteralSearch,
@@ -442,6 +463,76 @@ int main()
   PASS(NO == [@"hello" hasSuffix: @"lLo"], "hello does not have lLo as a suffix");
   PASS(NO == [@"hello" hasSuffix: @""], "hello does not have an empty string as a suffix");
 
+{
+  NSString      *indianLong = @"দন্যবাদ ১হ্য";
+  NSString      *indianShort = @"হ্যাঁ";
+  NSString      *ls = [indianLong stringByAppendingString: indianShort];
+  NSString      *sl = [indianShort stringByAppendingString: indianLong];
+  NSString      *lsl = [ls stringByAppendingString: indianLong];
+  NSRange       res;
+  int           i, j;
+
+  res = [indianLong rangeOfString: indianLong options: 0];
+  PASS(0 == res.location, "unicode whole string match")
+  res = [indianLong rangeOfString: indianShort options: 0];
+  PASS(NSNotFound == res.location, "unicode not found simple")
+  res = [indianLong rangeOfString: indianShort options: NSCaseInsensitiveSearch];
+  PASS(NSNotFound == res.location, "unicode not found insensitive")
+  res = [indianLong rangeOfString: indianShort options: NSBackwardsSearch];
+  PASS(NSNotFound == res.location, "unicode not found backwards")
+  res = [indianLong rangeOfString: indianShort options: NSCaseInsensitiveSearch|NSBackwardsSearch];
+  PASS(NSNotFound == res.location, "unicode not found backwards insensitive")
+
+  for (i = 0; i < [indianLong length]; i++)
+    {
+      unichar buf1[5];
+      unichar buf2[5];
+      NSRange r1;
+      NSRange r2;
+
+      PASS([ls characterAtIndex: i] == [indianLong characterAtIndex: i], "Characters match");
+      r1 = [ls rangeOfComposedCharacterSequenceAtIndex: i];
+      r2 = [indianLong rangeOfComposedCharacterSequenceAtIndex: i];
+      PASS(r1.location == r2.location, "Composed characters start at the same place");
+      PASS(r1.length == r2.length, "Composed characters have the same lengths");
+      assert(r1.length < 5);
+
+      [ls getCharacters: buf1 range: r1];
+      [indianLong getCharacters: buf2 range: r2];
+      for (j = 0; j < r1.length; j++)
+        {
+          PASS(buf1[j] == buf2[j], "Characters match when accessed by range");
+        }
+    }
+
+  res = [ls rangeOfString: indianLong options: 0];
+  PASS(0 == res.location, "unicode found at start simple")
+  res = [ls rangeOfString: indianLong options: NSCaseInsensitiveSearch];
+  PASS(0 == res.location, "unicode found at start insensitive")
+  res = [ls rangeOfString: indianLong options: NSBackwardsSearch];
+  PASS(0 == res.location, "unicode found at start backwards")
+  res = [ls rangeOfString: indianLong options: NSCaseInsensitiveSearch|NSBackwardsSearch];
+  PASS(0 == res.location, "unicode found at start backwards insensitive")
+
+  res = [sl rangeOfString: indianLong options: 0];
+  PASS([sl length] == NSMaxRange(res), "unicode found at end simple")
+  res = [sl rangeOfString: indianLong options: NSCaseInsensitiveSearch];
+  PASS([sl length] == NSMaxRange(res), "unicode found at end insensitive")
+  res = [sl rangeOfString: indianLong options: NSBackwardsSearch];
+  PASS([sl length] == NSMaxRange(res), "unicode found at end backwards")
+  res = [sl rangeOfString: indianLong options: NSCaseInsensitiveSearch|NSBackwardsSearch];
+  PASS([sl length] == NSMaxRange(res), "unicode found at end backwards insensitive")
+
+  res = [lsl rangeOfString: indianShort options: 0];
+  PASS([indianLong length] == res.location, "unicode found in middle simple")
+  res = [lsl rangeOfString: indianShort options: NSCaseInsensitiveSearch];
+  PASS([indianLong length] == res.location, "unicode found in middle insensitive")
+  res = [lsl rangeOfString: indianShort options: NSBackwardsSearch];
+  PASS([indianLong length] == res.location, "unicode found in middle backwards")
+  res = [lsl rangeOfString: indianShort options: NSCaseInsensitiveSearch|NSBackwardsSearch];
+  PASS([indianLong length] == res.location, "unicode found in middle backwards insensitive")
+
+}
   [arp release]; arp = nil;
   return 0;
 }

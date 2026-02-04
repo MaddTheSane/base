@@ -1,7 +1,7 @@
 /** NSCharacterSet - Character set holder
    Copyright (C) 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
 
-   Written by:  Adam Fedor <fedor@boulder.colorado.edu>
+   Written by:  Adam Fedor <fedor@gnu.org>
    Date: Apr 1995
    Updates by:  Richard Frith-Macdonald <rfm@gnu.org>
 
@@ -15,24 +15,22 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSCharacterSet class reference</title>
    $Date$ $Revision$
 */
 
 #import "common.h"
-#import "GNUstepBase/GSLock.h"
+#import "GSPThread.h"
 #import "Foundation/NSArray.h"
 #import "Foundation/NSCoder.h"
 #import "Foundation/NSException.h"
 #import "Foundation/NSData.h"
-#import "Foundation/NSLock.h"
 #import "Foundation/NSDictionary.h"
 #import "Foundation/NSIndexSet.h"
 #import "Foundation/NSThread.h"
@@ -117,6 +115,20 @@
       i--;
     }
   i *= GSBITMAP_SIZE;
+  if (GSBITMAP_SIZE == i)
+    {
+      /* In the base plane, find the number of used bytes, so we don't
+       * produce a bitmap that is longer than necessary.
+       */
+      if (_length < i)
+	{
+	  i = _length;
+	}
+      while (i > 0 && 0 == _data[i - 1])
+	{
+	  i--;
+	}
+    }
   if (i < _length)
     {
       return [NSData dataWithBytes: _data length: i];
@@ -176,6 +188,10 @@
       unsigned	i = GSBITMAP_SIZE * aPlane;
       unsigned	e = GSBITMAP_SIZE * (aPlane + 1);
 
+      if (e > _length)
+	{
+	  e = _length;
+	}
       while (i < e)
 	{
 	  if (_data[i] != 0)
@@ -201,7 +217,7 @@
 {
   unsigned	length = [bitmap length];
 
-  if ((length % GSBITMAP_SIZE) != 0 || length > GSBITMAP_MAX)
+  if (length > GSBITMAP_MAX)
     {
       NSLog(@"attempt to initialize character set with invalid bitmap");
       [self dealloc];
@@ -275,13 +291,22 @@
     }
 
   /* Make space if needed.
+   * Use exact size if we have nothing beyond the base plane,
+   * otherwise round up to a plane boundary.
    */
   b = (m - 1) / 8;
   if (b >= _length)
     {
-      while (b >= _length)
+      if (b < GSBITMAP_SIZE)
 	{
-	  _length += GSBITMAP_SIZE;
+	  _length = b + 1;
+	}
+      else
+	{
+	  while (b >= _length)
+	    {
+	      _length += GSBITMAP_SIZE;
+	    }
 	}
       [_obj setLength: _length];
       _data = [_obj mutableBytes];
@@ -332,10 +357,14 @@
   if (length > 0)
     {
       NSUInteger i;
+      unsigned	max = _length;
       unichar	(*get)(id, SEL, NSUInteger);
 
       get = (unichar (*)(id, SEL, NSUInteger))
 	[aString methodForSelector: @selector(characterAtIndex:)];
+
+      /* Determine size of bitmap needed.
+       */
       for (i = 0; i < length; i++)
 	{
 	  unichar	letter;
@@ -353,15 +382,49 @@
 		+ (second - 0xdc00) + 0x0010000;
 	    }
 	  byte = letter/8;
-	  if (byte >= _length)
+	  if (byte >= max)
 	    {
-	      while (byte >= _length)
+	      max = byte;
+	    }
+	}
+      /* Make space if needed.
+       * Use exact size if we have nothing beyond the base plane,
+       * otherwise round up to a plane boundary.
+       */
+      if (max >= _length)
+	{
+	  if (max < GSBITMAP_SIZE)
+	    {
+	      _length = max + 1;
+	    }
+	  else
+	    {
+	      while (max >= _length)
 		{
 		  _length += GSBITMAP_SIZE;
 		}
-	      [_obj setLength: _length];
-	      _data = [_obj mutableBytes];
 	    }
+	  [_obj setLength: _length];
+	  _data = [_obj mutableBytes];
+	}
+
+      for (i = 0; i < length; i++)
+	{
+	  unichar	letter;
+	  unichar	second;
+	  unsigned	byte;
+
+	  letter = (*get)(aString, @selector(characterAtIndex:), i);
+	  // Convert a surrogate pair if necessary
+	  if (letter >= 0xd800 && letter <= 0xdbff && i < length-1
+	    && (second = (*get)(aString, @selector(characterAtIndex:), i+1))
+	    >= 0xdc00 && second <= 0xdfff)
+	    {
+	      i++;
+	      letter = ((letter - 0xd800) << 10)
+		+ (second - 0xdc00) + 0x0010000;
+	    }
+	  byte = letter/8;
 	  GSSETBIT(_data[byte], letter % 8);
 	}
     }
@@ -377,6 +440,24 @@
       i--;
     }
   i *= GSBITMAP_SIZE;
+  if (GSBITMAP_SIZE == i)
+    {
+      /* In the base plane, find the number of used bytes, so we don't
+       * produce a bitmap that is longer than necessary.
+       */
+      if (_length < i)
+	{
+	  i = _length;
+	}
+      while (i > 0 && 0 == _data[i - 1])
+	{
+	  i--;
+	}
+    }
+  else if (_length < i)
+    {
+      i = _length;
+    }
   return [NSData dataWithBytes: _data length: i];
 }
 
@@ -425,7 +506,7 @@
   unsigned	length = [bitmap length];
   id		tmp;
 
-  if ((length % GSBITMAP_SIZE) != 0 || length > GSBITMAP_MAX)
+  if (length > GSBITMAP_MAX)
     {
       NSLog(@"attempt to initialize character set with invalid bitmap");
       [self dealloc];
@@ -538,9 +619,8 @@
 
 
 /* A simple array for caching standard bitmap sets */
-#define MAX_STANDARD_SETS 15
+#define MAX_STANDARD_SETS 21
 static NSCharacterSet *cache_set[MAX_STANDARD_SETS];
-static NSLock *cache_lock = nil;
 static Class abstractClass = nil;
 static Class abstractMutableClass = nil;
 static Class concreteClass = nil;
@@ -558,6 +638,15 @@ static Class concreteMutableClass = nil;
 - (Class) classForCoder
 {
   return abstractClass;
+}
+
+- (void) dealloc
+{
+  if (cache_map[_index] == self)
+    {
+      cache_map[_index] = nil;
+    }
+  [super dealloc];
 }
 
 - (void) encodeWithCoder: (NSCoder*)aCoder
@@ -619,7 +708,8 @@ static Class concreteMutableClass = nil;
 
 - (id) initWithBitmap: (NSData*)bitmap number: (int)number
 {
-  if ((self = (_GSStaticCharSet*)[(NSBitmapCharSet*)self initWithBitmap: bitmap]) != nil)
+  if ((self = (_GSStaticCharSet*)[(NSBitmapCharSet*)self
+    initWithBitmap: bitmap]) != nil)
     {
       _index = number;
     }
@@ -633,6 +723,23 @@ static Class concreteMutableClass = nil;
 
 
 @implementation NSCharacterSet
+
+static gs_mutex_t cache_lock = GS_MUTEX_INIT_STATIC;
+
++ (void) atExit
+{
+  if ([NSObject shouldCleanUp])
+    {
+      unsigned	i;
+
+      for (i = 0; i < MAX_STANDARD_SETS; i++)
+	{
+	  GS_MUTEX_LOCK(cache_lock);
+	  DESTROY(cache_set[i]);
+	  GS_MUTEX_UNLOCK(cache_lock);
+	}
+    }
+}
 
 + (void) initialize
 {
@@ -649,9 +756,8 @@ static Class concreteMutableClass = nil;
       concreteClass = [NSBitmapCharSet class];
       concreteMutableClass = [NSMutableBitmapCharSet class];
 #endif
-      cache_lock = [GSLazyLock new];
-      [[NSObject leakAt: &cache_lock] release];
       beenHere = YES;
+      [self registerAtExit];
     }
 }
 
@@ -664,7 +770,9 @@ static Class concreteMutableClass = nil;
 			length: (unsigned)length
 			number: (int)number
 {
-  [cache_lock lock];
+  NSCharacterSet	*set;
+
+  GS_MUTEX_LOCK(cache_lock);
   if (cache_set[number] == nil && bytes != 0)
     {
       NSData	*bitmap;
@@ -674,91 +782,91 @@ static Class concreteMutableClass = nil;
 					    freeWhenDone: NO];
       cache_set[number]
 	= [[_GSStaticCharSet alloc] initWithBitmap: bitmap number: number];
-      [[NSObject leakAt: &cache_set[number]] release];
       RELEASE(bitmap);
     }
-  [cache_lock unlock];
-  return cache_set[number];
+  set = RETAIN(cache_set[number]);
+  GS_MUTEX_UNLOCK(cache_lock);
+  return AUTORELEASE(set);
 }
 
-+ (id) alphanumericCharacterSet
++ (NSCharacterSet*) alphanumericCharacterSet
 {
   return [self _staticSet: alphanumericCharSet
 		   length: sizeof(alphanumericCharSet)
 		   number: 0];
 }
 
-+ (id) capitalizedLetterCharacterSet
++ (NSCharacterSet*) capitalizedLetterCharacterSet
 {
   return [self _staticSet: titlecaseLetterCharSet
 		   length: sizeof(titlecaseLetterCharSet)
 		   number: 13];
 }
 
-+ (id) controlCharacterSet
++ (NSCharacterSet*) controlCharacterSet
 {
   return [self _staticSet: controlCharSet
 		   length: sizeof(controlCharSet)
 		   number: 1];
 }
 
-+ (id) decimalDigitCharacterSet
++ (NSCharacterSet*) decimalDigitCharacterSet
 {
   return [self _staticSet: decimalDigitCharSet
 		   length: sizeof(decimalDigitCharSet)
 		   number: 2];
 }
 
-+ (id) decomposableCharacterSet
++ (NSCharacterSet*) decomposableCharacterSet
 {
   return [self _staticSet: decomposableCharSet
 		   length: sizeof(decomposableCharSet)
 		   number: 3];
 }
 
-+ (id) illegalCharacterSet
++ (NSCharacterSet*) illegalCharacterSet
 {
   return [self _staticSet: illegalCharSet
 		   length: sizeof(illegalCharSet)
 		   number: 4];
 }
 
-+ (id) letterCharacterSet
++ (NSCharacterSet*) letterCharacterSet
 {
   return [self _staticSet: letterCharSet
 		   length: sizeof(letterCharSet)
 		   number: 5];
 }
 
-+ (id) lowercaseLetterCharacterSet
++ (NSCharacterSet*) lowercaseLetterCharacterSet
 {
   return [self _staticSet: lowercaseLetterCharSet
 		   length: sizeof(lowercaseLetterCharSet)
 		   number: 6];
 }
 
-+ (id) newlineCharacterSet
++ (NSCharacterSet*) newlineCharacterSet
 {
   return [self _staticSet: newlineCharSet
 		   length: sizeof(newlineCharSet)
 		   number: 14];
 }
 
-+ (id) nonBaseCharacterSet
++ (NSCharacterSet*) nonBaseCharacterSet
 {
   return [self _staticSet: nonBaseCharSet
 		   length: sizeof(nonBaseCharSet)
 		   number: 7];
 }
 
-+ (id) punctuationCharacterSet
++ (NSCharacterSet*) punctuationCharacterSet
 {
   return [self _staticSet: punctuationCharSet
 		   length: sizeof(punctuationCharSet)
 		   number: 8];
 }
 
-+ (id) symbolCharacterSet
++ (NSCharacterSet*) symbolCharacterSet
 {
   return [self _staticSet: symbolAndOperatorCharSet
 		   length: sizeof(symbolAndOperatorCharSet)
@@ -766,7 +874,7 @@ static Class concreteMutableClass = nil;
 }
 
 // FIXME ... deprecated ... remove after next release.
-+ (id) symbolAndOperatorCharacterSet
++ (NSCharacterSet*) symbolAndOperatorCharacterSet
 {
   GSOnceMLog(@"symbolAndOperatorCharacterSet is deprecated ... use symbolCharacterSet");
   return [self _staticSet: symbolAndOperatorCharSet
@@ -774,33 +882,33 @@ static Class concreteMutableClass = nil;
 		   number: 9];
 }
 
-+ (id) uppercaseLetterCharacterSet
++ (NSCharacterSet*) uppercaseLetterCharacterSet
 {
   return [self _staticSet: uppercaseLetterCharSet
 		   length: sizeof(uppercaseLetterCharSet)
 		   number: 10];
 }
 
-+ (id) whitespaceAndNewlineCharacterSet
++ (NSCharacterSet*) whitespaceAndNewlineCharacterSet
 {
   return [self _staticSet: whitespaceAndNlCharSet
 		   length: sizeof(whitespaceAndNlCharSet)
 		   number: 11];
 }
 
-+ (id) whitespaceCharacterSet
++ (NSCharacterSet*) whitespaceCharacterSet
 {
   return [self _staticSet: whitespaceCharSet
 		   length: sizeof(whitespaceCharSet)
 		   number: 12];
 }
 
-+ (id) characterSetWithBitmapRepresentation: (NSData*)data
++ (NSCharacterSet*) characterSetWithBitmapRepresentation: (NSData*)data
 {
   return AUTORELEASE([[concreteClass alloc] initWithBitmap: data]);
 }
 
-+ (id) characterSetWithCharactersInString: (NSString*)aString
++ (NSCharacterSet*) characterSetWithCharactersInString: (NSString*)aString
 {
   NSMutableCharacterSet	*ms;
   NSCharacterSet	*cs;
@@ -812,7 +920,7 @@ static Class concreteMutableClass = nil;
   return AUTORELEASE(cs);
 }
 
-+ (id) characterSetWithRange: (NSRange)aRange
++ (NSCharacterSet*) characterSetWithRange: (NSRange)aRange
 {
   NSMutableCharacterSet	*ms;
   NSCharacterSet	*cs;
@@ -824,7 +932,7 @@ static Class concreteMutableClass = nil;
   return AUTORELEASE(cs);
 }
 
-+ (id) characterSetWithContentsOfFile: (NSString*)aFile
++ (NSCharacterSet*) characterSetWithContentsOfFile: (NSString*)aFile
 {
   if ([@"bitmap" isEqual: [aFile pathExtension]])
     {
@@ -835,16 +943,68 @@ static Class concreteMutableClass = nil;
     return nil;
 }
 
++ (NSCharacterSet*) URLFragmentAllowedCharacterSet
+{
+  return [self _staticSet: URLFragmentAllowedCharSet
+		   length: sizeof(URLFragmentAllowedCharSet)
+		   number: 15]; 
+}
+
++ (NSCharacterSet*) URLPasswordAllowedCharacterSet
+{
+  return [self _staticSet: URLPasswordAllowedCharSet
+		   length: sizeof(URLPasswordAllowedCharSet)
+		   number: 16];
+}
+
++ (NSCharacterSet*) URLPathAllowedCharacterSet
+{
+  return [self _staticSet: URLPathAllowedCharSet
+		   length: sizeof(URLPathAllowedCharSet)
+		   number: 17];
+}
+
++ (NSCharacterSet*) URLQueryAllowedCharacterSet
+{
+  return [self _staticSet: URLQueryAllowedCharSet
+		   length: sizeof(URLQueryAllowedCharSet)
+		   number: 18];
+}
+
++ (NSCharacterSet*) URLUserAllowedCharacterSet
+{
+  return [self _staticSet: URLUserAllowedCharSet
+		   length: sizeof(URLUserAllowedCharSet)
+		   number: 19];
+}
+
++ (NSCharacterSet*) URLHostAllowedCharacterSet
+{
+  return [self _staticSet: URLHostAllowedCharSet
+		   length: sizeof(URLHostAllowedCharSet)
+		   number: 20];
+}
+
 - (NSData*) bitmapRepresentation
 {
   BOOL		(*imp)(id, SEL, unichar);
-  NSMutableData	*m = [NSMutableData dataWithLength: 8192];
-  unsigned char	*p = (unsigned char*)[m mutableBytes];
+  NSMutableData	*m;
+  unsigned char	*p;
+  unsigned	end;
   unsigned	i;
 
   imp = (BOOL (*)(id,SEL,unichar))
     [self methodForSelector: @selector(characterIsMember:)];
-  for (i = 0; i <= 0xffff; i++)
+  for (end = 0xffff; end > 0; end--)
+    {
+      if (imp(self, @selector(characterIsMember:), end) == YES)
+	{
+	  break;
+	}
+    }
+  m = [NSMutableData dataWithLength: end / 8 + 1];
+  p = (unsigned char*)[m mutableBytes];
+  for (i = 0; i <= end; i++)
     {
       if (imp(self, @selector(characterIsMember:), i) == YES)
 	{
@@ -924,25 +1084,21 @@ static Class concreteMutableClass = nil;
 
 - (NSCharacterSet*) invertedSet
 {
-  unsigned	i;
-  unsigned	length;
-  unsigned char	*bytes;
-  NSMutableData	*bitmap;
+  NSMutableCharacterSet	*m = [self mutableCopy];
+  NSCharacterSet	*c;
 
-  bitmap = AUTORELEASE([[self bitmapRepresentation] mutableCopy]);
-  length = [bitmap length];
-  bytes = [bitmap mutableBytes];
-  for (i = 0; i < length; i++)
-    {
-      bytes[i] = ~bytes[i];
-    }
-  return [[self class] characterSetWithBitmapRepresentation: bitmap];
+  [m invert];
+  c = [m copy];
+  RELEASE(m);
+  return AUTORELEASE(c);
 }
 
 - (BOOL) isEqual: (id)anObject
 {
   if (anObject == self)
-    return YES;
+    {
+      return YES;
+    }
   if ([anObject isKindOfClass: abstractClass])
     {
       unsigned	i;
@@ -1034,93 +1190,134 @@ static Class concreteMutableClass = nil;
 @implementation NSMutableCharacterSet
 
 /* Override this from NSCharacterSet to create the correct class */
-+ (id) characterSetWithBitmapRepresentation: (NSData*)data
++ (NSMutableCharacterSet*) characterSetWithBitmapRepresentation: (NSData*)data
 {
   return AUTORELEASE([[concreteMutableClass alloc] initWithBitmap: data]);
 }
 
-+ (id) alphanumericCharacterSet
++ (NSMutableCharacterSet*) characterSetWithContentsOfFile: (NSString*)aFile
+{
+  if ([@"bitmap" isEqual: [aFile pathExtension]])
+    {
+      NSData	*bitmap = [NSData dataWithContentsOfFile: aFile];
+      return [self characterSetWithBitmapRepresentation: bitmap];
+    }
+  else
+    return nil;
+}
+
++ (NSMutableCharacterSet*) alphanumericCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) capitalizedLetterCharacterSet
++ (NSMutableCharacterSet*) capitalizedLetterCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) controlCharacterSet
++ (NSMutableCharacterSet*) controlCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) decimalDigitCharacterSet
++ (NSMutableCharacterSet*) decimalDigitCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) decomposableCharacterSet
++ (NSMutableCharacterSet*) decomposableCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) illegalCharacterSet
++ (NSMutableCharacterSet*) illegalCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) letterCharacterSet
++ (NSMutableCharacterSet*) letterCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) lowercaseLetterCharacterSet
++ (NSMutableCharacterSet*) lowercaseLetterCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) newlineCharacterSet
++ (NSMutableCharacterSet*) newlineCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) nonBaseCharacterSet
++ (NSMutableCharacterSet*) nonBaseCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) punctuationCharacterSet
++ (NSMutableCharacterSet*) punctuationCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) symbolCharacterSet
++ (NSMutableCharacterSet*) symbolCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
 // FIXME ... deprecated ... remove after next release.
-+ (id) symbolAndOperatorCharacterSet
++ (NSMutableCharacterSet*) symbolAndOperatorCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) uppercaseLetterCharacterSet
++ (NSMutableCharacterSet*) uppercaseLetterCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) whitespaceAndNewlineCharacterSet
++ (NSMutableCharacterSet*) whitespaceAndNewlineCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) whitespaceCharacterSet
++ (NSMutableCharacterSet*) whitespaceCharacterSet
 {
   return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
 }
 
-+ (id) characterSetWithCharactersInString: (NSString*)aString
++ (NSMutableCharacterSet*) URLFragmentAllowedCharacterSet
+{
+  return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
+}
+
++ (NSMutableCharacterSet*) URLHostAllowedCharacterSet
+{
+  return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
+}
+
++ (NSMutableCharacterSet*) URLPasswordAllowedCharacterSet
+{
+  return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
+}
+
++ (NSMutableCharacterSet*) URLPathAllowedCharacterSet
+{
+  return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
+}
+
++ (NSMutableCharacterSet*) URLQueryAllowedCharacterSet
+{
+  return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
+}
+
++ (NSMutableCharacterSet*) URLUserAllowedCharacterSet
+{
+  return AUTORELEASE([[abstractClass performSelector: _cmd] mutableCopy]);
+}
+
++ (NSMutableCharacterSet*) characterSetWithCharactersInString: (NSString*)aString
 {
   NSMutableCharacterSet	*ms;
 
@@ -1129,7 +1326,7 @@ static Class concreteMutableClass = nil;
   return AUTORELEASE(ms);
 }
 
-+ (id) characterSetWithRange: (NSRange)aRange
++ (NSMutableCharacterSet*) characterSetWithRange: (NSRange)aRange
 {
   NSMutableCharacterSet	*ms;
 

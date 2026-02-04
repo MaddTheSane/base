@@ -1,7 +1,7 @@
 /** Implementation of NSArchiver for GNUstep
    Copyright (C) 1998,1999 Free Software Foundation, Inc.
 
-   Written by:  Richard Frith-Macdonald <richard@brainstorm.co.uk>
+   Written by:  Richard Frith-Macdonald <rfm@gnu.org>
    Created: October 1998
 
    This file is part of the GNUstep Base Library.
@@ -14,15 +14,13 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSArchiver class reference</title>
-   $Date$ $Revision$
    */
 
 #import "common.h"
@@ -58,9 +56,6 @@
 #import "Foundation/NSException.h"
 
 typedef	unsigned char	uchar;
-
-NSString * const NSInconsistentArchiveException =
-  @"NSInconsistentArchiveException";
 
 #define	PREFIX		"GNUstep archive"
 
@@ -301,7 +296,7 @@ static Class	NSMutableDataMallocClass;
       case _C_ULNG_LNG:	info = _GSC_ULNG_LNG | _GSC_S_LNG_LNG;	break;
       case _C_FLT:	info = _GSC_FLT;	break;
       case _C_DBL:	info = _GSC_DBL;	break;
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       case _C_BOOL:	info = _GSC_BOOL;	break;
 #endif
       default:		info = _GSC_NONE;	break;
@@ -675,7 +670,7 @@ static Class	NSMutableDataMallocClass;
 	(*_serImp)(_dst, serSel, (void*)buf, @encode(double), nil);
 	return;
 
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       case _C_BOOL:
 	(*_tagImp)(_dst, tagSel, _GSC_BOOL);
 	(*_serImp)(_dst, serSel, (void*)buf, @encode(_Bool), nil);

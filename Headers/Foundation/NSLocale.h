@@ -1,8 +1,9 @@
-/* NSLocale.h
+/** NSLocale.h
    
    Copyright (C) 2010 Free Software Foundation, Inc.
    
-   Written by: Stefan Bidigaray, Richard Frith-Macdonald
+   Written by: Stefan Bidigaray
+   Written by: Richard Frith-Macdonald
    Date: June, 2010
    
    This library is free software; you can redistribute it and/or
@@ -18,8 +19,7 @@
    You should have received a copy of the GNU Lesser General Public
    License along with this library; see the file COPYING.LIB.
    If not, see <http://www.gnu.org/licenses/> or write to the 
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, 
-   Boston, MA 02110-1301, USA.
+   Free Software Foundation, 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #ifndef __NSLocale_h_GNUSTEP_BASE_INCLUDE
@@ -37,6 +37,7 @@ extern "C" {
 
 @class NSMutableDictionary;
 @class NSString;
+@class NSCharacterSet;
 
 typedef NSUInteger NSLocaleLanguageDirection;
 enum
@@ -97,6 +98,7 @@ GS_EXPORT NSString * const NSISO8601Calendar;
  * Provides information describing language, date and time, and currency
  * information.
  */
+GS_EXPORT_CLASS
 @interface NSLocale : NSObject <NSCoding, NSCopying>
 {
 #if	GS_EXPOSE(NSLocale)
@@ -155,7 +157,7 @@ GS_EXPORT NSString * const NSISO8601Calendar;
 
 /** Returns the current locale information.
  */
-+ (id) currentLocale;
++ (instancetype) currentLocale;
 
 /** Returns an array of NSString representing all known country codes.
  */
@@ -189,7 +191,7 @@ GS_EXPORT NSString * const NSISO8601Calendar;
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
 /** Returns a locale initialised with the given locale identifier.
  */
-+ (id) localeWithLocaleIdentifier:(NSString *)string;
++ (instancetype) localeWithLocaleIdentifier:(NSString *)string;
 #endif
 
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_5, GS_API_LATEST)
@@ -201,7 +203,7 @@ GS_EXPORT NSString * const NSISO8601Calendar;
 
 /** Returns the the system locale.
  */
-+ (id) systemLocale;
++ (instancetype) systemLocale;
 
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
 /** Returns the windows locale code corresponding to the staqndard locale
@@ -215,12 +217,12 @@ GS_EXPORT NSString * const NSISO8601Calendar;
  * on the basis that it represents information whose type is specified by
  * the key.
  */
-- (NSString *) displayNameForKey: (id)key value: (id)value;
+- (NSString *) displayNameForKey: (NSString *)key value: (id)value;
 
 /** Initialises the receiver to be the locale specified by the identifier.
  * This may result in replacement of the receiver by an existing locale.
  */
-- (id) initWithLocaleIdentifier: (NSString *)string;
+- (instancetype) initWithLocaleIdentifier: (NSString *)string;
 
 /** Returns the canonical identifier for the receiver (which
  * may differ from the identifgier used to create the receiver
@@ -231,6 +233,16 @@ GS_EXPORT NSString * const NSISO8601Calendar;
 /** Returns the named object from the receiver locale.
  */
 - (id) objectForKey: (id)key;
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_12, GS_API_LATEST)
+- (NSString *) languageCode;
+- (NSString *) countryCode;
+- (NSString *) scriptCode;
+- (NSString *) variantCode;
+- (NSCharacterSet *) exemplarCharacterSet;
+- (NSString *) collationIdentifier;
+- (NSString *) collatorIdentifier;
+#endif
 
 @end
 

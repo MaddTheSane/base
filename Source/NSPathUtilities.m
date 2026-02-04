@@ -18,15 +18,13 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSPathUtilities function reference</title>
-   $Date$ $Revision$
    */
 
 /**
@@ -60,6 +58,7 @@
 
 #import "common.h"
 #include "objc-load.h"
+#import "Foundation/NSCharacterSet.h"
 #import "Foundation/NSPathUtilities.h"
 #import "Foundation/NSException.h"
 #import "Foundation/NSArray.h"
@@ -83,7 +82,6 @@
 NSMutableDictionary* GNUstepConfig(NSDictionary *newConfig);
 
 void GNUstepUserConfig(NSMutableDictionary *config, NSString *userName);
-
 
 /* The global configuration file. The real value is read from config.h */
 #ifndef GNUSTEP_TARGET_CONFIG_FILE
@@ -902,7 +900,7 @@ addDefaults(NSString *defs, NSMutableDictionary *conf)
     }
 }
 
-NSMutableDictionary*
+GS_DECLARE NSMutableDictionary*
 GNUstepConfig(NSDictionary *newConfig)
 {
   static NSDictionary	*config = nil;
@@ -910,7 +908,7 @@ GNUstepConfig(NSDictionary *newConfig)
   NSMutableDictionary	*conf = nil;
   BOOL			changedSystemConfig = NO;
 
-  [gnustep_global_lock lock];
+  [GSPrivateGlobalLock() lock];
   if (NO == beenHere)
     {
       beenHere = YES;
@@ -961,7 +959,7 @@ GNUstepConfig(NSDictionary *newConfig)
 		{
 		  Class		c = [NSProcessInfo class];
 
-		  path = GSPrivateSymbolPath (c, 0);
+		  path = GSPrivateSymbolPath(c);
 		  // Remove library name from path
 		  path = [path stringByDeletingLastPathComponent];
                   if ([file hasPrefix: @"./"] == YES)
@@ -1064,14 +1062,14 @@ GNUstepConfig(NSDictionary *newConfig)
 	}
       NS_HANDLER
 	{
-	  [gnustep_global_lock unlock];
+	  [GSPrivateGlobalLock() unlock];
 	  config = nil;
 	  DESTROY(conf);
 	  [localException raise];
 	}
       NS_ENDHANDLER
     }
-  [gnustep_global_lock unlock];
+  [GSPrivateGlobalLock() unlock];
 
   if (changedSystemConfig == YES)
     {
@@ -1087,7 +1085,7 @@ GNUstepConfig(NSDictionary *newConfig)
   return AUTORELEASE([config mutableCopy]);
 }
 
-void
+GS_DECLARE void
 GNUstepUserConfig(NSMutableDictionary *config, NSString *userName)
 {
 #ifdef HAVE_GETEUID
@@ -1142,7 +1140,7 @@ static void InitialisePathUtilities(void)
       NSMutableDictionary	*config;
       static BOOL               beenHere = NO;
 
-      [gnustep_global_lock lock];
+      [GSPrivateGlobalLock() lock];
       if (NO == beenHere)
         {
           beenHere = YES;
@@ -1162,8 +1160,8 @@ static void InitialisePathUtilities(void)
 	  char	dummy[1024];
 	} s;
 	LPTSTR	str;
-	unichar buf[1024];
-	unichar dom[1024];
+	GSNativeChar buf[1024];
+	GSNativeChar dom[1024];
 	SID_NAME_USE use;
 	DWORD bsize = 1024;
 	DWORD ssize = 1024;
@@ -1197,12 +1195,12 @@ static void InitialisePathUtilities(void)
       gnustepUserHome = [NSHomeDirectoryForUser(gnustepUserName) copy];
       ExtractValuesFromConfig(config);
 
-      [gnustep_global_lock unlock];
+      [GSPrivateGlobalLock() unlock];
     }
   NS_HANDLER
     {
       /* unlock then re-raise the exception */
-      [gnustep_global_lock unlock];
+      [GSPrivateGlobalLock() unlock];
       [localException raise];
     }
   NS_ENDHANDLER
@@ -1288,7 +1286,7 @@ static void ShutdownPathUtilities(void)
  * and underscores, and must not begin with a digit.<br />
  * A value may be any quoted string (or an unquoted string containing no
  * white space).<br />
- * Lines beginning with a hash '#' are deemed comment lines and ignored.<br/ >
+ * Lines beginning with a hash '#' are deemed comment lines and ignored.<br />
  * The backslash character may be used as an escape character anywhere
  * in the file  except within a singly quoted string
  * (where it is taken literally).<br />
@@ -1298,7 +1296,7 @@ static void ShutdownPathUtilities(void)
  * NB. Since ms-windows uses backslash characters in paths, it is a good
  * idea to specify path values in the config file as singly quoted
  * strings to avoid having to double all occurrences of the backslash.<br />
- * Returns a dictionary of the (key,value) pairs.<br/ >
+ * Returns a dictionary of the (key,value) pairs.<br />
  * If the file does not exist,
  * the function makes no changes to dict and returns NO.
  */
@@ -1592,7 +1590,7 @@ ParseConfigurationFile(NSString *fileName, NSMutableDictionary *dict,
 
 
 /* See NSPathUtilities.h for description */
-void
+GS_DECLARE void
 GSSetUserName(NSString *aName)
 {
   NSCParameterAssert([aName length] > 0);
@@ -1608,7 +1606,7 @@ GSSetUserName(NSString *aName)
   /*
    * Release the memory
    */
-  [gnustep_global_lock lock];
+  [GSPrivateGlobalLock() lock];
   ShutdownPathUtilities();
 
   /*
@@ -1619,22 +1617,22 @@ GSSetUserName(NSString *aName)
   InitialisePathUtilities();
   [NSUserDefaults resetStandardUserDefaults];
 
-  [gnustep_global_lock unlock];
+  [GSPrivateGlobalLock() unlock];
 }
 
 /**
- * Return the caller's login name as an NSString object.<br/ >
+ * Return the caller's login name as an NSString object.<br />
  * Under unix-like systems, the name associated with the current
- * effective user ID is used.<br/ >
+ * effective user ID is used.<br />
  * Under ms-windows, the 'LOGNAME' environment is used, or if that fails, the
- * GetUserName() call is used to find the user name.<br />
+ * GetUserNameW function is used to find the user name.<br />
  * Raises an exception on failure.
  */
 /* NOTE FOR DEVELOPERS.
  * If you change the behavior of this method you must also change
  * user_home.c in the makefiles package to match.
  */
-NSString *
+GS_DECLARE NSString *
 NSUserName(void)
 {
 #if defined(_WIN32)
@@ -1649,8 +1647,8 @@ NSUserName(void)
 	}
       else
 	{
-	  /* The GetUserName function returns the current user name */
-	  unichar buf[1024];
+	  /* The GetUserNameW function returns the current user name */
+	  GSNativeChar buf[1024];
 	  DWORD n = 1024;
 
 	  if (GetUserNameW(buf, &n) != 0 && buf[0] != '\0')
@@ -1692,11 +1690,11 @@ NSUserName(void)
 #if     defined(HAVE_GETPWUID)
       struct passwd *pwent;
 
-      [gnustep_global_lock lock];
+      [GSPrivateGlobalLock() lock];
       pwent = getpwuid (uid);
       strncpy(buf, pwent->pw_name, sizeof(buf) - 1);
       buf[sizeof(buf) - 1] = '\0';
-      [gnustep_global_lock unlock];
+      [GSPrivateGlobalLock() unlock];
       loginName = buf;
 #endif /* HAVE_GETPWUID */
 #endif /* HAVE_GETPWUID_R */
@@ -1716,7 +1714,7 @@ NSUserName(void)
  * Return the caller's home directory as an NSString object.
  * Calls NSHomeDirectoryForUser() to do this.
  */
-NSString *
+GS_DECLARE NSString *
 NSHomeDirectory(void)
 {
   return NSHomeDirectoryForUser(NSUserName());
@@ -1735,103 +1733,124 @@ NSHomeDirectory(void)
  * If you change the behavior of this method you must also change
  * user_home.c in the makefiles package to match.
  */
-NSString *
+GS_DECLARE NSString *
 NSHomeDirectoryForUser(NSString *loginName)
 {
   NSString	*s = nil;
+  BOOL		isCurrentUser = [loginName isEqual: NSUserName()];
+  NSDictionary	*e = [[NSProcessInfo processInfo] environment];
 
-#if !defined(_WIN32)
-#if     defined(HAVE_GETPWNAM_R)
-  struct passwd pw;
-  struct passwd *p;
-  char buf[BUFSIZ*10];
 
-  if (getpwnam_r([loginName cString], &pw, buf, sizeof(buf), &p) == 0
-    && p != 0 && pw.pw_dir != 0 && pw.pw_dir[0] != '\0')
+  if (isCurrentUser)
     {
-      s = [NSString stringWithUTF8String: pw.pw_dir];
+      /* The GNUSTEP_HOME environment variable may override the home directory
+       * of the current user who owns this process.
+       */
+      s = [e objectForKey: @"GNUSTEP_HOME"];
+    }
+#ifdef __ANDROID__
+  if (nil == s)
+    {
+      s = [[NSProcessInfo processInfo] androidFilesDir];
+    }
+#elif !defined(_WIN32)
+#if     defined(HAVE_GETPWNAM_R)
+  if (nil == s)
+    {
+      struct passwd pw;
+      struct passwd *p;
+      char buf[BUFSIZ*10];
+
+      if (getpwnam_r([loginName cString], &pw, buf, sizeof(buf), &p) == 0
+	&& p != 0 && pw.pw_dir != 0 && pw.pw_dir[0] != '\0')
+	{
+	  s = [NSString stringWithUTF8String: pw.pw_dir];
+	}
     }
 #else
 #if     defined(HAVE_GETPWNAM)
-  struct passwd *pw;
-
-  [gnustep_global_lock lock];
-  pw = getpwnam ([loginName cString]);
-  if (pw != 0 && pw->pw_dir != 0 && pw->pw_dir[0] != '\0')
+  if (nil == s)
     {
-      s = [NSString stringWithUTF8String: pw->pw_dir];
+      struct passwd *pw;
+
+      [GSPrivateGlobalLock() lock];
+      pw = getpwnam ([loginName cString]);
+      if (pw != 0 && pw->pw_dir != 0 && pw->pw_dir[0] != '\0')
+	{
+	  s = [NSString stringWithUTF8String: pw->pw_dir];
+	}
+      [GSPrivateGlobalLock() unlock];
     }
-  [gnustep_global_lock unlock];
 #endif
 #endif
 #else
-  if ([loginName isEqual: NSUserName()] == YES)
+  if (nil == s)
     {
-      NSDictionary	*e = [[NSProcessInfo processInfo] environment];
+      if (isCurrentUser)
+	{
+	  /*
+	   * The environment variable HOMEPATH holds the home directory
+	   * for the user on Windows NT;
+	   * For OPENSTEP compatibility (and because USERPROFILE is usually
+	   * unusable because it contains spaces), we use HOMEPATH in
+	   * preference to USERPROFILE, except when MINGW sets HOMEPATH to '\'
+	   * which isn't very useful, so we prefer USERPROFILE in that case.
+	   */
+	  s = [e objectForKey: @"HOMEPATH"];
+	  if ([s isEqualToString:@"\\"]
+	    && [e objectForKey: @"USERPROFILE"] != nil)
+	    {
+	      s = [e objectForKey: @"USERPROFILE"];
+	    }
+	  else if (s != nil
+	    && ([s length] < 2 || [s characterAtIndex: 1] != ':'))
+	    {
+	      s = [[e objectForKey: @"HOMEDRIVE"] stringByAppendingString: s];
+	    }
+	  if (s == nil)
+	    {
+	      s = [e objectForKey: @"USERPROFILE"];
+	    }
+	  if (s == nil)
+	    {
+	      ; // FIXME: Talk to the NET API and get the profile path
+	    }
+	}
+      else
+	{
+	  s = nil;
+	  fprintf(stderr, "Trying to get home for '%s' when user is '%s'\n",
+	    [loginName UTF8String], [NSUserName() UTF8String]);
+	  fprintf(stderr,
+	    "Can't determine other user home directories in Win32.\n");
+	}
 
-      /*
-       * The environment variable HOMEPATH holds the home directory
-       * for the user on Windows NT;
-       * For OPENSTEP compatibility (and because USERPROFILE is usually
-       * unusable because it contains spaces), we use HOMEPATH in
-       * preference to USERPROFILE, except when MINGW has set HOMEPATH to '\'
-       * which isn't very useful, so we prefer USERPROFILE in that case.
-       */
-      s = [e objectForKey: @"HOMEPATH"];
-      if ([s isEqualToString:@"\\"] && [e objectForKey: @"USERPROFILE"] != nil)
-        {
-          s = [e objectForKey: @"USERPROFILE"];
-        }
-      else if (s != nil && ([s length] < 2 || [s characterAtIndex: 1] != ':'))
-        {
-          s = [[e objectForKey: @"HOMEDRIVE"] stringByAppendingString: s];
-        }
-      if (s == nil)
-        {
-          s = [e objectForKey: @"USERPROFILE"];
-        }
-      if (s == nil)
-        {
-          ; // FIXME: Talk to the NET API and get the profile path
-        }
-    }
-  else
-    {
-      s = nil;
-      fprintf(stderr, "Trying to get home for '%s' when user is '%s'\n",
-	[loginName UTF8String], [NSUserName() UTF8String]);
-      fprintf(stderr,
-        "Can't determine other user home directories in Win32.\n");
-    }
-
-  if ([s length] == 0 && [loginName length] != 1)
-    {
-      s = nil;
-      fprintf(stderr, "NSHomeDirectoryForUser(%s) failed.\n",
-        [loginName UTF8String]);
-    }
-  if (nil != s)
-    {
-      s = [s stringByStandardizingPath];
+      if ([s length] == 0 && [loginName length] != 1)
+	{
+	  s = nil;
+	  fprintf(stderr, "NSHomeDirectoryForUser(%s) failed.\n",
+	    [loginName UTF8String]);
+	}
     }
 #endif
-  return s;
+  return [s stringByStandardizingPath];
 }
 
-NSString *
+GS_DECLARE NSString *
 NSFullUserName(void)
 {
   if (theFullUserName == nil)
     {
       NSString	*userName = NSUserName();
+      int	length;
 #if defined(_WIN32)
       struct _USER_INFO_2	*userInfo;
 
-      if (NetUserGetInfo(NULL, (unichar*)[userName cStringUsingEncoding:
-	NSUnicodeStringEncoding], 2, (LPBYTE*)&userInfo) == 0)
+      if (NetUserGetInfo(NULL, (const GSNativeChar*)[userName
+        cStringUsingEncoding: NSUnicodeStringEncoding], 2,
+        (LPBYTE*)&userInfo) == 0)
 	{
-	  int	length = wcslen(userInfo->usri2_full_name);
-
+	  length = wcslen(userInfo->usri2_full_name);
 	  if (length > 0)
 	    {
 	      userName = [NSString
@@ -1860,18 +1879,32 @@ NSFullUserName(void)
 #if     defined(HAVE_PW_GECOS_IN_PASSWD)
       struct passwd	*pw;
 
-      [gnustep_global_lock lock];
+      [GSPrivateGlobalLock() lock];
       pw = getpwnam([userName cString]);
       if (pw->pw_gecos)
 	{
           userName = [NSString stringWithUTF8String: pw->pw_gecos];
         }
-      [gnustep_global_lock lock];
+      [GSPrivateGlobalLock() unlock];
 #endif /* HAVE_PW_GECOS_IN_PASSWD */
 #endif /* HAVE_GETPWNAM */
 #endif /* HAVE_GETPWNAM_R */
 #endif /* HAVE_PWD_H */
 #endif /* defined(__Win32__) else */
+      /* Trim trailing field separators etc
+       */
+      userName = [userName stringByTrimmingSpaces];
+      length = [userName length];
+      if (length > 0)
+	{
+	  NSCharacterSet	*s = [NSCharacterSet punctuationCharacterSet];
+
+	  while ([s characterIsMember: [userName characterAtIndex: length - 1]])
+	    {
+	      userName = [userName substringToIndex: --length];
+	      userName = [userName stringByTrimmingSpaces];
+	    }
+	}
       ASSIGN(theFullUserName, userName);
     }
   return theFullUserName;
@@ -1882,7 +1915,7 @@ NSFullUserName(void)
  * This examines the GNUSTEP_USER_CONFIG_FILE for the specified user,
  * with settings in it over-riding those in the main GNUstep.conf.
  */
-NSString *
+GS_DECLARE NSString *
 GSDefaultsRootForUser(NSString *userName)
 {
   NSString *defaultsDir;
@@ -1924,39 +1957,57 @@ GSDefaultsRootForUser(NSString *userName)
   return defaultsDir;
 }
 
-NSArray *
+GS_DECLARE NSArray *
 NSStandardApplicationPaths(void)
 {
   return NSSearchPathForDirectoriesInDomains(NSAllApplicationsDirectory,
                                              NSAllDomainsMask, YES);
 }
 
-NSArray *
+GS_DECLARE NSArray *
 NSStandardLibraryPaths(void)
 {
   return NSSearchPathForDirectoriesInDomains(NSAllLibrariesDirectory,
                                              NSAllDomainsMask, YES);
 }
 
-NSString *
+GS_DECLARE NSString *
 NSTemporaryDirectory(void)
 {
   NSFileManager	*manager;
   NSString	*tempDirName;
   NSString	*baseTempDirName = nil;
+  BOOL		flag;
+#if !defined(_WIN32)
   NSDictionary	*attr;
   int		perm;
   int		owner;
-  BOOL		flag;
-#if	!defined(_WIN32)
+#if !defined(__ANDROID__)
   int		uid;
-#else
-  unichar buffer[1024];
+#endif
+#endif
 
+#if defined(_WIN32)
+  GSNativeChar buffer[1024];
   if (GetTempPathW(1024, buffer))
     {
       baseTempDirName = [NSString stringWithCharacters: buffer
 						length: wcslen(buffer)];
+      // convert path to use forward slashes, which we use internally
+      baseTempDirName = [baseTempDirName stringByReplacingString: @"\\"
+        withString: @"/"];
+    }
+#elif defined(__ANDROID__)
+  /*
+   * Use subfolder of cache directory as temp dir on Android, as there
+   * is no official temp dir prior to API level 26, and the cache dir
+   * is at least auto-purged by the system if disk space is needed.
+   * We also clean it up on launch in GSInitializeProcessAndroid().
+   */
+  NSString *cacheDir = [[NSProcessInfo processInfo] androidCacheDir];
+  if (cacheDir)
+    {
+      baseTempDirName = [cacheDir stringByAppendingPathComponent: @"tmp"];
     }
 #endif
 
@@ -2002,9 +2053,30 @@ NSTemporaryDirectory(void)
   if ([manager fileExistsAtPath: tempDirName isDirectory: &flag] == NO
     || flag == NO)
     {
+#ifdef __ANDROID__
+      /*
+       * Create our own temp dir on Android. We can disregard attributes
+       * since they are not supported.
+       */
+      if ([manager createDirectoryAtPath: tempDirName
+             withIntermediateDirectories: YES
+                              attributes: nil
+                                   error: NULL] == NO)
+        {
+          NSWarnFLog(@"Attempt to create temporary directory (%@)"
+            @" failed.", tempDirName);
+          return nil;
+        }
+#else
       NSWarnFLog(@"Temporary directory (%@) does not exist", tempDirName);
       return nil;
+#endif
     }
+
+// Mateu Batle: secure temporary directories don't work in MinGW
+// Ivan Vucica: there are also problems with Cygwin
+//              probable cause: http://stackoverflow.com/q/9561759/39974
+#if !defined(_WIN32) && !defined(__CYGWIN__) && !defined(__ANDROID__)
 
   /*
    * Check that we are the directory owner, and that we, and nobody else,
@@ -2016,20 +2088,11 @@ NSTemporaryDirectory(void)
   perm = [[attr objectForKey: NSFilePosixPermissions] intValue];
   perm = perm & 0777;
 
-// Mateu Batle: secure temporary directories don't work in MinGW
-// Ivan Vucica: there are also problems with Cygwin
-//              probable cause: http://stackoverflow.com/q/9561759/39974
-#if !defined(_WIN32) && !defined(__CYGWIN__)
-
-#if	defined(_WIN32)
-  uid = owner;
-#else
 #ifdef HAVE_GETEUID
   uid = geteuid();
 #else
   uid = getuid();
 #endif /* HAVE_GETEUID */
-#endif
   if ((perm != 0700 && perm != 0600) || owner != uid)
     {
       NSString	*secure;
@@ -2090,7 +2153,7 @@ NSTemporaryDirectory(void)
   return tempDirName;
 }
 
-NSString *
+GS_DECLARE NSString *
 NSOpenStepRootDirectory(void)
 {
   NSString	*root;
@@ -2105,9 +2168,9 @@ NSOpenStepRootDirectory(void)
   return root;
 }
 
-#if	defined(_WIN32)
-/* The developer root on a windows system (where we have an msys environment
- * set up) is the point in the filesystem where we can reference make.exe via
+#if	defined(__MINGW__)
+/* The developer root under MinGW (where we have an MSYS environment set up)
+ * is the point in the filesystem where we can reference make.exe via
  * msys/.../bin/.  That is, it's the windows path at which msys is installed.
  */
 static NSString*
@@ -2115,7 +2178,7 @@ devroot(NSFileManager *manager, NSString *path)
 {
   NSString      *tmp = @"";
 
-  while (NO == [tmp isEqual: path])
+  while (path && NO == [tmp isEqual: path])
     {
       NSString	*pb;
       NSString	*msys;
@@ -2155,7 +2218,7 @@ devroot(NSFileManager *manager, NSString *path)
 }
 #endif
 
-NSArray *
+GS_DECLARE NSArray *
 NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory directoryKey,
   NSSearchPathDomainMask domainMask, BOOL expandTilde)
 {
@@ -2294,7 +2357,7 @@ if (domainMask & mask) \
 
       case NSDeveloperDirectory:
 	{
-#if	defined(_WIN32)
+#if	defined(__MINGW__)
           if (nil == gnustepDeveloperDir)
             {
               NSString          *path = nil;
@@ -2447,6 +2510,12 @@ L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\GNUstep",
 	}
 	break;
 	
+      case NSInputMethodsDirectory:
+	{
+	  ADD_PATH(NSUserDomainMask, gnustepUserLibrary, @"Input");
+	}
+	break;
+
       case NSMoviesDirectory:
 	{
 	  /* Be consistent with NSDocumentDirectory */
@@ -2468,14 +2537,48 @@ L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\GNUstep",
 	}
 	break;
 
+      case NSPrinterDescriptionDirectory:
+	{
+	  ADD_PATH(NSSystemDomainMask, gnustepSystemLibrary, @"PPDs");
+	}
+	break;
+
+      case NSSharedPublicDirectory:
+	{
+	  ADD_PATH(NSUserDomainMask, gnustepUserHome, @"Public");
+	}
+	break;
+
+      case NSPreferencePanesDirectory:
+	{
+	  NSString	*p = @"PreferencePanes";
+	  ADD_PATH(NSUserDomainMask, gnustepUserLibrary, p);
+	  ADD_PATH(NSLocalDomainMask, gnustepLocalLibrary, p);
+	  ADD_PATH(NSNetworkDomainMask, gnustepNetworkLibrary, p);
+	  ADD_PATH(NSSystemDomainMask, gnustepSystemLibrary, p);
+	}
+	break;
+
+      case NSApplicationScriptsDirectory:
+	{
+	  ADD_PATH(NSUserDomainMask, gnustepUserLibrary, @"Scripts");
+	}
+	break;
+
       case NSCachesDirectory:
 	{
+#ifdef __ANDROID__
+	  /* Use system-provided cache directory on Android */
+	  ADD_PATH(NSUserDomainMask,
+	    [[NSProcessInfo processInfo] androidCacheDir], @"");
+#else
 	  /* Uff - at the moment the only place to put Caches seems to
 	   * be Library.  Unfortunately under GNU/Linux Library will
 	   * end up in /usr/lib/GNUstep which could be mounted
 	   * read-only!
 	   */
 	  ADD_PATH(NSUserDomainMask, gnustepUserLibrary, @"Caches");
+#endif
 	  ADD_PATH(NSLocalDomainMask, gnustepLocalLibrary, @"Caches");
 	  ADD_PATH(NSNetworkDomainMask, gnustepNetworkLibrary, @"Caches");
 	  ADD_PATH(NSSystemDomainMask, gnustepSystemLibrary, @"Caches");

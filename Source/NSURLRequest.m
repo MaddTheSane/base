@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #import "common.h"
@@ -39,6 +38,8 @@ typedef struct {
   NSMutableDictionary		*headers;
   BOOL				shouldHandleCookies;
   BOOL                          debug;
+  BOOL        assumesHTTP3Capable;
+  id<GSLogDelegate>             ioDelegate;
   NSURL				*URL;
   NSURL				*mainDocumentURL;
   NSURLRequestCachePolicy	cachePolicy;
@@ -55,6 +56,9 @@ typedef struct {
 @interface	_GSMutableInsensitiveDictionary : NSMutableDictionary
 @end
 
+@interface	_GSInsensitiveDictionary : NSMutableDictionary
+@end
+
 @implementation	NSURLRequest
 
 + (id) allocWithZone: (NSZone*)z
@@ -68,16 +72,16 @@ typedef struct {
   return o;
 }
 
-+ (id) requestWithURL: (NSURL *)URL
++ (instancetype) requestWithURL: (NSURL *)URL
 {
   return [self requestWithURL: URL
 		  cachePolicy: NSURLRequestUseProtocolCachePolicy
 	      timeoutInterval: 60.0];
 }
 
-+ (id) requestWithURL: (NSURL *)URL
-	  cachePolicy: (NSURLRequestCachePolicy)cachePolicy
-      timeoutInterval: (NSTimeInterval)timeoutInterval
++ (instancetype) requestWithURL: (NSURL *)URL
+                    cachePolicy: (NSURLRequestCachePolicy)cachePolicy
+                timeoutInterval: (NSTimeInterval)timeoutInterval
 {
   NSURLRequest	*o = [[self class] allocWithZone: NSDefaultMallocZone()];
 
@@ -115,8 +119,10 @@ typedef struct {
 	  ASSIGN(inst->bodyStream, this->bodyStream);
 	  ASSIGN(inst->method, this->method);
 	  inst->shouldHandleCookies = this->shouldHandleCookies;
+    inst->assumesHTTP3Capable = this->assumesHTTP3Capable;
 	  inst->debug = this->debug;
-          inst->headers = [this->headers mutableCopy];
+	  inst->ioDelegate = this->ioDelegate;
+	  inst->headers = [this->headers mutableCopy];
 	}
     }
   return o;
@@ -177,16 +183,16 @@ typedef struct {
   return [self initWithURL: nil];
 }
 
-- (id) initWithURL: (NSURL *)URL
+- (instancetype) initWithURL: (NSURL *)URL
 {
   return [self initWithURL: URL
 	       cachePolicy: NSURLRequestUseProtocolCachePolicy
 	   timeoutInterval: 60.0];
 }
 
-- (id) initWithURL: (NSURL *)URL
-       cachePolicy: (NSURLRequestCachePolicy)cachePolicy
-   timeoutInterval: (NSTimeInterval)timeoutInterval
+- (instancetype) initWithURL: (NSURL *)URL
+                 cachePolicy: (NSURLRequestCachePolicy)cachePolicy
+             timeoutInterval: (NSTimeInterval)timeoutInterval
 {
   if ([URL isKindOfClass: [NSURL class]] == NO)
     {
@@ -284,6 +290,16 @@ typedef struct {
   return old;
 }
 
+- (id<GSLogDelegate>) setDebugLogDelegate: (id<GSLogDelegate>)d
+{
+  id<GSLogDelegate>     old = this->ioDelegate;
+
+  NSAssert(nil == d || [d conformsToProtocol: @protocol(GSLogDelegate)],
+    NSInvalidArgumentException);
+  this->ioDelegate = d;
+  return old;
+}
+
 - (NSTimeInterval) timeoutInterval
 {
   return this->timeoutInterval;
@@ -363,6 +379,11 @@ typedef struct {
   return [this->headers objectForKey: field];
 }
 
+- (BOOL) assumesHTTP3Capable
+{
+  return this->assumesHTTP3Capable;
+}
+
 @end
 
 
@@ -391,8 +412,8 @@ typedef struct {
 
       if ([value isKindOfClass: [NSString class]] == YES)
         {
-	  [self setValue: (NSString*)value forHTTPHeaderField: field];
-	}
+          [self setValue: (NSString*)value forHTTPHeaderField: field];
+        }
     }
 }
 
@@ -432,7 +453,19 @@ typedef struct {
     {
       this->headers = [_GSMutableInsensitiveDictionary new];
     }
-  [this->headers setObject: value forKey: field];
+  if (value != nil)
+    {
+      [this->headers setObject: value forKey: field];
+    }
+  else
+    {
+      [this->headers removeObjectForKey: field];
+    }
+}
+
+- (void)setAssumesHTTP3Capable:(BOOL)capable
+{
+  this->assumesHTTP3Capable = capable;
 }
 
 @end
@@ -442,6 +475,16 @@ typedef struct {
 - (BOOL) _debug
 {
   return this->debug;
+}
+
+- (id<GSLogDelegate>) _debugLogDelegate
+{
+  return this->ioDelegate;
+}
+
+- (NSDictionary *) _insensitiveHeaders
+{
+  return this->headers;
 }
 
 - (id) _propertyForKey: (NSString*)key

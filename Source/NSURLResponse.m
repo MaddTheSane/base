@@ -1,4 +1,4 @@
-/* Implementation for NSURLResponse for GNUstep
+/** Implementation for NSURLResponse for GNUstep
    Copyright (C) 2006 Software Foundation, Inc.
 
    Written by:  Richard Frith-Macdonald <rfm@gnu.org>
@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #import "common.h"
@@ -81,8 +80,12 @@ typedef struct {
 	}
       s = [NSScanner scannerWithString: v];
       p = [GSMimeParser new];
-      c = AUTORELEASE([GSMimeHeader new]);
-      [p scanHeaderBody: s into: c];
+      c = AUTORELEASE([[GSMimeHeader alloc] initWithName: @"content-type"
+                                                   value: nil]);
+      /* We just set the header body, so we know it will scan and don't need
+       * to check the retrurn type.
+       */
+      (void)[p scanHeaderBody: s into: c];
       RELEASE(p);
       ASSIGNCOPY(this->MIMEType, [c value]);
       v = [c parameterForKey: @"charset"];
@@ -110,13 +113,37 @@ typedef struct {
     {
       GSMimeHeader	*h;
 
+      /* Remove existing headers matching the ones we are setting.
+       */
+      e = [(NSArray*)headers objectEnumerator];
+      while ((h = [e nextObject]) != nil)
+	{
+	  NSString	*n = [h namePreservingCase: YES];
+
+	  [this->headers removeObjectForKey: n];
+	}
+      /* Set new headers, joining values where we have multiple headers
+       * with the same name.
+       */
       e = [(NSArray*)headers objectEnumerator];
       while ((h = [e nextObject]) != nil)
         {
 	  NSString	*n = [h namePreservingCase: YES];
 	  NSString	*v = [h fullValue];
+	  NSString	*o = [this->headers objectForKey: n];
 
-	  [self _setValue: v forHTTPHeaderField: n];
+	  if ([v isKindOfClass: [NSString class]] && [v length] > 0)
+	    {
+	      if ([o length] > 0)
+		{
+		  v = [NSString stringWithFormat: @"%@, %@", o, v];
+		}
+	      [self _setValue: v forHTTPHeaderField: n];
+	    }
+	  else if (nil == o)
+	    {
+	      [self _setValue: @"" forHTTPHeaderField: n];
+	    }
 	}
     }
   [self _checkHeaders];
@@ -200,6 +227,11 @@ typedef struct {
   [super dealloc];
 }
 
+- (NSString*) description
+{
+  return [NSString stringWithFormat: @"%@ { URL: %@ } { Status Code: %d, Headers %@ }", [super description], this->URL, this->statusCode, this->headers];
+}
+
 - (void) encodeWithCoder: (NSCoder*)aCoder
 {
 // FIXME
@@ -258,8 +290,15 @@ typedef struct {
 	  textEncodingName: nil];
   if (nil != self)
     {
+      NSString *k;
+      NSEnumerator *e = [headerFields keyEnumerator];
+      while (nil != (k = [e nextObject]))
+        {
+          NSString *v = [headerFields objectForKey: k];
+          [self _setValue: v forHTTPHeaderField: k];
+        }
+
       this->statusCode = statusCode;
-      this->headers = [headerFields copy];
       [self _checkHeaders];
     }
   return self;
@@ -298,7 +337,7 @@ typedef struct {
       p = AUTORELEASE([GSMimeParser new]);
       h = [[GSMimeHeader alloc] initWithName: @"content-displosition"
 				       value: disp];
-      IF_NO_GC([h autorelease];)
+      IF_NO_ARC([h autorelease];)
       sc = [NSScanner scannerWithString: [h value]];
       if ([p scanHeaderBody: sc into: h] == YES)
         {

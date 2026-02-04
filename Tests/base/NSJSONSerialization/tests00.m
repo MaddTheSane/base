@@ -3,6 +3,7 @@
 //
 
 #import <Foundation/Foundation.h>
+
 #import "ObjectTesting.h"
 
 
@@ -159,7 +160,7 @@
 
 - (void)cr2549370
 {
-  NSString *path = @"/tmp/json.data";
+  NSString *path = @"./json.data";
   NSString *string = @"Hello garçon! ¡Ola! A little more coöperation please!";
   NSMutableDictionary *dict = [NSMutableDictionary dictionary];
   NSMutableArray *array = [NSMutableArray array];
@@ -176,6 +177,7 @@
   [stream open];
   dict = [NSJSONSerialization JSONObjectWithStream:stream options:0 error:0];
   dict = [[dict objectForKey: @"datacenters"] objectAtIndex:0];
+  [[NSFileManager defaultManager] removeFileAtPath: path handler: nil];
   NSAssert(dict != nil, @"JSON returned nil");
   NSAssert([string isEqualToString:[dict objectForKey: @"nickname"]], @"data mismatch");
 }
@@ -199,12 +201,17 @@ static NSString *percentQuoted(NSString *s)
   unsigned char c;
   const char *allowedNonalnumChars = "-_,.'~!$&*();";
   
-  while ((c = *p++) != '\0') {
+  while ((c = *p++) != '\0')
+    {
       if (isalnum(c) || strchr(allowedNonalnumChars, c) != 0)
+	{
           [retval appendFormat: @"%c", c];
+	}
       else
+	{
           [retval appendFormat: @"%%%02x", c];
-  }
+	}
+    }
   return retval;
 }
 
@@ -322,6 +329,28 @@ static NSString *percentQuoted(NSString *s)
     }
 }
 
+- (void)longLongOverflow
+{
+  NSNumber *big = [NSNumber numberWithUnsignedLongLong: 0xffffffffffffffff];
+  NSNumber *sml = [NSNumber numberWithLongLong: 0xffffffffffffffff];
+
+  NSData *data = [NSJSONSerialization dataWithJSONObject: big
+						 options: 0
+						   error: NULL];
+  NSString *string = [[NSString alloc] initWithData: data
+					   encoding: NSUTF8StringEncoding];
+  NSAssert([string isEqualToString:@"18446744073709551615"], @"unsigned long long");
+  [string release];
+
+  data = [NSJSONSerialization dataWithJSONObject: sml
+					 options: 0
+					   error: NULL];
+  string = [[NSString alloc] initWithData: data
+				 encoding: NSUTF8StringEncoding];
+  NSAssert([string isEqualToString:@"-1"], @"signed long long");
+  [string release];
+}
+
 @end
 
 
@@ -338,7 +367,7 @@ int main(int argc, char *argv[])
   PASS([gtb performTest: @"cr1524466"], "cr1524466");
   PASS([gtb performTest: @"cr2096767"], "cr2096767");
   PASS([gtb performTest: @"cr2549370"], "cr2549370");
-  
+  PASS([gtb performTest: @"longLongOverflow"], "longLongOverflow");
   [gtb release];
 
   [pool release];

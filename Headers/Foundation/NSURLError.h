@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSURLError_h_GNUSTEP_BASE_INCLUDE
@@ -39,12 +38,12 @@ extern "C" {
 /**
  * The domain for a URL error.
  */
-extern NSString * const NSURLErrorDomain;
+GS_EXPORT NSString * const NSURLErrorDomain;
 
 /**
  * Obtain the URL which caused the failure
  */
-extern NSString * const NSErrorFailingURLStringKey;
+GS_EXPORT NSString * const NSErrorFailingURLStringKey;
 
 /**
  * Error codes for URL errors
@@ -68,15 +67,32 @@ enum
   NSURLErrorUserCancelledAuthentication = 	-1012,
   NSURLErrorUserAuthenticationRequired = 	-1013,
   NSURLErrorZeroByteResource = 			-1014,
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_5, GS_API_LATEST)
+  NSURLErrorCannotDecodeRawData =		-1015,
+  NSURLErrorCannotDecodeContentData =		-1016,
+  NSURLErrorCannotParseResponse =		-1017,
+#endif
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_7, GS_API_LATEST)
+  NSURLErrorInternationalRoamingOff =		-1018,
+  NSURLErrorCallIsActive =			-1019,
+  NSURLErrorDataNotAllowed =			-1020,
+  NSURLErrorRequestBodyStreamExhausted =	-1021,
+#endif
   NSURLErrorFileDoesNotExist = 			-1100,
   NSURLErrorFileIsDirectory = 			-1101,
   NSURLErrorNoPermissionsToReadFile = 		-1102,
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_5, GS_API_LATEST)
+  NSURLErrorDataLengthExceedsMaximum =		-1103,
+#endif
   NSURLErrorSecureConnectionFailed = 		-1200,
   NSURLErrorServerCertificateHasBadDate = 	-1201,
   NSURLErrorServerCertificateUntrusted = 	-1202,
   NSURLErrorServerCertificateHasUnknownRoot =	-1203,
   NSURLErrorServerCertificateNotYetValid = 	-1204,
   NSURLErrorClientCertificateRejected = 	-1205,
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
+  NSURLErrorClientCertificateRequired = -1206,
+#endif
   NSURLErrorCannotLoadFromNetwork = 		-2000,
 
   NSURLErrorCannotCreateFile = 			-3000,

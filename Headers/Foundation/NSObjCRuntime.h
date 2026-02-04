@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
     AutogsdocSource: NSObjCRuntime.m
     AutogsdocSource: NSLog.m
@@ -43,6 +42,11 @@
 #include <stdarg.h>
 #include <limits.h>
 #include <float.h>
+
+/* NS_INLINE */
+#if !defined(NS_INLINE)
+#define NS_INLINE static inline
+#endif
 
 /* PA HP-UX kludge.  */
 #if defined(__hppa__) && defined(__hpux__) && !defined(PRIuPTR)
@@ -96,19 +100,6 @@ typedef	uintptr_t	NSUInteger;
 #	define NSUIntegerMax UINTPTR_MAX
 #endif /* !defined(NSINTEGER_DEFINED) */
 
-#if     !defined(CGFLOAT_DEFINED)
-#if     GS_SIZEOF_VOIDP == 8
-#define CGFLOAT_IS_DBL  1
-typedef double          CGFloat;
-#define CGFLOAT_MIN	DBL_MIN
-#define CGFLOAT_MAX	DBL_MAX
-#else
-typedef float           CGFloat;
-#define CGFLOAT_MIN	FLT_MIN
-#define CGFLOAT_MAX	FLT_MAX
-#endif
-#endif /* !defined(CGFLOAT_DEFINED) */
-
 #define NSINTEGER_DEFINED 1
 #define CGFLOAT_DEFINED 1
 #ifndef NS_AUTOMATED_REFCOUNT_UNAVAILABLE
@@ -160,6 +151,37 @@ extern "C" {
 #else
 #  define NS_ASSUME_NONNULL_BEGIN
 #  define NS_ASSUME_NONNULL_END
+#endif
+
+#if !__has_feature(nullability)
+#  ifndef _Nullable
+#    define _Nullable
+#  endif
+#  ifndef _Nonnull
+#    define _Nonnull
+#  endif
+#  ifndef _Null_unspecified
+#    define _Null_unspecified
+#  endif
+#endif
+
+/*
+ * Any argument that is passed inside a block is not going to escape
+ * the runtime of the function itself.
+ */
+#if __has_attribute(noescape)
+#  define NS_NOESCAPE __attribute__((noescape))
+#else
+#  define NS_NOESCAPE
+#endif
+
+/*
+ * Prevent NSError from being imported by Swift as a method that throws.
+ */ 
+#if __has_attribute(swift_error)
+#  define NS_SWIFT_NOTHROW __attribute__((swift_error(none)))
+#else
+#  define NS_SWIFT_NOTHROW
 #endif
 
 /*
@@ -270,7 +292,13 @@ typedef NS_ENUM(NSInteger, NSComparisonResult)
   NSOrderedAscending = (NSInteger)-1, NSOrderedSame, NSOrderedDescending
 };
 
-enum {NSNotFound = NSIntegerMax};
+// check for older versions of GCC and try to ignore clang pretending to know GNUC dialects
+// in order to work around error "initializer element is not constant" in older GCC versions
+#if defined(__GNUC__) && !defined(__clang__) && GCC_VERSION < 80000
+#define NSNotFound NSIntegerMax
+#else
+static const NSInteger NSNotFound = NSIntegerMax;
+#endif
 
 DEFINE_BLOCK_TYPE(NSComparator, NSComparisonResult, id, id);
 
@@ -279,8 +307,45 @@ DEFINE_BLOCK_TYPE(NSComparator, NSComparisonResult, id, id);
  */
 #define FOUNDATION_EXPORT GS_EXPORT
 
+/**
+ * Declare NSExceptionName
+ */
+typedef NSString* NSExceptionName;
+  
 #if	defined(__cplusplus)
 }
+#endif
+
+/**
+ * Declare Apple availability macros for compatibility purposes as no-ops.
+ */
+#define NS_CLASS_AVAILABLE(...)
+#define NS_AVAILABLE(...)
+#define NS_AVAILABLE_MAC(...)
+#define NS_DEPRECATED(...)
+#define NS_DEPRECATED_MAC(...)
+#define NS_ENUM_AVAILABLE(...)
+#define NS_ENUM_AVAILABLE_MAC(...)
+#define NS_ENUM_DEPRECATED(...)
+#define NS_ENUM_DEPRECATED_MAC(...)
+#define NS_CLASS_AVAILABLE(...)
+#define NS_CLASS_DEPRECATED(...)
+#define NS_CLASS_AVAILABLE_MAC(...)
+#define NS_CLASS_DEPRECATED_MAC(...)
+#define NS_UNAVAILABLE
+
+/* Define root class NS macro */
+#ifndef NS_ROOT_CLASS
+#if __has_attribute(objc_root_class)
+#define NS_ROOT_CLASS __attribute__((objc_root_class))
+#else
+#define NS_ROOT_CLASS
+#endif
+#endif
+
+/* Undefine "interface" defined in Visual Studio MSVC headers. */
+#if defined(_MSC_VER) && defined(interface)
+#undef interface
 #endif
 
 #endif /* __NSObjCRuntime_h_GNUSTEP_BASE_INCLUDE */

@@ -1,5 +1,5 @@
 /*
- *  Author: Sergei Golovin <Golovin.SV@gmail.com>
+ *  Author: Sergei Golovin <svgdev@mail.ru>
  */
 
 #import "TestWebServer.h"
@@ -9,7 +9,7 @@
 
 /**
  *  Starts the detached thread. It is the entry point of the thread.
- */ 
+ */
 - (void)_startDetached:(id)extra;
 
 /**
@@ -23,10 +23,10 @@
 - (void)_stopHTTPServer;
 
 
-@end 
+@end
 
 /* default 'constants' */
-#define DEFAULTADDRESS @"127.0.0.1"
+#define DEFAULTADDRESS @"localhost"
 #define DEFAULTPORT @"1234"
 #define DEFAULTMODE NO
 #define DEFAULTLOGIN @"login"
@@ -45,7 +45,7 @@
 
 @implementation TestWebServer
 
-- (id)init
+- (id) init
 {
   return [self initWithAddress: DEFAULTADDRESS
 			  port: DEFAULTPORT
@@ -68,7 +68,7 @@
       _password = nil;
       _login = nil;
       _isSecure = NO;
-      
+
       if ([extra isKindOfClass: [NSDictionary class]])
 	{
 	  NSDictionary *d = extra;
@@ -123,7 +123,7 @@
 						  selector: @selector(_startDetached:)
 						    object: extra];
 	}
-      else 
+      else
 	{
 	  _serverThread = nil;
 	}
@@ -142,39 +142,40 @@
   DESTROY(_password);
   _delegate = nil;
   DESTROY(_traversalMap);
+  DESTROY(_server);
   [super dealloc];
 }
 
-- (void)start:(id)extra
+- (void) start: (id)extra
 {
-  if ([_server port] != nil)                                                                                                           
-    {                                                                                                                                 
-      if (YES == _debug)                                                                                                               
-	{
-	  NSWarnMLog(@"SimpleWebServer already started");
-	}
-      return;                                                                                                                         
+  if ([_server port] != nil)
+    {
+      NSWarnMLog(@"SimpleWebServer already started");
+      return;
     }
 
   if (nil != _serverThread)
     {
+      NSDebugLog(@"Waiting for startup");
       if (![_serverThread isExecuting])
 	{
 	  NSTimeInterval duration = 0.0;
+
 	  [_serverThread start];
 
 	  // wait for the SimpleWebServer is started
-	  while(![_lock tryLockWhenCondition: STARTED] &&
-		duration < MAXDURATION)
+	  while (![_lock tryLockWhenCondition: STARTED]
+	    && duration < MAXDURATION)
 	    {
 	      [[NSRunLoop currentRunLoop]
 		runUntilDate: [NSDate dateWithTimeIntervalSinceNow: TIMING]];
 	      duration += TIMING;
 	    }
 	  [_lock unlock];
-	  if (duration >= MAXDURATION &&
-	     nil != _delegate &&
-	     [_delegate respondsToSelector: @selector(timeoutExceededByHandler:)])
+	  if (duration >= MAXDURATION
+	    && nil != _delegate
+	    && [_delegate respondsToSelector:
+	      @selector(timeoutExceededByHandler:)])
 	    {
 	      [_delegate timeoutExceededByHandler: self];
 	      [self stop];
@@ -191,14 +192,11 @@
     }
 }
 
-- (void)stop
+- (void) stop
 {
   if ([_server port] == nil)
     {
-      if (YES == _debug)
-	{
-	  NSWarnMLog(@"SimpleWebServer already stopped");
-	}
+      NSWarnMLog(@"SimpleWebServer already stopped");
       return;
     }
   if (nil != _serverThread)
@@ -269,6 +267,7 @@
       Class cls = (Class)handler;
       handler = [[cls alloc] init];
       [_traversalMap setObject: handler forKey: component];
+      RELEASE(handler);
     }
 
   // set the handler
@@ -283,18 +282,18 @@
 				     _isSecure ? @"https" : @"http",
 					  _address,
 					  _port];
-	  
+	
 	  [(HandlerIndex *)handler setURLString: urlString];
 	}
       else if ([handler isKindOfClass: [Handler301 class]])
 	{
-	  // by default http://127.0.0.1:1235/
+	  // by default http://localhost:1235/
 	  NSString *port = [NSString stringWithFormat: @"%u", [_port intValue] + 1]; // the TestWebServer's port + 1
 	  NSString *urlString = [NSString stringWithFormat: @"%@://%@:%@/",
 				     _isSecure ? @"https" : @"http",
 					  _address,
 					  port];
-      
+
 	  [(Handler301 *)handler setURLString: urlString];
 	}
     }
@@ -314,7 +313,7 @@
   [handler posthandleRequest: request
 		    response: response
 			 for: self];
-  
+
 
   return ret;
 }
@@ -359,6 +358,10 @@
 
 - (void)setDebug:(BOOL)mode
 {
+  NSProcessInfo *pi = [NSProcessInfo processInfo];
+
+  [pi setDebugLoggingEnabled: mode];
+
   _debug = mode;
 }
 
@@ -369,7 +372,7 @@
 
 @implementation TestWebServer (Private)
 
-- (void)_startHTTPServer:(id)extra
+- (void) _startHTTPServer: (id)extra
 {
   NSString *certPath;
   NSString *keyPath;
@@ -381,14 +384,16 @@
   [_server setDelegate: self];
   if (_isSecure)
     {
-      if ([_address isEqualToString: @"127.0.0.1"] ||
-	 [_address isEqualToString: @"localhost"])
+      NSHost *h = [NSHost hostWithAddress: _address];
+      NSHost *l = [NSHost hostWithName: @"localhost"];
+
+      if ([h isEqual: l])
 	{
 	  certPath = [[NSBundle bundleForClass: [self class]]
-		       pathForResource: @"testCert"
+		       pathForResource: @"certificate"
 				ofType: @"pem"];
 	  keyPath = [[NSBundle bundleForClass: [self class]]
-		      pathForResource: @"testKey"
+		      pathForResource: @"key"
 			       ofType: @"pem"];
 	  secure = [NSDictionary dictionaryWithObjectsAndKeys:
 				   certPath, @"CertificateFile",
@@ -397,28 +402,32 @@
 	}
       else
 	{
+	  [NSException raise: NSInternalInconsistencyException
+	    format: @"The server hasn't run. Address %@ is not localhost (%@)",
+	    _address, l];
 	  // NOTE: generate corresponding certificates for any address differing
-	  //       from 127.0.0.1
+	  //       from localhost
 	}
     }
 
-  status = [_server setAddress: _address port: _port secure: secure]; // run the server
-  if (!status)                                                                                                                         
+  NSDebugLog(@"Starting web server with address %@, port %@ %@",
+	     _address, _port, secure ? @" with TLS" : @"");
+
+  status = [_server setAddress: _address port: _port secure: secure];
+  if (!status)
     {
       [NSException raise: NSInternalInconsistencyException
-		  format: @"The server hasn't run. Perhaps the port %@ is invalid", DEFAULTPORT];
+	format: @"The server hasn't run. Perhaps the port %@ is invalid",
+	DEFAULTPORT];
     }
 }
 
 - (void)_stopHTTPServer
 {
-  if (nil != _server && [_server port] != nil)                                                                                         
+  if (nil != _server && [_server port] != nil)
     {
       [_server stop]; // shut down the server
-      if (YES == _debug)
-	{
-	  NSLog(@"%@: stopped SimpleWebServer %@", self, _server);
-	}
+      NSDebugLog(@"%@: stopped SimpleWebServer %@", self, _server);
       DESTROY(_server);
     }
 }
@@ -432,10 +441,8 @@
   [self _startHTTPServer: extra];
   [_lock unlockWithCondition: STARTED];
 
-  if (YES == _debug)
-    {
-      NSLog(@"%@: enter into runloop in detached thread %@", self, [NSThread currentThread]);
-    }
+  NSDebugLog(@"%@: enter into runloop in detached thread %@", self, [NSThread currentThread]);
+
 
   while(!_threadToQuit && duration < MAXDURATION)
     {
@@ -444,10 +451,7 @@
       duration += TIMING;
     }
 
-  if (YES == _debug)
-    {
-      NSLog(@"%@: exit from runloop in detached thread %@", self, [NSThread currentThread]);
-    }
+  NSDebugLog(@"%@: exit from runloop in detached thread %@", self, [NSThread currentThread]);
 
   if (duration >= MAXDURATION &&
      nil != _delegate &&

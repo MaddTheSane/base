@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSInvocationOperation class reference</title>
    $Date$ $Revision$
@@ -41,22 +40,24 @@
   if (((self = [super init])) != nil)
     {
       [inv retainArguments];
-      _invocation = [inv retain];
+      _invocation = RETAIN(inv);
     }
   return self;
 }
 
 - (id) initWithTarget: (id)target selector: (SEL)aSelector object: (id)arg
 {
-  NSMethodSignature *methodSignature;
-  NSInvocation *inv;
+  NSMethodSignature	*methodSignature;
+  NSInvocation		*inv;
 
   methodSignature = [target methodSignatureForSelector: aSelector];
   inv = [NSInvocation invocationWithMethodSignature: methodSignature];
   [inv setTarget: target];
   [inv setSelector: aSelector];
   if ([methodSignature numberOfArguments] > 2)
-    [inv setArgument: &arg atIndex: 2];
+    {
+      [inv setArgument: &arg atIndex: 2];
+    }
   return [self initWithInvocation: inv];
 }
 
@@ -65,16 +66,20 @@
   if (![self isCancelled])
     {
       NS_DURING
-	[_invocation invoke];
+	{
+	  [_invocation invoke];
+	}
       NS_HANDLER
-	_exception = [localException copy];
+	{
+	  ASSIGN(_exception, localException);
+	}
       NS_ENDHANDLER
     }
 }
 
 - (NSInvocation *) invocation
 {
-  return [[_invocation retain] autorelease];
+  return AUTORELEASE(RETAIN(_invocation));
 }
 
 - (id) result
@@ -116,6 +121,7 @@
 
 	  [_invocation getReturnValue: buffer];
 	  result = [NSValue valueWithBytes: buffer objCType: returnType];
+	  free(buffer);
 	}
     }
   return result;
@@ -123,14 +129,9 @@
 
 - (void) dealloc
 {
-  [_invocation release];
-  [_exception release];
+  DESTROY(_invocation);
+  DESTROY(_exception);
   [super dealloc];
 }
 
 @end
-
-const NSString * NSInvocationOperationVoidResultException
-  = @"NSInvocationOperationVoidResultException";
-const NSString * NSInvocationOperationCancelledException
-  = @"NSInvcationOperationCancelledException";

@@ -1,9 +1,9 @@
-/* Protocol for NSSerialization for GNUStep
+/** Protocol for NSSerialization for GNUStep
    Copyright (C) 1995 Free Software Foundation, Inc.
 
    Written by:  Andrew Kachites McCallum <mccallum@gnu.ai.mit.edu>
    Date: 1995
-   Updated by:	Richard Frith-Macdonald <richard@brainstorm.co.uk>
+   Author:	Richard Frith-Macdonald <richard@brainstorm.co.uk>
    Date: 1998
    
    This file is part of the GNUstep Base Library.
@@ -16,12 +16,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSSerialization_h_GNUSTEP_BASE_INCLUDE
@@ -70,6 +69,7 @@ extern "C" {
  *  representation of a property list (NSArray or NSDictionary plus limited
  *  contents).</p>
  */
+GS_EXPORT_CLASS
 @interface NSSerializer: NSObject
 
 /**
@@ -129,6 +129,7 @@ extern "C" {
  *  property list (NSArray or NSDictionary plus limited contents) from a
  *  byte-array (actually string) representation.
  */
+GS_EXPORT_CLASS
 @interface NSDeserializer: NSObject
 
 /**

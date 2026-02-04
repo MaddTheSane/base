@@ -12,12 +12,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    */
 
@@ -61,10 +60,12 @@ typedef NSUInteger NSStreamEvent;
 @class NSOutputStream;
 @class NSString;
 @class NSRunLoop;
+@class NSURL;
 
 /**
  * NSStream is an abstract class for objects representing streams. 
  */
+GS_EXPORT_CLASS
 @interface NSStream : NSObject
 
 /**
@@ -146,6 +147,7 @@ typedef NSUInteger NSStreamEvent;
  * NSInputStream is a subclass of NSStream that provides read-only
  * stream functionality.
  */
+GS_EXPORT_CLASS
 @interface NSInputStream : NSStream
 
 /**
@@ -207,6 +209,7 @@ typedef NSUInteger NSStreamEvent;
  * NSOutputStream is a subclass of NSStream that provides
  * write-only stream functionality.
  */
+GS_EXPORT_CLASS
 @interface NSOutputStream : NSStream
 
 /**

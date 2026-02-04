@@ -16,7 +16,7 @@
    You should have received a copy of the GNU General Public
    License along with this program; see the file COPYINGv3.
    If not, write to the Free Software Foundation,
-   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+   31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #import <stdlib.h>
@@ -31,6 +31,10 @@
 #import	"Foundation/NSFileManager.h"
 #import	"Foundation/NSProcessInfo.h"
 #import "Foundation/NSPathUtilities.h"
+
+#ifdef _MSC_VER
+#define popen _popen
+#endif
 
 int
 main(int argc, char** argv, char **env)
@@ -81,7 +85,7 @@ main(int argc, char** argv, char **env)
     }
   NS_DURING
     {
-      fileContents = [NSString stringWithContentsOfFile: sourceName];
+      fileContents = [NSMutableString stringWithContentsOfFile: sourceName];
       plist = [fileContents propertyList];
     }
   NS_HANDLER
@@ -101,7 +105,7 @@ main(int argc, char** argv, char **env)
 
   fileContents = [NSMutableString stringWithCapacity: 200];
   [fileContents appendString:
-    @"[Desktop Entry]\nEncoding=UTF-8\nType=Application\n"];
+    @"[Desktop Entry]\nType=Application\n"];
   list = [plist objectForKey: @"FreeDesktopCategories"];
   if (list != nil && [list isKindOfClass: [NSArray class]] && [list count] > 0)
     {
@@ -119,6 +123,7 @@ main(int argc, char** argv, char **env)
     {
       appName = entry;
       [fileContents appendFormat: @"Name=%@\n", entry];
+      [fileContents appendFormat: @"StartupWMClass=%@\n", entry];
       if (destName == nil)
 	destName = [entry stringByAppendingString: @".desktop"];
     }
@@ -216,7 +221,6 @@ main(int argc, char** argv, char **env)
       execPath = [NSString stringWithCString: line
 			   encoding: NSASCIIStringEncoding];
       [fileContents appendFormat: @"Exec=%@ %@\n", execPath, entry];
-      [fileContents appendFormat: @"FilePattern=%@.app;%@;\n", entry, entry];
     }
 
   list = [plist objectForKey: @"NSTypes"];

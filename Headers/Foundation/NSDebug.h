@@ -1,5 +1,5 @@
 /* Interface to debugging utilities for GNUStep and OpenStep
-   Copyright (C) 1997,1999 Free Software Foundation, Inc.
+   Copyright (C) 1997-2020 Free Software Foundation, Inc.
 
    Written by:  Richard Frith-Macdonald <richard@brainstorm.co.uk>
    Date: August 1997
@@ -16,12 +16,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */
 
 #ifndef __NSDebug_h_GNUSTEP_BASE_INCLUDE
@@ -40,9 +39,41 @@
 #  endif
 #endif
 
+@class  NSArray;
+@class  NSMapTable;
+
 #if	defined(__cplusplus)
 extern "C" {
 #endif
+
+/** Protocol for a delegate, set as an extension in some classes, to handle
+ * debug logging of low level I/O.  The rationale for this protocol is that
+ * on occasion debug logging may be required, but the data being logged may
+ * contain sensitive information which should not be writtent to file.  In
+ * that situation, the delegate may filter/mask the sensitive information
+ * from the logs by taking over the simpel writing to stderr that the inbuilt
+ * debug logging provides.
+ */ 
+@protocol GSLogDelegate <NSObject>
+/** Method sent to the delegate to ask it to log a chunk of data that
+ * has been read.  The delegate should return YES if it has handled
+ * the logging, NO if it wants the default mechanism to be used.<br />
+ * The handle is the object which is performing the read operation.
+ */
+- (BOOL) getBytes: (const uint8_t*)bytes
+         ofLength: (NSUInteger)length
+         byHandle: (NSObject*)handle;
+
+/** Method sent to the delegate to ask it to log a chunk of data that
+ * has been written (or is immediately going to be written).
+ * The delegate should return YES if it has handled the logging,
+ * NO if it wants the default logging mechanism to be used.<br />
+ * The handle is the object which is performing the write operation.
+ */
+- (BOOL) putBytes: (const uint8_t*)bytes
+         ofLength: (NSUInteger)length
+         byHandle: (NSObject*)handle;
+@end
 
 /*
  *	Functions for debugging object allocation/deallocation
@@ -53,6 +84,7 @@ extern "C" {
  *
  *	Public functions:
  *	GSDebugAllocationActive()	
+ *	GSDebugAllocationBytes()	
  *	GSDebugAllocationCount()	
  *      GSDebugAllocationTotal()
  *      GSDebugAllocationPeak()
@@ -67,14 +99,21 @@ extern "C" {
  * hopeless about actually finding out where the leak is, the
  * following functions could come handy as they allow you to find
  * exactly *what* objects you are leaking (warning! these functions
- * could slow down your system appreciably - use them only temporarily
+ * eill slow down your system appreciably - use them only temporarily
  * and only in debugging systems):
  *
+ *  GSDebugAllocationRecordAndTrace()
  *  GSDebugAllocationRecordObjects()
  *  GSDebugAllocationListRecordedObjects() 
  *  GSDebugAllocationTagRecordedObject()
+ *  GSDebugAllocationTaggedObjects()
  */
-#ifndef	NDEBUG
+
+/**
+ * A global variable that you can use to enable debug behaviour in
+ * your program.
+ */
+extern BOOL NSDebugEnabled;
 
 /**
  * Used internally by NSAllocateObject() ... you probably don't need this.
@@ -96,9 +135,22 @@ GS_EXPORT void		GSDebugAllocationRemove(Class c, id o);
  * Object allocation debugging
  * should not affect performance too much, and is very useful
  * as it allows you to monitor how many objects of each class
- * your application has allocated.
+ * your application has allocated.<br />
+ * NB. For much more detailed diagnosis of memory leaks, the GNUstep
+ * additional method [NSObject-trackOwnership] may be used to log
+ * the location of the memory lifcycle of a particular object.
  */
 GS_EXPORT BOOL		GSDebugAllocationActive(BOOL active);
+
+/**
+ * This function activates or deactivates byte counting for allocation.<br />
+ * Returns the previous state.<br />
+ * You may call this function to activate additional checks to see how
+ * much memory is allocated to hold each object allocated.  When this is
+ * enabled, listing the allocated objects will also list the number of bytes
+ * of heap memory allocated to hold the objects.<br />
+ */
+GS_EXPORT BOOL		GSDebugAllocationBytes(BOOL active);
 
 /**
  * <p>
@@ -191,31 +243,39 @@ GS_EXPORT const char*	GSDebugAllocationList(BOOL changeFlag);
  */
 GS_EXPORT const char*	GSDebugAllocationListAll(void);
 
-/**
- * DEPRECATED ... use GSDebugAllocationRecordObjects instead.
- */
-GS_EXPORT void     GSDebugAllocationActiveRecordingObjects(Class c);
+typedef NSObject	*(*GSDebugAllocationTraceFunction)(id);
 
 /**
  * This function activates (or deactivates) tracking all allocated
  * instances of the specified class c.<br />
  * Turning on tracking implicitly turns on memory debug (counts)
  * for all classes (GSAllocationActive()).<br />
- * Deactivation of tracking releases all currently tracked instances
+ * Deactivation of tracking removes all currently tracked instances
  * of the class (but deactivation of general counting does not).<br />
- * The previous tracking state as reported as the return value of
+ * If a trace function is supplied, it takes the object to be recorded
+ * as an argument and either returns a value used as the tag for the
+ * object to be recorded, or nil to prevent the recording of that
+ * particular object.<br />
+ * As a special case the trace function may be the integer 1
+ * (cast to a function) to tag recorded objects by stack trace.  This
+ * allows you to see where each leaked object was allocated.<br />
+ * The previous tracking state is reported as the return value of
  * this function.<br />
- * This tracking can slow your application down, so you should use it
+ * This tracking will slow your application down, so you should use it
  * only when you are into serious debugging.
  * Usually, you will monitor your application by using the functions
- * GSDebugAllocationList() and similar, which do not slow things down
- * much and return * the number of allocated instances; when
+ * GSDebugAllocationList() and similar (which do not slow things down
+ * much) and return the number of allocated instances; when
  * (if) by studying the reports generated by these functions
  * you have found a leak of objects of a certain class, and
  * if you can't figure out how to fix it by looking at the
  * code, you can use this function to start tracking
- * allocated instances of that class, and the following one
- * can sometime allow you to list the leaked objects directly.
+ * allocated instances of that class.
+ */
+GS_EXPORT BOOL  GSDebugAllocationRecordAndTrace(
+  Class c, BOOL record, GSDebugAllocationTraceFunction traceFunction);
+
+/** Calls GSDebugAllocationRecordAndTrace() with a null trace function.
  */
 GS_EXPORT BOOL  GSDebugAllocationRecordObjects(Class c, BOOL newState);
 
@@ -223,13 +283,21 @@ GS_EXPORT BOOL  GSDebugAllocationRecordObjects(Class c, BOOL newState);
  * This function returns an array
  * containing all the allocated objects of a certain class
  * which have been recorded ... to start the recording, you need
- * to invoke GSDebugAllocationRecordObjects().
+ * to invoke GSDebugAllocationRecordAndTrace().
  * Presumably, you will immediately call [NSObject-description] on them
  * to find out the objects you are leaking.  The objects are
  * returned in an autoreleased array, so until the array is deallocated,
  * the objects are not released.
  */
 GS_EXPORT NSArray *GSDebugAllocationListRecordedObjects(Class c);
+
+/** Returns a map containing recorded objects as keys and their corresponding
+ * tags as values. This does not return any objects which do not have tags,
+ * and returns nil if there are no tagged objects to report.  The returned
+ * map table is autoreleased and will retain the objects and their tags
+ * until it is deallocated.
+ */
+GS_EXPORT NSMapTable *GSDebugAllocationTaggedObjects(Class c);
 
 /**
  * This function associates the supplied tag with a recorded
@@ -239,8 +307,7 @@ GS_EXPORT NSArray *GSDebugAllocationListRecordedObjects(Class c);
  * The tag is retained while it is associated with the object.<br />
  * If the tagged object is deallocated, the tag is released
  * (so you can track the lifetime of the object by having the tag
- * perform some operation when it is released).<br />
- * See also the NSDebugFRLog() and NSDebugMRLog() macros.
+ * perform some operation when it is released).
  */
 GS_EXPORT id GSDebugAllocationTagRecordedObject(id object, id tag);
 
@@ -251,8 +318,6 @@ GS_EXPORT id GSDebugAllocationTagRecordedObject(id object, id tag);
 GS_EXPORT void  GSSetDebugAllocationFunctions(
   void (*newAddObjectFunc)(Class c, id o),
   void (*newRemoveObjectFunc)(Class c, id o));
-
-#endif
 
 /**
  * Enable/disable zombies.

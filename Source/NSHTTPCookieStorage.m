@@ -1,4 +1,4 @@
-/* Implementation for NSHTTPCookieStorage for GNUstep
+/** Implementation for NSHTTPCookieStorage for GNUstep
    Copyright (C) 2006 Software Foundation, Inc.
 
    Written by:  Richard Frith-Macdonald <rfm@gnu.org>
@@ -14,16 +14,16 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #import "common.h"
 #define	EXPOSE_NSHTTPCookieStorage_IVARS	1
+#import "GSPThread.h"
 #import "GSURLPrivate.h"
 #import "Foundation/NSSet.h"
 #import "Foundation/NSArray.h"
@@ -32,13 +32,7 @@
 #import "Foundation/NSString.h"
 #import "Foundation/NSDistributedNotificationCenter.h"
 
-NSString * const NSHTTPCookieManagerAcceptPolicyChangedNotification
-  = @"NSHTTPCookieManagerAcceptPolicyChangedNotification";
-
-NSString * const NSHTTPCookieManagerCookiesChangedNotification
-  = @"NSHTTPCookieManagerCookiesChangedNotification";
-
-NSString *objectObserver = @"org.GNUstep.NSHTTPCookieStorage";
+static NSString *objectObserver = @"org.GNUstep.NSHTTPCookieStorage";
 
 // Internal data storage
 typedef struct {
@@ -56,9 +50,15 @@ typedef struct {
 @implementation NSHTTPCookieStorage
 
 static NSHTTPCookieStorage   *storage = nil;
+static gs_mutex_t            classLock = GS_MUTEX_INIT_STATIC;
 
 + (id) allocWithZone: (NSZone*)z
 {
+  /* This is intended to be a singleton, but having +allocWithZone: return
+   * the shared object does mean that code can call alloc followed by init
+   * on the existing object, so the -init method needs to check that it is
+   * safe by only altering the state of the object first time it is called.
+   */
   return RETAIN([self sharedHTTPCookieStorage]);
 }
 
@@ -66,7 +66,7 @@ static NSHTTPCookieStorage   *storage = nil;
 {
   if (storage == nil)
     {
-      [gnustep_global_lock lock];
+      GS_MUTEX_LOCK(classLock);
       if (storage == nil)
         {
 	  NSHTTPCookieStorage	*o;
@@ -78,26 +78,31 @@ static NSHTTPCookieStorage   *storage = nil;
 	  [o init];
 	  storage = o;
 	}
-      [gnustep_global_lock unlock];
+      GS_MUTEX_UNLOCK(classLock);
     }
   return storage;
 }
 
-- init
+- (id) init
 {
-  this->_policy = NSHTTPCookieAcceptPolicyAlways;
-  this->_cookies = [NSMutableArray new];
-  [[NSDistributedNotificationCenter defaultCenter] 
-    addObserver: self
-    selector: @selector(cookiesChangedNotification:)
-    name: NSHTTPCookieManagerCookiesChangedNotification
-    object: objectObserver];
-  [[NSDistributedNotificationCenter defaultCenter] 
-    addObserver: self
-    selector: @selector(acceptPolicyChangeNotification:)
-    name: NSHTTPCookieManagerAcceptPolicyChangedNotification
-    object: objectObserver];
-  [self _updateFromCookieStore];
+  /* Protect against someone re-initialising the shared store.
+   */
+  if (nil == this->_cookies)
+    {
+      this->_cookies = [NSMutableArray new];
+      this->_policy = NSHTTPCookieAcceptPolicyAlways;
+      [[NSDistributedNotificationCenter defaultCenter] 
+	addObserver: self
+	selector: @selector(cookiesChangedNotification:)
+	name: NSHTTPCookieManagerCookiesChangedNotification
+	object: objectObserver];
+      [[NSDistributedNotificationCenter defaultCenter] 
+	addObserver: self
+	selector: @selector(acceptPolicyChangeNotification:)
+	name: NSHTTPCookieManagerAcceptPolicyChangedNotification
+	object: objectObserver];
+      [self _updateFromCookieStore];
+    }
   return self;
 }
 
@@ -114,12 +119,12 @@ static NSHTTPCookieStorage   *storage = nil;
 
 - (NSString *) _cookieStorePath
 {
-  BOOL isDir;
-  NSString *path;
-  NSArray *dirs;
+  BOOL 		isDir;
+  NSString 	*path;
+  NSArray 	*dirs;
 
   dirs = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, 
-  	  NSUserDomainMask, YES);
+    NSUserDomainMask, YES);
   path = [[dirs objectAtIndex: 0] stringByAppendingPathComponent: @"Cookies"];
   if ([[NSFileManager defaultManager] 
     fileExistsAtPath: path isDirectory: &isDir] == NO || isDir == NO)
@@ -141,17 +146,18 @@ static NSHTTPCookieStorage   *storage = nil;
 /* FIXME: When will we know that the user session expired? */
 - (BOOL) _expireCookies: (BOOL)endUserSession
 {
-  BOOL changed = NO;
-  NSDate *now = [NSDate date];
-  unsigned count = [this->_cookies count];
+  BOOL 		changed = NO;
+  NSDate 	*now = [NSDate date];
+  unsigned 	count = [this->_cookies count];
 
   /* FIXME: Handle Max-age */
   while (count-- > 0)
     {
       NSHTTPCookie	*ck = [this->_cookies objectAtIndex: count];
-      NSDate *expDate = [ck expiresDate];
-      if ((endUserSession && expDate == nil) ||
-	  (expDate != nil && [expDate compare: now] != NSOrderedDescending))
+      NSDate 		*expDate = [ck expiresDate];
+
+      if ((endUserSession && expDate == nil)
+	|| (expDate != nil && [expDate compare: now] != NSOrderedDescending))
         {
           [this->_cookies removeObject: ck];
 	  changed = YES;
@@ -162,9 +168,9 @@ static NSHTTPCookieStorage   *storage = nil;
 
 - (void) _updateFromCookieStore
 {
-  int i;
-  NSArray *properties;
-  NSString *path = [self _cookieStorePath];
+  int 		i;
+  NSArray 	*properties;
+  NSString 	*path = [self _cookieStorePath];
 
   if (path == nil)
     {
@@ -190,16 +196,17 @@ static NSHTTPCookieStorage   *storage = nil;
       cookie = [NSHTTPCookie cookieWithProperties: props];
       if (NO == [this->_cookies containsObject: cookie])
 	{
-	  [this->_cookies addObject:cookie];
+	  [this->_cookies addObject: cookie];
 	}
     }
 }
 
 - (void) _updateToCookieStore
 {
-  int i, count;
-  NSMutableArray *properties;
-  NSString *path = [self _cookieStorePath];
+  int 			i;
+  int			count;
+  NSMutableArray 	*properties;
+  NSString 		*path = [self _cookieStorePath];
 
   if (path == nil)
     {
@@ -242,15 +249,15 @@ static NSHTTPCookieStorage   *storage = nil;
 
 - (NSArray *) cookies
 {
-  return [[this->_cookies copy] autorelease];
+  return AUTORELEASE([this->_cookies copy]);
 }
 
 - (NSArray *) cookiesForURL: (NSURL *)URL
 {
-  NSMutableArray *a = [NSMutableArray array];
-  NSEnumerator *ckenum = [this->_cookies objectEnumerator];
-  NSHTTPCookie *cookie;
-  NSString *receive_domain = [URL host];
+  NSMutableArray 	*a = [NSMutableArray array];
+  NSEnumerator 		*ckenum = [this->_cookies objectEnumerator];
+  NSHTTPCookie 		*cookie;
+  NSString 		*receive_domain = [URL host];
 
   while ((cookie = [ckenum nextObject]))
     {
@@ -273,11 +280,12 @@ static NSHTTPCookieStorage   *storage = nil;
 
 - (void) _setCookieNoNotify: (NSHTTPCookie *)cookie
 {
-  NSEnumerator *ckenum = [this->_cookies objectEnumerator];
-  NSHTTPCookie *ck, *remove_ck;
-  NSString *name = [cookie name];
-  NSString *path = [cookie path];
-  NSString *domain = [cookie domain];
+  NSEnumerator 	*ckenum = [this->_cookies objectEnumerator];
+  NSHTTPCookie	*ck;
+  NSHTTPCookie	*remove_ck;
+  NSString 	*name = [cookie name];
+  NSString	*path = [cookie path];
+  NSString	*domain = [cookie domain];
 
   NSAssert([cookie isKindOfClass: [NSHTTPCookie class]] == YES,
     NSInvalidArgumentException);
@@ -336,9 +344,10 @@ static NSHTTPCookieStorage   *storage = nil;
       NSHTTPCookie	*ck = [cookies objectAtIndex: count];
 
       if (this->_policy == NSHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain
-          && [[URL host] hasSuffix: [mainDocumentURL host]] == NO)
-	continue;
-
+        && [[URL host] hasSuffix: [mainDocumentURL host]] == NO)
+	{
+	  continue;
+	}
       [self _setCookieNoNotify: ck];
       changed = YES;
     }

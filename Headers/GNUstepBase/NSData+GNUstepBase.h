@@ -19,8 +19,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
 */
 
@@ -108,7 +107,8 @@ extern "C" {
  * If the string does not contain one or more pairs of hexadecimal digits
  * then an exception is raised. 
  */
-- (instancetype) initWithHexadecimalRepresentation: (NSString*)string;
+- (instancetype) initWithHexadecimalRepresentation: (NSString*)string
+  NS_CONSUMES_SELF NS_RETURNS_RETAINED;
 
 /**
  * Creates an MD5 digest of the information stored in the receiver and

@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSDistributedLock class reference</title>
    $Date$ $Revision$
@@ -35,10 +34,10 @@
 #import "GSPrivate.h"
 
 
-#if	defined(HAVE_SYS_FCNTL_H)
-#  include	<sys/fcntl.h>
-#elif	defined(HAVE_FCNTL_H)
+#if	defined(HAVE_FCNTL_H)
 #  include	<fcntl.h>
+#elif	defined(HAVE_SYS_FCNTL_H)
+#  include	<sys/fcntl.h>
 #endif
 
 
@@ -80,10 +79,6 @@ static NSFileManager	*mgr = nil;
     {
       NSDictionary	*attributes;
 
-      if (nil != _lockTime)
-	{
-	  NSLog(@"Breaking our own distributed lock %@", _lockPath);
-        }
       DESTROY(_lockTime);
       attributes = [mgr fileAttributesAtPath: _lockPath traverseLink: YES];
       if (attributes != nil)
@@ -230,11 +225,14 @@ static NSFileManager	*mgr = nil;
       attributesToSet = [NSMutableDictionary dictionaryWithCapacity: 1];
       [attributesToSet setObject: [NSNumber numberWithUnsignedInt: 0755]
 			  forKey: NSFilePosixPermissions];
-	    
+
+      /* Here we depend on the fact that directory creation will fail if
+       * the directory already exists.
+       * We don't worry about any intermediate directories since we checked
+       * those when the receiver was initialised in the -initWithPath: method.
+       */
       locked = [mgr createDirectoryAtPath: _lockPath
-	      withIntermediateDirectories: YES
-			       attributes: attributesToSet
-				    error: NULL];
+			       attributes: attributesToSet];
       if (NO == locked)
 	{
 	  BOOL	dir;

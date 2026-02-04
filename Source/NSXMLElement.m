@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #import "common.h"
@@ -27,14 +26,10 @@
 #if defined(HAVE_LIBXML)
 
 #define GSInternal	NSXMLElementInternal
-#define	GS_XMLNODETYPE	xmlNode
 
 #import "NSXMLPrivate.h"
 #import "GSInternal.h"
 GS_PRIVATE_INTERNAL(NSXMLElement)
-
-extern void cleanup_namespaces(xmlNodePtr node, xmlNsPtr ns);
-extern void ensure_oldNs(xmlNodePtr node);
 
 @implementation NSXMLElement
 
@@ -168,22 +163,42 @@ extern void ensure_oldNs(xmlNodePtr node);
       NSMutableArray *results = [NSMutableArray arrayWithCapacity: 10];
       xmlNodePtr cur = NULL;
       const xmlChar *xmlName = XMLSTRING(name);
-      
-      for (cur = internal->node->children; cur != NULL; cur = cur->next)
+      xmlNsPtr defaultNS = NULL;
+
+      // Find the default namespace (empty or NULL prefix) of this parent element
+      xmlNsPtr ns;
+      for (ns = internal->node.node->nsDef; ns != NULL; ns = ns->next)
+        {
+          if (ns->prefix == NULL || xmlStrcmp(ns->prefix, (const xmlChar*)"") == 0)
+            {
+              defaultNS = ns;
+              break;
+            }
+        }
+
+      for (cur = internal->node.node->children; cur != NULL; cur = cur->next)
         {
           if (cur->type == XML_ELEMENT_NODE)
             {
-              // no namespace or default namespace
-              if ((xmlStrcmp(xmlName, cur->name) == 0) &&
-                  ((cur->ns == NULL) || (cur->ns->prefix == NULL) ||
-                   (xmlStrcmp(cur->ns->prefix, (const xmlChar*)"") == 0)))
+              if (xmlStrcmp(xmlName, cur->name) == 0)
                 {
-                  NSXMLNode *theNode = [NSXMLNode _objectForNode: cur];
-                  [results addObject: theNode];
+                  // Match elements with no namespace
+                  if (cur->ns == NULL)
+                    {
+                      NSXMLNode *theNode = [NSXMLNode _objectForNode: cur];
+                      [results addObject: theNode];
+                    }
+                  // Match elements in the default namespace if one exists
+                  else if (defaultNS != NULL && cur->ns->href != NULL &&
+                           xmlStrcmp(cur->ns->href, defaultNS->href) == 0)
+                    {
+                      NSXMLNode *theNode = [NSXMLNode _objectForNode: cur];
+                      [results addObject: theNode];
+                    }
                 }
             }
         }
-  
+
       return results;
     }
 }
@@ -194,9 +209,9 @@ extern void ensure_oldNs(xmlNodePtr node);
   xmlNodePtr cur = NULL;
   const xmlChar *href = XMLSTRING(URI);
   const xmlChar *xmlName = XMLSTRING(localName);
-  xmlNsPtr parentNS = xmlSearchNsByHref(internal->node->doc, internal->node, href);
+  xmlNsPtr parentNS = xmlSearchNsByHref(internal->node.node->doc, internal->node.node, href);
 
-  for (cur = internal->node->children; cur != NULL; cur = cur->next)
+  for (cur = internal->node.node->children; cur != NULL; cur = cur->next)
     {
       if (cur->type == XML_ELEMENT_NODE)
         {
@@ -206,7 +221,7 @@ extern void ensure_oldNs(xmlNodePtr node);
 
               if (cur->nsDef != NULL)
                 {
-                  childNS = xmlSearchNsByHref(internal->node->doc, cur, href);
+                  childNS = xmlSearchNsByHref(internal->node.node->doc, cur, href);
                 }
 
               
@@ -228,7 +243,7 @@ extern void ensure_oldNs(xmlNodePtr node);
 
 - (void) addAttribute: (NSXMLNode*)attribute
 {
-  xmlNodePtr theNode = internal->node;
+  xmlNodePtr theNode = internal->node.node;
   xmlAttrPtr attr = (xmlAttrPtr)[attribute _node];
   xmlAttrPtr oldAttr;
 
@@ -285,11 +300,12 @@ extern void ensure_oldNs(xmlNodePtr node);
                     }
                   else
                     {
-                      last->next = ns->next;
+                      last->next = cur->next;
                     }
                   cur->next = NULL;
                   break;
-                } 
+                }
+              last = cur;
               cur = cur->next;
             }
 
@@ -362,7 +378,16 @@ extern void ensure_oldNs(xmlNodePtr node);
   NSEnumerator	*enumerator = [attributes objectEnumerator];
   NSXMLNode	*attribute;
 
-  // FIXME: Remove all previous attributes
+  // Remove all previous attributes
+  NSArray *currentAttributes = [self attributes]; 
+  int index;
+  for (index = [currentAttributes count]-1; index >= 0; index--)
+    {
+	  NSXMLNode *attrNode = [currentAttributes objectAtIndex:index];
+      NSString *name = [attrNode name];
+	  [self removeAttributeForName:name];
+	}
+
   while ((attribute = [enumerator nextObject]) != nil)
     {
       [self addAttribute: attribute];
@@ -379,7 +404,16 @@ extern void ensure_oldNs(xmlNodePtr node);
   NSEnumerator	*en = [attributes keyEnumerator];
   NSString	*key;
 
-  // FIXME: Remove all previous attributes
+  // Remove all previous attributes
+  NSArray *currentAttributes = [self attributes]; 
+  int index;
+  for (index = [currentAttributes count]-1; index >= 0; index--)
+    {
+	  NSXMLNode *attrNode = [currentAttributes objectAtIndex:index];
+      NSString *name = [attrNode name];
+	  [self removeAttributeForName:name];
+	}
+
   while ((key = [en nextObject]) != nil)
     {
       NSString	*val = [[attributes objectForKey: key] stringValue];
@@ -392,7 +426,7 @@ extern void ensure_oldNs(xmlNodePtr node);
 - (NSArray*) attributes
 {
   NSMutableArray *attributes = [NSMutableArray array];
-  xmlNodePtr theNode = internal->node;
+  xmlNodePtr theNode = internal->node.node;
   xmlAttrPtr attributeNode = theNode->properties;
 
   while (attributeNode)
@@ -425,7 +459,7 @@ extern void ensure_oldNs(xmlNodePtr node);
 
   {
     NSXMLNode *result = nil;
-    xmlNodePtr theNode = internal->node;
+    xmlNodePtr theNode = internal->node.node;
     xmlAttrPtr attributeNode = xmlHasProp(theNode, XMLSTRING(name));
     
     if (NULL != attributeNode)
@@ -441,7 +475,7 @@ extern void ensure_oldNs(xmlNodePtr node);
                                  URI: (NSString*)URI
 {
   NSXMLNode *result = nil;
-  xmlNodePtr theNode = internal->node;
+  xmlNodePtr theNode = internal->node.node;
   xmlAttrPtr attributeNode = xmlHasNsProp(theNode, XMLSTRING(localName),
                                           XMLSTRING(URI));
   
@@ -456,7 +490,7 @@ extern void ensure_oldNs(xmlNodePtr node);
 - (void) addNamespace: (NSXMLNode*)aNamespace
 {
   xmlNsPtr ns = xmlCopyNamespace((xmlNsPtr)[aNamespace _node]);
-  xmlNodePtr theNode = internal->node;
+  xmlNodePtr theNode = internal->node.node;
   const xmlChar *prefix = ns->prefix;
 
   if (theNode->nsDef == NULL)
@@ -518,7 +552,7 @@ extern void ensure_oldNs(xmlNodePtr node);
 
 - (void) removeNamespaceForPrefix: (NSString*)name
 {
-  xmlNodePtr theNode = internal->node;
+  xmlNodePtr theNode = internal->node.node;
 
   if (theNode->nsDef != NULL)
     {
@@ -533,7 +567,7 @@ extern void ensure_oldNs(xmlNodePtr node);
             {
               if (last == NULL)
                 {
-                  internal->node->nsDef = cur->next;
+                  internal->node.node->nsDef = cur->next;
                 }
               else
                 {
@@ -559,8 +593,8 @@ extern void ensure_oldNs(xmlNodePtr node);
   NSXMLNode *namespace = nil;
 
   // Remove old namespaces
-  xmlFreeNsList(internal->node->nsDef);
-  internal->node->nsDef = NULL;
+  xmlFreeNsList(internal->node.node->nsDef);
+  internal->node.node->nsDef = NULL;
 
   // Add new ones
   while ((namespace = (NSXMLNode *)[en nextObject]) != nil)
@@ -573,7 +607,7 @@ extern void ensure_oldNs(xmlNodePtr node);
 {
   // FIXME: Should we use xmlGetNsList()?
   NSMutableArray *result = nil;
-  xmlNsPtr ns = internal->node->nsDef;
+  xmlNsPtr ns = internal->node.node->nsDef;
 
   if (ns)
     {
@@ -595,7 +629,7 @@ extern void ensure_oldNs(xmlNodePtr node);
   if (name != nil)
     {
       const xmlChar *prefix = XMLSTRING(name);
-      xmlNodePtr theNode = internal->node;
+      xmlNodePtr theNode = internal->node.node;
       xmlNsPtr ns;
       
       ns = xmlSearchNs(theNode->doc, theNode, prefix);
@@ -630,7 +664,7 @@ extern void ensure_oldNs(xmlNodePtr node);
 - (NSString*) resolvePrefixForNamespaceURI: (NSString*)namespaceURI
 {
   const xmlChar *uri = XMLSTRING(namespaceURI);
-  xmlNsPtr ns = xmlSearchNsByHref(internal->node->doc, internal->node, uri);
+  xmlNsPtr ns = xmlSearchNsByHref(internal->node.node->doc, internal->node.node, uri);
 
   if (ns)
     {

@@ -75,6 +75,11 @@
   [serverStream scheduleInRunLoop: rl forMode: NSDefaultRunLoopMode];
   [serverStream open];
 
+  /* Tell main test program we are ready to handle a request
+   */
+  [[NSFileHandle fileHandleWithStandardOutput] writeData:
+    [@"Ready" dataUsingEncoding: NSASCIIStringEncoding]];
+
   /* Run for up to 5 minutes to allow slow/large tests to complete.
    */
   [rl runUntilDate: [NSDate dateWithTimeIntervalSinceNow: 300]];
@@ -86,7 +91,7 @@
 {
   NSRunLoop	*rl = [NSRunLoop currentRunLoop];
 
-NSLog(@"Server %p %d", theStream, streamEvent);
+NSLog(@"Server %p %u", theStream, (unsigned)streamEvent);
   switch (streamEvent) 
     {
     case NSStreamEventHasBytesAvailable: 
@@ -249,7 +254,7 @@ NSLog(@"Server %p %d", theStream, streamEvent);
       break;
 
     default: 
-      NSLog(@"Unexpected event %d on %p", streamEvent, theStream);
+      NSLog(@"Unexpected event %u on %p", (unsigned)streamEvent, theStream);
       break;
     }
 } 

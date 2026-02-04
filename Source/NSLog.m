@@ -1,7 +1,7 @@
 /** Interface for NSLog for GNUStep
    Copyright (C) 1996, 1997 Free Software Foundation, Inc.
 
-   Written by:  Adam Fedor <fedor@boulder.colorado.edu>
+   Written by:  Adam Fedor <fedor@gnu.org>
    Date: November 1996
 
    This file is part of the GNUstep Base Library.
@@ -14,18 +14,18 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSLog reference</title>
    $Date$ $Revision$
    */
 
 #import "common.h"
+#import "GSPThread.h"
 #import "Foundation/NSDate.h"
 #import "Foundation/NSCalendarDate.h"
 #import "Foundation/NSTimeZone.h"
@@ -101,14 +101,16 @@ GSLogLock()
 {
   if (myLock == nil)
     {
-      [gnustep_global_lock lock];
+      static gs_mutex_t	setupLock = GS_MUTEX_INIT_STATIC;
+
+      GS_MUTEX_LOCK(setupLock);
       if (myLock == nil)
 	{
 	  myLock = [NSRecursiveLock new];
           lockImp = [myLock methodForSelector: @selector(lock)];
           unlockImp = [myLock methodForSelector: @selector(unlock)];
 	}
-      [gnustep_global_lock unlock];
+      GS_MUTEX_UNLOCK(setupLock);
     }
   return myLock;
 }
@@ -335,6 +337,11 @@ NSLogv(NSString* format, va_list args)
   NSString              *message;
   NSString              *threadName = nil;
   NSThread              *t = nil;
+  /* NB. On systems like Android where there is no operating system thread
+   * ID available, the value returned by GSPrivateThreadID() should actually
+   * be the pointer to the NSThread object.  We will check for that later.
+   */
+  NSUInteger            tid = GSPrivateThreadID();
   static int		pid = 0;
 
   if (_NSLog_printf_handler == NULL)
@@ -365,20 +372,20 @@ NSLogv(NSString* format, va_list args)
 #ifdef	HAVE_SYSLOG
   if (GSPrivateDefaultsFlag(GSLogSyslog) == YES)
     {
-      if (nil == t)
+      if (nil == t || ((NSThread*)tid == t && nil == threadName))
         {
           [prefix appendFormat: @"[thread:%"PRIuPTR"] ",
-            GSPrivateThreadID()];
+            tid];
         }
       else if (nil == threadName)
         {
           [prefix appendFormat: @"[thread:%"PRIuPTR",%p] ",
-            GSPrivateThreadID(), t];
+            tid, t];
         }
       else
         {
           [prefix appendFormat: @"[thread:%"PRIuPTR",%@] ",
-            GSPrivateThreadID(), threadName];
+            tid, threadName];
         }
     }
   else
@@ -400,20 +407,20 @@ NSLogv(NSString* format, va_list args)
       [prefix appendString: cal];
       [prefix appendString: @" "];
       [prefix appendString: [[NSProcessInfo processInfo] processName]];
-      if (nil == t)
+      if (nil == t || ((NSThread*)tid == t && nil == threadName))
         {
           [prefix appendFormat: @"[%d:%"PRIuPTR"] ",
-            pid, GSPrivateThreadID()];
+            pid, tid];
         }
       else if (nil == threadName)
         {
           [prefix appendFormat: @"[%d:%"PRIuPTR",%p] ",
-            pid, GSPrivateThreadID(), t];
+            pid, tid, t];
         }
       else
         {
           [prefix appendFormat: @"[%d:%"PRIuPTR",%@] ",
-            pid, GSPrivateThreadID(), threadName];
+            pid, tid, threadName];
         }
     }
 

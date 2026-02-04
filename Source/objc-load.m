@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */
 
 /* PS: Unloading modules is not implemented.  */
@@ -246,12 +245,11 @@ GSPrivateUnloadModule(FILE *errorStream,
 // dladdr() wrapping this function, so we no longer need a Windows-only code
 // path
 NSString *
-GSPrivateSymbolPath(Class theClass, Category *theCategory)
+GSPrivateSymbolPath(Class theClass)
 {
   unichar buf[MAX_PATH];
   NSString *s = nil;
   MEMORY_BASIC_INFORMATION memInfo;
-  NSCAssert(!theCategory, @"GSPrivateSymbolPath doesn't support categories");
 
   VirtualQueryEx(GetCurrentProcess(), theClass, &memInfo, sizeof(memInfo));
   if (GetModuleFileNameW(memInfo.AllocationBase, buf, sizeof(buf)))
@@ -260,82 +258,89 @@ GSPrivateSymbolPath(Class theClass, Category *theCategory)
 #warning Under Cygwin, we may want to use cygwin_conv_path() to get the unix path back?
 #endif
       s = [NSString stringWithCharacters: buf length: wcslen(buf)];
+      s = [s stringByResolvingSymlinksInPath];
+      s = [s stringByStandardizingPath];
     }
   return s;
 }
-#elif LINKER_GETSYMBOL 
-NSString *GSPrivateSymbolPath(Class theClass, Category *theCategory)
-{
-	void *addr = (NULL == theCategory) ? (void*)theClass : (void*)theCategory;
-	Dl_info info;
-	// This is correct: dladdr() does the opposite thing to all other UNIX
-	// functions.
-	if (0 == dladdr(addr, &info))
-	{
-		return nil;
-	}
-	return [NSString stringWithUTF8String: info.dli_fname];
-}
 #else
-NSString *
-GSPrivateSymbolPath(Class theClass, Category *theCategory)
+NSString *GSPrivateSymbolPath(Class theClass)
 {
-  const char *ret;
-  char        buf[125], *p = buf;
-  const char *className = class_getName(theClass);
-  int         len = strlen(className);
+#if LINKER_GETSYMBOL 
+  Dl_info info;
 
-  if (theCategory == NULL)
+  /* This is correct: dladdr() does the opposite thing to all other UNIX
+   * functions.
+   * On success, return the results, otherwise fall back to use the
+   * __objc_dynamic_get_symbol_path() function.
+   */
+  if (0 != dladdr((void*)theClass, &info))
     {
-      if (len + sizeof(char)*19 > sizeof(buf))
+      /* On some platforms, when the symbol is in the executable, the
+       * dladdr() function returns the value from argv[0] as the path.
+       * So we check for that and map it to the full path of the
+       * executable.
+       */
+      if (strcmp(info.dli_fname, GSPrivateArgZero()) == 0)
 	{
-	  p = malloc(len + sizeof(char)*19);
-
-	  if (p == NULL)
-	    {
-	      fprintf(stderr, "Unable to allocate memory !!");
-	      return nil;
-	    }
+	  return GSPrivateExecutablePath();
 	}
-
-      memcpy(p, "__objc_class_name_", sizeof(char)*18);
-	  memcpy(&p[18*sizeof(char)], className, strlen(className) + 1);
-    }
-  else
-    {
-      len += strlen(theCategory->category_name);
-
-      if (len + sizeof(char)*23 > sizeof(buf))
+      else
 	{
-	  p = malloc(len + sizeof(char)*23);
+	  NSString	*s;
 
-	  if (p == NULL)
-	    {
-	      fprintf(stderr, "Unable to allocate memory !!");
-	      return nil;
-	    }
+	  s = [NSString stringWithUTF8String: info.dli_fname];
+	  s = [s stringByResolvingSymlinksInPath];
+	  return [s stringByStandardizingPath];
 	}
-
-      memcpy(p, "__objc_category_name_", sizeof(char)*21);
-      memcpy(&p[21*sizeof(char)], theCategory->class_name,
-	     strlen(theCategory->class_name) + 1);
-      memcpy(&p[strlen(p)], "_", 2*sizeof(char));
-      memcpy(&p[strlen(p)], theCategory->category_name,
-	     strlen(theCategory->category_name) + 1);
     }
+#endif
 
-  ret = __objc_dynamic_get_symbol_path(0, p);
-
-  if (p != buf)
+  if (theClass != nil)
     {
-      free(p);
-    }
+      const char        *prefix
+#if __OBJC_GNUSTEP_RUNTIME_ABI__ >= 20
+        = "._OBJC_CLASS_";
+#else
+        = "__objc_class_name_";
+#endif
+      const char        *ret;
+      char              buf[125];
+      char              *p = buf;
+      const char        *className = class_getName(theClass);
+      int               len = strlen(className);
+      int               plen = strlen(prefix);
 
-  if (ret)
-    {
-      return [NSString stringWithUTF8String: ret];
-    }
+      if (len + plen + 1 > sizeof(buf))
+        {
+          p = malloc(len + plen + 1);
 
+          if (p == NULL)
+            {
+              fprintf(stderr, "Unable to allocate memory !!");
+              return nil;
+            }
+        }
+
+      memcpy(p, prefix, plen);
+      memcpy(&p[plen], className, len + 1);
+
+      ret = __objc_dynamic_get_symbol_path(0, p);
+
+      if (p != buf)
+        {
+          free(p);
+        }
+
+      if (ret)
+        {
+	  NSString	*s;
+
+          s = [NSString stringWithUTF8String: ret];
+	  s = [s stringByResolvingSymlinksInPath];
+	  return [s stringByStandardizingPath];
+        }
+    }
   return nil;
 }
 #endif

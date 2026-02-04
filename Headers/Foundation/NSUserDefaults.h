@@ -15,12 +15,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-   MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */ 
 
 #ifndef __NSUserDefaults_h_OBJECTS_INCLUDE
@@ -49,7 +48,7 @@ extern "C" {
  * User defaults domain for process arguments.  Command-line arguments
  * (key-value pairs, as in "-NSFoo bar") are placed in this domain.<br />
  * Where there is a sequence of arguments beginning with '-', only the
- * last one is used (so "-a -b -c d" will produce a single user default
+ * last one is used (so "-a" "-b" "-c" "d" will produce a single user default
  * 'c' with value 'd').<br />
  * NB. On OSX the argument "-" means a key consisting of an empty string
  * (so you can't use a '-' as a default value), while in GNUstep a "-" is
@@ -192,6 +191,11 @@ GS_EXPORT NSString* const GSLocale;
 #endif
 #endif
 
+#if !NO_GNUSTEP
+/* Path to PEM Encoded Certificate File (NSString). Used by NSURLSession if set. */
+GS_EXPORT NSString *const GSCACertificateFilePath;
+#endif
+
 /* General implementation notes: 
 
    OpenStep spec currently is neither complete nor consistent. Therefore
@@ -212,6 +216,7 @@ GS_EXPORT NSString* const GSLocale;
 	- write docs : -(
 	*/
 
+GS_EXPORT_CLASS
 @interface NSUserDefaults : NSObject
 {
 #if	GS_EXPOSE(NSUserDefaults)
@@ -518,6 +523,18 @@ GS_EXPORT NSString* const GSLocale;
  * available thereafter.
  */
 - (void) registerDefaults: (NSDictionary*)newVals;
+
+#if OS_API_VERSION(GS_API_NONE, GS_API_NONE)
+/** Writes dictionary to a file or removes empty defaults dictionary if
+ * supplied dictionary is nil.<br />
+ * GNUstep provides this method so that the process of writing a persistent
+ * domain may be overridden.  NB. this is not used on windows when defaults
+ * are saved to the windows registry.
+ */
+- (BOOL) writeDictionary: (NSDictionary*)dict
+                  toFile: (NSString*)file;
+#endif
+
 @end
 
 #if	defined(__cplusplus)

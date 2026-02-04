@@ -11,12 +11,14 @@ int main()
   val2 = @"A Goodbye";
   val3 = @"Testing all strings";
   
-  vals1 = [[NSMutableArray arrayWithObject:val1] retain];
-  [vals1 addObject:val2];
-  vals2 = [[vals1 arrayByAddingObject:val2] retain];
-  vals3 = [[vals1 arrayByAddingObject:val3] retain];
+  vals1 = [NSMutableArray arrayWithObject: val1];
+  [vals1 addObject: val2];
+  vals2 = AUTORELEASE([vals1 mutableCopy]);
+  [vals2 addObject: val2];
+  vals3 = AUTORELEASE([vals2 mutableCopy]);
+  [vals3 addObject: val3];
   
-  obj = [NSMutableArray new];
+  obj = [NSMutableArray array];
   arr = obj;
   PASS(obj != nil && [obj isKindOfClass:[NSMutableArray class]] && [obj count] == 0,
        "-count returns zero for an empty array");
@@ -96,6 +98,30 @@ int main()
          [a objectAtIndex:0] == val2 && [a objectAtIndex:1] == val1,
 	 "-sortedArrayUsingSelector: seems ok");
 
+  }
+  {
+    NSMutableArray *ma = [NSMutableArray new];
+    NSString	*s[5] = { @"1",@"2",@"3",@"4",@"5" };
+    NSUInteger	before;
+    NSUInteger	after;
+    int		i;
+
+    for (i = 0; i < 5; i++)
+      {
+	[ma addObject: s[i]];
+      }
+    before = [ma count];
+    [ma removeObjectsInArray: ma];
+    after = [ma count];
+    [ma release];
+    PASS(5 == before && 0 == after, "-removeObjectsInArray: works for self")
+  }
+  {
+    NSMutableArray *ma = [NSMutableArray new];
+      
+    PASS_RUNS([ma removeLastObject],
+              "-removeLastObject does not raise exceptions on empty array")
+    [ma release];
   }
   [arp release]; arp = nil;
   return 0;

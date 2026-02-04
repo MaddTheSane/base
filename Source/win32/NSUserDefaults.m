@@ -11,6 +11,8 @@
 #import "Foundation/NSPathUtilities.h"
 #import "Foundation/NSProcessInfo.h"
 
+#import "../GSPrivate.h"
+
 #define	UNISTR(X) \
 ((const unichar*)[(X) cStringUsingEncoding: NSUnicodeStringEncoding])
 
@@ -65,7 +67,7 @@ struct NSUserDefaultsWin32_DomainInfo
 		  NSString	*dPath;
 
 		  dPath = [registryPrefix stringByAppendingString: domain];
-		  NSLog(@"Failed to close registry HKEY_CURRENT_USER\\%@ (%x)",
+		  NSLog(@"Failed to close registry HKEY_CURRENT_USER\\%@ (%lx)",
 		    dPath, rc);
 		}
 	    }
@@ -77,7 +79,7 @@ struct NSUserDefaultsWin32_DomainInfo
 		  NSString	*dPath;
 
 		  dPath = [registryPrefix stringByAppendingString: domain];
-		  NSLog(@"Failed to close registry HKEY_LOCAL_MACHINE\\%@ (%x)",
+		  NSLog(@"Failed to close registry HKEY_LOCAL_MACHINE\\%@ (%lx)",
 		    dPath, rc);
 		}
 	    }
@@ -133,8 +135,16 @@ struct NSUserDefaultsWin32_DomainInfo
   allDomains = [self persistentDomainNames];
   if ([allDomains count] == 0)
     {
+      NSString	*key;
+
+      key = [GSPrivateInfoDictionary(nil) objectForKey: @"CFBundleIdentifier"];
+      if (NO == [key isKindOfClass: [NSString class]])
+	{
+	  key = [[NSProcessInfo processInfo] processName];
+	}
+
       allDomains = [NSArray arrayWithObjects:
-	[[NSProcessInfo processInfo] processName],
+	key,
 	NSGlobalDomain,
 	nil];
     }
@@ -177,7 +187,7 @@ struct NSUserDefaultsWin32_DomainInfo
 	    }
 	  else if (rc != ERROR_SUCCESS)
 	    {
-	      NSLog(@"Failed to open registry HKEY_CURRENT_USER\\%@ (%x)",
+	      NSLog(@"Failed to open registry HKEY_CURRENT_USER\\%@ (%lx)",
 		dPath, rc);
 	      return nil;
 	    }
@@ -195,7 +205,7 @@ struct NSUserDefaultsWin32_DomainInfo
 	    }
 	  else if (rc != ERROR_SUCCESS)
 	    {
-	      NSLog(@"Failed to open registry HKEY_LOCAL_MACHINE\\%@ (%x)",
+	      NSLog(@"Failed to open registry HKEY_LOCAL_MACHINE\\%@ (%lx)",
 		dPath, rc);
 	      return nil;
 	    }
@@ -254,7 +264,8 @@ struct NSUserDefaultsWin32_DomainInfo
 			    }
 			    break;
 			  default:
-			    NSLog(@"Bad registry type %d for '%S'", type, name);
+			    NSLog(@"Bad registry type %lu for '%ls'", type,
+			      (const unichar *)name);
 			    v = 0;
 			}
 		      v = [v propertyList];
@@ -266,7 +277,7 @@ struct NSUserDefaultsWin32_DomainInfo
 			}
 		    }
 		  NS_HANDLER
-		    NSLog(@"Bad registry value for '%S'", name);
+		    NSLog(@"Bad registry value for '%ls'", (const unichar *)name);
 		  NS_ENDHANDLER
 		}
 	      else if (rc == ERROR_MORE_DATA)
@@ -289,7 +300,7 @@ struct NSUserDefaultsWin32_DomainInfo
 		}
 	      else
 		{
-		  NSLog(@"RegEnumValueW error %d", rc);
+		  NSLog(@"RegEnumValueW error %ld", rc);
 		  break;
 		}
 	      i++;
@@ -350,7 +361,8 @@ struct NSUserDefaultsWin32_DomainInfo
 			    }
 			    break;
 			  default:
-			    NSLog(@"Bad registry type %d for '%S'", type, name);
+			    NSLog(@"Bad registry type %lu for '%ls'", type,
+			      (const unichar *)name);
 			    v = 0;
 			}
 		      v = [v propertyList];
@@ -362,7 +374,7 @@ struct NSUserDefaultsWin32_DomainInfo
 			}
 		    }
 		  NS_HANDLER
-		    NSLog(@"Bad registry value for '%S'", name);
+		    NSLog(@"Bad registry value for '%ls'", (const unichar *)name);
 		  NS_ENDHANDLER
 		}
 	      else if (rc == ERROR_MORE_DATA)
@@ -385,7 +397,7 @@ struct NSUserDefaultsWin32_DomainInfo
 		}
 	      else
 		{
-		  NSLog(@"RegEnumValueW error %d", rc);
+		  NSLog(@"RegEnumValueW error %ld", rc);
 		  break;
 		}
 	      i++;
@@ -431,7 +443,7 @@ struct NSUserDefaultsWin32_DomainInfo
 		  NSString	*dName = [@"HKEY_CURRENT_USER\\"
 		    stringByAppendingString: dPath];
 
-		  NSLog(@"Failed to query modify time on registry %@ (%x)",
+		  NSLog(@"Failed to query modify time on registry %@ (%lx)",
 		    dName, rc);
 		  NSEndMapTableEnumeration(&iter);
 		  return YES;
@@ -461,7 +473,7 @@ struct NSUserDefaultsWin32_DomainInfo
 		  NSString	*dName = [@"HKEY_CURRENT_USER\\"
 		    stringByAppendingString: dPath];
 
-		  NSLog(@"Failed to open registry %@ (%x)", dName, rc);
+		  NSLog(@"Failed to open registry %@ (%lx)", dName, rc);
 		}
 	      else
 		{
@@ -476,7 +488,7 @@ struct NSUserDefaultsWin32_DomainInfo
 		NULL, NULL, (PFILETIME)&lasttime);
 	      if (rc != ERROR_SUCCESS)
 		{
-		  NSLog(@"Failed to query time on HKEY_LOCAL_MACHINE\\%@ (%x)",
+		  NSLog(@"Failed to query time on HKEY_LOCAL_MACHINE\\%@ (%lx)",
 		    dPath, rc);
 		  NSEndMapTableEnumeration(&iter);
 		  return YES;
@@ -502,7 +514,7 @@ struct NSUserDefaultsWin32_DomainInfo
 		}
 	      else if (rc != ERROR_SUCCESS)
 		{
-		  NSLog(@"Failed to open registry HKEY_LOCAL_MACHINE\\%@ (%x)",
+		  NSLog(@"Failed to open registry HKEY_LOCAL_MACHINE\\%@ (%lx)",
 		    dPath, rc);
 		}
 	      else
@@ -569,7 +581,7 @@ struct NSUserDefaultsWin32_DomainInfo
 	    NULL);
 	  if (rc != ERROR_SUCCESS)
 	    {
-	      NSLog(@"Failed to create registry HKEY_CURRENT_USER\\%@ (%x)",
+	      NSLog(@"Failed to create registry HKEY_CURRENT_USER\\%@ (%lx)",
 		dPath, rc);
 	      return NO;
 	    }
@@ -596,7 +608,7 @@ struct NSUserDefaultsWin32_DomainInfo
 		2*(wcslen(ptr) + 1));
 	      if (rc != ERROR_SUCCESS)
 		{
-		  NSLog(@"Failed to insert HKEY_CURRENT_USER\\%@\\%@ (%x)",
+		  NSLog(@"Failed to insert HKEY_CURRENT_USER\\%@\\%@ (%lx)",
 		    dPath, valName, rc);
 		  return NO;
 		}
@@ -612,7 +624,7 @@ struct NSUserDefaultsWin32_DomainInfo
 	      rc = RegDeleteValueW(dinfo->userKey, UNISTR(valName));
 	      if (rc != ERROR_SUCCESS)
 		{
-		  NSLog(@"Failed to delete HKEY_CURRENT_USER\\%@\\%@ (%x)",
+		  NSLog(@"Failed to delete HKEY_CURRENT_USER\\%@\\%@ (%lx)",
 		    dPath, valName, rc);
 		  return NO;
 		}

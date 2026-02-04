@@ -22,8 +22,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */
 
 #ifndef	included_GSConfig_h
@@ -240,7 +239,7 @@ typedef	gsuaddr gsaddr;
  * Native character type for use in systemcalls etc.
  */
 
-#if	defined(__MINGW__)
+#if	defined(_WIN32)
 #  define	GSNativeChar	uint16_t
 #else
 #  define	GSNativeChar	char
@@ -254,23 +253,28 @@ typedef	gsuaddr gsaddr;
  */
 typedef	struct {
   uint8_t	dummy[@GS_SIZEOF_COND_T@];
-} gs_cond_t	__attribute__((aligned (@GS_ALIGNOF_COND_T@)));
+} gs_cond_public_t	__attribute__((aligned (@GS_ALIGNOF_COND_T@)));
+typedef	struct {
+  uint8_t	dummy[@GS_SIZEOF_COND_MUTEX_T@];
+} gs_cond_mutex_public_t	__attribute__((aligned (@GS_ALIGNOF_COND_MUTEX_T@)));
 typedef	struct {
   uint8_t	dummy[@GS_SIZEOF_MUTEX_T@];
-} gs_mutex_t	__attribute__((aligned (@GS_ALIGNOF_MUTEX_T@)));
+} gs_mutex_public_t	__attribute__((aligned (@GS_ALIGNOF_MUTEX_T@)));
 
 #define	OBJC2RUNTIME @OBJC2RUNTIME@
 #define BASE_NATIVE_OBJC_EXCEPTIONS     @BASE_NATIVE_OBJC_EXCEPTIONS@
 #define GS_NONFRAGILE     @GS_NONFRAGILE@
-#define GS_MIXEDABI     @GS_MIXEDABI@
 #define GS_USE_LIBXML @HAVE_LIBXML@
 #define GS_USE_GNUTLS @HAVE_GNUTLS@
 #define GS_USE_AVAHI @HAVE_AVAHI@
 #define GS_USE_MDNS @HAVE_MDNS@
 #define GS_USE_ICU @HAVE_ICU@
+#define GS_USE_LIBCURL @HAVE_LIBCURL@
 #define GS_USE_LIBDISPATCH @HAVE_LIBDISPATCH@
 #define GS_USE_LIBDISPATCH_RUNLOOP @HAVE_LIBDISPATCH_RUNLOOP@
+#define GS_HAVE_NSURLSESSION @GS_HAVE_NSURLSESSION@
 #define GS_HAVE_OBJC_ROOT_CLASS_ATTR @GS_HAVE_OBJC_ROOT_CLASS_ATTR@
+#define GS_USE_WIN32_THREADS_AND_LOCKS @HAVE_WIN32_THREADS_AND_LOCKS@
 
 #ifndef __has_include
 #  define __has_include(x) 0
@@ -294,29 +298,49 @@ typedef	struct {
 #endif
 
 #if defined(_WIN32)
-#define BOOL WinBOOL
-#define __OBJC_BOOL 1
-#include <w32api.h>
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT Windows2000
-#endif
-#if	!defined(WINVER)
-#define WINVER Windows2000
-#elif (WINVER < Windows2000)
-#undef	WINVER
-#define WINVER Windows2000
+#  define BOOL WinBOOL
+#  define __OBJC_BOOL 1
+
+#  if defined(__MINGW__)
+#    include <w32api.h>
+#    define GS_WINVER WindowsVista
+#  elif defined(_MSC_VER)
+#    include <WinSDKVer.h>
+#    define GS_WINVER _WIN32_WINNT_WIN10
+#  endif
+
+#  ifndef _WIN32_WINNT
+#    define _WIN32_WINNT GS_WINVER
+#  endif
+#  if	!defined(WINVER)
+#    define WINVER GS_WINVER
+#  elif (WINVER < GS_WINVER)
+#    undef	WINVER
+#    define WINVER GS_WINVER
+#  endif
+
+// Trick to distinguish between MSYS/MinGW and MSYS2/MinGW32, the latter defines
+// __MINGW32_MAJOR_VERSION and __MINGW32_MINOR_VERSION for compatibility
+// but to a lower version than older MSYS/MinGW, but not the compound version
+//
+#  if defined(__MINGW32_VERSION)
+#    define __USE_W32_SOCKETS
+#    include <windows.h>
+#    include <winsock2.h>
+#  else
+#    include <winsock2.h>
+#    include <windows.h>
+#  endif
+
+#  undef __OBJC_BOOL
+#  undef  BOOL
 #endif
 
-#if defined(__WIN64__)
-#include <winsock2.h>
-#include <windows.h>
+/* Used to annotate callback functions with __stdcall on Windows. */
+#if defined(_WIN32)
+#define GS_WINAPI WINAPI
 #else
-#include <windows.h>
-#include <winsock2.h>
-#endif
-
-#undef __OBJC_BOOL
-#undef  BOOL
+#define GS_WINAPI
 #endif
 
 /* Include the blocks runtime header if it's available (It shouldn't matter

@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */
 
 #import "common.h"
@@ -34,8 +33,8 @@
 #import "Foundation/NSDistantObject.h"
 #import "Foundation/NSData.h"
 #import "GSInvocation.h"
+#import "GSPThread.h"
 #import "GNUstepBase/GSObjCRuntime.h"
-#import <pthread.h>
 #import "cifframe.h"
 #import "GSPrivate.h"
 
@@ -190,26 +189,26 @@ IMP gs_objc_msg_forward (SEL sel)
   return gs_objc_msg_forward2 (nil, sel);
 }
 #ifdef __GNUSTEP_RUNTIME__
-pthread_key_t thread_slot_key;
+static gs_thread_key_t thread_slot_key;
 static struct objc_slot *
 gs_objc_msg_forward3(id receiver, SEL op)
 {
   /* The slot has its version set to 0, so it can not be cached.  This makes it
    * safe to free it when the thread exits. */
-  struct objc_slot *slot = pthread_getspecific(thread_slot_key);
+  struct objc_slot *slot = GS_THREAD_KEY_GET(thread_slot_key);
 
   if (NULL == slot)
     {
       slot = calloc(sizeof(struct objc_slot), 1);
-      pthread_setspecific(thread_slot_key, slot);
+      GS_THREAD_KEY_SET(thread_slot_key, slot);
     }
   slot->method = gs_objc_msg_forward2(receiver, op);
   return slot;
 }
 
 /** Hidden by legacy API define.  Declare it locally */
-BOOL class_isMetaClass(Class cls);
-BOOL class_respondsToSelector(Class cls, SEL sel);
+GS_IMPORT BOOL class_isMetaClass(Class cls);
+GS_IMPORT BOOL class_respondsToSelector(Class cls, SEL sel);
 
 /**
  * Runtime hook used to provide message redirections with libobjc2.
@@ -256,10 +255,18 @@ static id gs_objc_proxy_lookup(id receiver, SEL op)
 }
 #endif
 
+#ifdef __GNUSTEP_RUNTIME__
+static void GS_WINAPI
+exitedThread(void *slot)
+{
+  free(slot);
+}
+#endif
+
 + (void) load
 {
 #ifdef __GNUSTEP_RUNTIME__
-  pthread_key_create(&thread_slot_key, free);
+  GS_THREAD_KEY_INIT(thread_slot_key, exitedThread);
   __objc_msg_forward3 = gs_objc_msg_forward3;
   __objc_msg_forward2 = gs_objc_msg_forward2;
   objc_proxy_lookup = gs_objc_proxy_lookup;
@@ -288,8 +295,7 @@ static id gs_objc_proxy_lookup(id receiver, SEL op)
   _sig = RETAIN(aSignature);
   _numArgs = [aSignature numberOfArguments];
   _info = [aSignature methodInfo];
-  _frame = cifframe_from_signature(_sig);
-  [_frame retain];
+  [self setupFrameFFI: _sig];
   _cframe = [_frame mutableBytes];
 
   /* Make sure we have somewhere to store the return value if needed.
@@ -429,21 +435,19 @@ GSFFIInvokeWithTargetAndImp(NSInvocation *inv, id anObject, IMP imp)
     }
   else
     {
-      GSMethod method;
-      method = GSGetMethod((GSObjCIsInstance(_target)
-                            ? (Class)object_getClass(_target)
-                            : (Class)_target),
-                           _selector,
-                           GSObjCIsInstance(_target),
-                           YES);
-      imp = method_getImplementation(method);
-      /*
-       * If fast lookup failed, we may be forwarding or something ...
+      /* The KVO implementation for libobjc2 (located in gnustep-base Source/NSKVO*)
+       * uses the non-portable `object_addMethod_np` API from libobjc2.
+       * `object_addMethod_np` creates or reuses a hidden subclass and adds the swizzled
+       * method to the hidden class.
+       *
+       * When retrieving the object's class with `object_getClass`, hidden classes are skipped
+       * and the original class is returned.
+       * This is also the case with `class_getInstanceMethod`, where the
+       * original class or (non-swizzled) method is returned instead.
+       * 
+       * The proper way to retrieve an IMP is with `objc_msg_lookup`.
        */
-      if (imp == 0)
-	{
-	  imp = objc_msg_lookup(_target, _selector);
-	}
+      imp = objc_msg_lookup(_target, _selector);
     }
 
   [self setTarget: old_target];
@@ -599,7 +603,7 @@ GSFFIInvocationCallback(ffi_cif *cif, void *retp, void **args, void *user)
 					values: args
  					frame: user
 					signature: sig];
-  IF_NO_GC([invocation autorelease];)
+  IF_NO_ARC([invocation autorelease];)
   [invocation setTarget: obj];
   [invocation setSelector: selector];
 

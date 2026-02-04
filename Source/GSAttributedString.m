@@ -20,15 +20,14 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    If you are interested in a warranty or support for this source code,
    contact Scott Christley <scottc@net-community.com> for more information.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 /* Warning -	[-initWithString:attributes:] is the designated initialiser,
@@ -45,7 +44,6 @@
  */
 
 #import "common.h"
-#import "GNUstepBase/GSLock.h"
 #import "GNUstepBase/NSMutableString+GNUstepBase.h"
 #import "Foundation/NSAttributedString.h"
 #import "Foundation/NSException.h"
@@ -494,15 +492,20 @@ _attributesAtIndexEffectiveRange(
 
   if (nil == aString)
     {
+      DESTROY(self);
       [NSException raise: NSInvalidArgumentException
 		  format: @"aString object passed to -[GSAttributedString initWithString:attributes:] is nil"];
     }
   if (![aString respondsToSelector: @selector(length)])
     {
+      DESTROY(self);
       [NSException raise: NSInvalidArgumentException
 		  format: @"aString object passed to -[GSAttributedString initWithString:attributes:] does not respond to -length"];
     }
-
+  if (nil == (self = [super initWithString: aString attributes: attributes]))
+    {
+      return nil;
+    }
   _infoArray = [[NSMutableArray allocWithZone: z] initWithCapacity: 1];
   if (aString != nil && [aString isKindOfClass: [NSAttributedString class]])
     {
@@ -605,13 +608,19 @@ _attributesAtIndexEffectiveRange(
 
   if (nil == aString)
     {
+      DESTROY(self);
       [NSException raise: NSInvalidArgumentException
 		  format: @"aString object passed to -[GSAttributedString initWithString:attributes:] is nil"];
     }
   if (![aString respondsToSelector: @selector(length)])
     {
+      DESTROY(self);
       [NSException raise: NSInvalidArgumentException
 		  format: @"aString object passed to -[GSAttributedString initWithString:attributes:] does not respond to -length"];
+    }
+  if (nil == (self = [super initWithString: aString attributes: attributes]))
+    {
+      return nil;
     }
 
   _infoArray = [[NSMutableArray allocWithZone: z] initWithCapacity: 1];
@@ -683,7 +692,8 @@ SANITY();
   unsigned	tmpLength;
   unsigned	arrayIndex = 0;
   unsigned	arraySize;
-  NSRange	effectiveRange = NSMakeRange(0, NSNotFound);
+  // Initial value unused; set by _attributesAtIndexEffectiveRange
+  NSRange	effectiveRange = NSMakeRange(NSNotFound, 0);
   unsigned	afterRangeLoc, beginRangeLoc;
   NSDictionary	*attrs;
   NSZone	*z = [self zone];
@@ -713,19 +723,12 @@ SANITY();
 	afterRangeLoc, &effectiveRange, tmpLength, _infoArray, &arrayIndex);
       if (attrs == attributes)
         {
-          /*
-           * The located range has the same attributes as us - so we can
+          /* The located range has the same attributes as us - so we can
            * extend our range to include it.
            */
           if (effectiveRange.location < beginRangeLoc)
             {
-              range.length += beginRangeLoc - effectiveRange.location;
-              range.location = effectiveRange.location;
-              beginRangeLoc = range.location;
-            }
-          if (NSMaxRange(effectiveRange) > afterRangeLoc)
-            {
-              range.length = NSMaxRange(effectiveRange) - range.location;
+              beginRangeLoc = effectiveRange.location;
             }
         }
       else if (effectiveRange.location > beginRangeLoc)
@@ -798,7 +801,8 @@ SANITY();
   unsigned	tmpLength;
   unsigned	arrayIndex = 0;
   unsigned	arraySize;
-  NSRange	effectiveRange = NSMakeRange(0, NSNotFound);
+  // Initial value unused; set by _attributesAtIndexEffectiveRange
+  NSRange	effectiveRange = NSMakeRange(NSNotFound, 0);
   GSAttrInfo	*info;
   int		moveLocations;
   unsigned	start;

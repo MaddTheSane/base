@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #ifndef __NSURL_h_GNUSTEP_BASE_INCLUDE
@@ -27,6 +26,7 @@
 #import	<GNUstepBase/GSVersionMacros.h>
 
 #import	<Foundation/NSURLHandle.h>
+#import <Foundation/NSRange.h>
 
 #if	defined(__cplusplus)
 extern "C" {
@@ -36,11 +36,27 @@ extern "C" {
 
 @class NSError;
 @class NSNumber;
+@class NSString;
+@class NSDictionary;
+@class NSArray;
 
 /**
  *  URL scheme constant for use with [NSURL-initWithScheme:host:path:].
  */
 GS_EXPORT NSString* const NSURLFileScheme;
+
+/** URL Bookmark Resolution Options **/
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
+typedef NSUInteger NSURLBookmarkResolutionOptions;
+enum
+{
+  NSURLBookmarkResolutionWithoutUI = (1 << 8),
+  NSURLBookmarkResolutionWithoutMounting = (1 << 9),
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_7, GS_API_LATEST)
+  NSURLBookmarkResolutionWithSecurityScope = (1 << 10)
+#endif
+};
+#endif
 
 /**
  * This class permits manipulation of URLs and the resources to which they
@@ -51,6 +67,7 @@ GS_EXPORT NSString* const NSURLFileScheme;
  * Handling of the underlying resources is carried out by NSURLHandle
  * objects, but NSURL provides a simplified API wrapping these objects.
  */
+GS_EXPORT_CLASS
 @interface NSURL: NSObject <NSCoding, NSCopying, NSURLHandleClient>
 {
 #if	GS_EXPOSE(NSURL)
@@ -68,12 +85,27 @@ GS_EXPORT NSString* const NSURLFileScheme;
  * Calls -initFileURLWithPath: which escapes characters in the
  * path where necessary.
  */
-+ (id) fileURLWithPath: (NSString*)aPath;
++ (instancetype) fileURLWithPath: (NSString*)aPath;
 
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_6,GS_API_LATEST) 
 /** Creates a file URL using a path built from components.
  */
-+ (NSURL*) fileURLWithPathComponents: (NSArray*)components;
++ (instancetype) fileURLWithPathComponents: (NSArray*)components;
+#endif
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_5, GS_API_LATEST)
++ (instancetype) fileURLWithPath: (NSString*)aPath isDirectory: (BOOL)isDir;
+#endif
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_11, GS_API_LATEST)
++ (instancetype) fileURLWithPath: (NSString *)aPath
+		     isDirectory: (BOOL)isDir
+		   relativeToURL: (NSURL *)baseURL;
+
+/** Create and return a file URL with the supplied path, relative to a base URL.
+ */
++ (instancetype) fileURLWithPath: (NSString *)aPath
+		   relativeToURL: (NSURL *)baseURL;
 #endif
 
 /**
@@ -82,7 +114,13 @@ GS_EXPORT NSString* const NSURLFileScheme;
  * conforming to the description (in RFC2396) of an absolute URL.<br />
  * Calls -initWithString:
  */
-+ (id) URLWithString: (NSString*)aUrlString;
++ (instancetype) URLWithString: (NSString*)aUrlString;
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_10, GS_API_LATEST)
++ (instancetype) URLByResolvingAliasFileAtURL: (NSURL*)url
+                                      options: (NSURLBookmarkResolutionOptions)options
+                                        error: (NSError**)error;
+#endif
 
 /**
  * Create and return a URL with the supplied string, which should
@@ -90,8 +128,8 @@ GS_EXPORT NSString* const NSURLFileScheme;
  * conforming to the description (in RFC2396) of a relative URL.<br />
  * Calls -initWithString:relativeToURL:
  */
-+ (id) URLWithString: (NSString*)aUrlString
-       relativeToURL: (NSURL*)aBaseUrl;
++ (instancetype) URLWithString: (NSString*)aUrlString
+                 relativeToURL: (NSURL*)aBaseUrl;
 
 /**
  * Initialise as a file URL with the specified path (which must
@@ -102,7 +140,7 @@ GS_EXPORT NSString* const NSURLFileScheme;
  * specifies a directory.<br />
  * Calls -initWithScheme:host:path:
  */
-- (id) initFileURLWithPath: (NSString*)aPath;
+- (instancetype) initFileURLWithPath: (NSString*)aPath;
 
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_5,GS_API_LATEST) 
 /**
@@ -114,7 +152,35 @@ GS_EXPORT NSString* const NSURLFileScheme;
  * specifies a directory.<br />
  * Calls -initWithScheme:host:path:
  */
-- (id) initFileURLWithPath: (NSString*)aPath isDirectory: (BOOL)isDir;
+- (instancetype) initFileURLWithPath: (NSString*)aPath
+                         isDirectory: (BOOL)isDir;
+#endif
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_11, GS_API_LATEST)
+/**
+ * Initialise as a file URL with the specified path (which must
+ * be a valid path on the local filesystem) relative to the base URL.<br />
+ * Raises NSInvalidArgumentException if aPath is nil.<br />
+ * Converts relative paths to absolute ones.<br />
+ * Appends a trailing slash to the path when necessary if it
+ * specifies a directory.<br />
+ * Calls -initWithScheme:host:path:
+ */
+- (instancetype) initFileURLWithPath: (NSString *)aPath
+		       relativeToURL: (NSURL *)baseURL;
+
+/**
+ * Initialise as a file URL with the specified path (which must
+ * be a valid path on the local filesystem) relative to the base URL.<br />
+ * Raises NSInvalidArgumentException if aPath is nil.<br />
+ * Converts relative paths to absolute ones.<br />
+ * Appends a trailing slash to the path when necessary if it
+ * specifies a directory.<br />
+ * Calls -initWithScheme:host:path:
+ */
+- (instancetype) initFileURLWithPath: (NSString *)aPath
+			 isDirectory: (BOOL)isDir
+		       relativeToURL: (NSURL *)baseURL;
 #endif
 
 /**
@@ -128,15 +194,15 @@ GS_EXPORT NSString* const NSURLFileScheme;
  * Permits the 'aHost' part to contain 'username:password@host:port' or
  * 'host:port' in addition to a simple host name or address.
  */
-- (id) initWithScheme: (NSString*)aScheme
-		 host: (NSString*)aHost
-		 path: (NSString*)aPath;
+- (instancetype) initWithScheme: (NSString*)aScheme
+                           host: (NSString*)aHost
+                           path: (NSString*)aPath;
 
 /**
  * Initialise as an absolute URL.<br />
  * Calls -initWithString:relativeToURL:
  */
-- (id) initWithString: (NSString*)aUrlString;
+- (instancetype) initWithString: (NSString*)aUrlString;
 
 /** <init />
  * Initialised using aUrlString and aBaseUrl.  The value of aBaseUrl
@@ -146,8 +212,14 @@ GS_EXPORT NSString* const NSURLFileScheme;
  * Parses an empty string as an empty path.<br />
  * If the string cannot be parsed the method returns nil.
  */
-- (id) initWithString: (NSString*)aUrlString
-	relativeToURL: (NSURL*)aBaseUrl;
+- (instancetype) initWithString: (NSString*)aUrlString
+                  relativeToURL: (NSURL*)aBaseUrl;
+
+#if GS_HAS_DECLARED_PROPERTIES
+@property (readonly, getter=isFileURL) BOOL fileURL;
+#else
+- (BOOL) isFileURL;
+#endif
 
 /**
  * Returns the full string describing the receiver resolved against its base.
@@ -191,11 +263,6 @@ GS_EXPORT NSString* const NSURLFileScheme;
  * required (by RFC2732) in URL strings.
  */
 - (NSString*) host;
-
-/**
- * Returns YES if the receiver is a file URL, NO otherwise.
- */
-- (BOOL) isFileURL;
 
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_6,GS_API_LATEST) 
 /** Returns the last (rightmost) path component of the receiver.
@@ -383,6 +450,27 @@ GS_EXPORT NSString* const NSURLFileScheme;
 
 #endif
 
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_7, GS_API_LATEST) 
+/** Returns a URL formed by adding a path component to the path of the
+ * receiver, along with a trailing slash if the component is designated a
+ * directory.<br />
+ * See [NSString-stringByAppendingPathComponent:].
+ */
+- (NSURL *) URLByAppendingPathComponent: (NSString *)pathComponent
+                            isDirectory: (BOOL)isDirectory;
+#endif
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
+- (BOOL) isFileReferenceURL;
+
+- (NSURL *) fileReferenceURL;
+
+- (NSURL *) filePathURL;
+
+- (BOOL) getResourceValue: (id*)value 
+                   forKey: (NSString *)key 
+                    error: (NSError**)error;
+#endif
 /**
  * Returns an NSURLHandle instance which may be used to write data to the
  * resource represented by the receiver URL, or read data from it.<br />
@@ -430,15 +518,268 @@ GS_EXPORT NSString* const NSURLFileScheme;
   resourceDidFailLoadingWithReason: (NSString*)reason;
 @end
 
-#endif	/* GS_API_MACOSX */
-
-#if	defined(__cplusplus)
-}
+/** URL Resource Value Constants **/
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
+GS_EXPORT NSString* const NSURLNameKey;
+GS_EXPORT NSString* const NSURLLocalizedNameKey;
+GS_EXPORT NSString* const NSURLIsRegularFileKey;
+GS_EXPORT NSString* const NSURLIsDirectoryKey;
+GS_EXPORT NSString* const NSURLIsSymbolicLinkKey;
+GS_EXPORT NSString* const NSURLIsVolumeKey;
+GS_EXPORT NSString* const NSURLIsPackageKey;
+GS_EXPORT NSString* const NSURLIsSystemImmutableKey;
+GS_EXPORT NSString* const NSURLIsUserImmutableKey;
+GS_EXPORT NSString* const NSURLIsHiddenKey;
+GS_EXPORT NSString* const NSURLHasHiddenExtensionKey;
+GS_EXPORT NSString* const NSURLCreationDateKey;
+GS_EXPORT NSString* const NSURLContentAccessDateKey;
+GS_EXPORT NSString* const NSURLContentModificationDateKey;
+GS_EXPORT NSString* const NSURLAttributeModificationDateKey;
+GS_EXPORT NSString* const NSURLLinkCountKey;
+GS_EXPORT NSString* const NSURLParentDirectoryURLKey;
+GS_EXPORT NSString* const NSURLVolumeURLKey;
+GS_EXPORT NSString* const NSURLTypeIdentifierKey;
+GS_EXPORT NSString* const NSURLLocalizedTypeDescriptionKey;
+GS_EXPORT NSString* const NSURLLabelNumberKey;
+GS_EXPORT NSString* const NSURLLabelColorKey;
+GS_EXPORT NSString* const NSURLLocalizedLabelKey;
+GS_EXPORT NSString* const NSURLEffectiveIconKey;
+GS_EXPORT NSString* const NSURLCustomIconKey;
+GS_EXPORT NSString* const NSURLFileSizeKey;
+GS_EXPORT NSString* const NSURLFileAllocatedSizeKey;
+GS_EXPORT NSString* const NSURLIsAliasFileKey;
+GS_EXPORT NSString* const NSURLVolumeLocalizedFormatDescriptionKey;
+GS_EXPORT NSString* const NSURLVolumeTotalCapacityKey;
+GS_EXPORT NSString* const NSURLVolumeAvailableCapacityKey;
+GS_EXPORT NSString* const NSURLVolumeResourceCountKey;
+GS_EXPORT NSString* const NSURLVolumeSupportsPersistentIDsKey;
+GS_EXPORT NSString* const NSURLVolumeSupportsSymbolicLinksKey;
+GS_EXPORT NSString* const NSURLVolumeSupportsHardLinksKey;
+GS_EXPORT NSString* const NSURLVolumeSupportsJournalingKey;
+GS_EXPORT NSString* const NSURLVolumeIsJournalingKey;
+GS_EXPORT NSString* const NSURLVolumeSupportsSparseFilesKey;
+GS_EXPORT NSString* const NSURLVolumeSupportsZeroRunsKey;
+GS_EXPORT NSString* const NSURLVolumeSupportsCaseSensitiveNamesKey;
+GS_EXPORT NSString* const NSURLVolumeSupportsCasePreservedNamesKey;
 #endif
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_7, GS_API_LATEST)
+GS_EXPORT NSString* const NSURLFileResourceIdentifierKey;
+GS_EXPORT NSString* const NSURLVolumeIdentifierKey;
+GS_EXPORT NSString* const NSURLPreferredIOBlockSizeKey;
+GS_EXPORT NSString* const NSURLIsReadableKey;
+GS_EXPORT NSString* const NSURLIsWritableKey;
+GS_EXPORT NSString* const NSURLIsExecutableKey;
+GS_EXPORT NSString* const NSURLFileSecurityKey;
+GS_EXPORT NSString* const NSURLIsMountTriggerKey;
+GS_EXPORT NSString* const NSURLFileResourceTypeKey;
+GS_EXPORT NSString* const NSURLTotalFileSizeKey;
+GS_EXPORT NSString* const NSURLTotalFileAllocatedSizeKey;
+GS_EXPORT NSString* const NSURLVolumeSupportsRootDirectoryDatesKey;
+GS_EXPORT NSString* const NSURLVolumeSupportsVolumeSizesKey;
+GS_EXPORT NSString* const NSURLVolumeSupportsRenamingKey;
+GS_EXPORT NSString* const NSURLVolumeSupportsAdvisoryFileLockingKey;
+GS_EXPORT NSString* const NSURLVolumeSupportsExtendedSecurityKey;
+GS_EXPORT NSString* const NSURLVolumeIsBrowsableKey;
+GS_EXPORT NSString* const NSURLVolumeMaximumFileSizeKey;
+GS_EXPORT NSString* const NSURLVolumeIsEjectableKey;
+GS_EXPORT NSString* const NSURLVolumeIsRemovableKey;
+GS_EXPORT NSString* const NSURLVolumeIsInternalKey;
+GS_EXPORT NSString* const NSURLVolumeIsAutomountedKey;
+GS_EXPORT NSString* const NSURLVolumeIsLocalKey;
+GS_EXPORT NSString* const NSURLVolumeIsReadOnlyKey;
+GS_EXPORT NSString* const NSURLVolumeCreationDateKey;
+GS_EXPORT NSString* const NSURLVolumeURLForRemountingKey;
+GS_EXPORT NSString* const NSURLVolumeUUIDStringKey;
+GS_EXPORT NSString* const NSURLVolumeNameKey;
+GS_EXPORT NSString* const NSURLVolumeLocalizedNameKey;
+GS_EXPORT NSString* const NSURLIsUbiquitousItemKey;
+GS_EXPORT NSString* const NSURLUbiquitousItemHasUnresolvedConflictsKey;
+GS_EXPORT NSString* const NSURLUbiquitousItemIsDownloadingKey;
+GS_EXPORT NSString* const NSURLUbiquitousItemIsUploadedKey;
+GS_EXPORT NSString* const NSURLUbiquitousItemIsUploadingKey;
+#endif
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_8, GS_API_LATEST)
+GS_EXPORT NSString* const NSURLIsExcludedFromBackupKey;
+GS_EXPORT NSString* const NSURLPathKey;
+#endif
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_9, GS_API_LATEST)
+GS_EXPORT NSString* const NSURLTagNamesKey;
+GS_EXPORT NSString* const NSURLUbiquitousItemDownloadingStatusKey;
+GS_EXPORT NSString* const NSURLUbiquitousItemDownloadingErrorKey;
+GS_EXPORT NSString* const NSURLUbiquitousItemUploadingErrorKey;
+#endif
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_10, GS_API_LATEST)
+GS_EXPORT NSString* const NSURLGenerationIdentifierKey;
+GS_EXPORT NSString* const NSURLDocumentIdentifierKey;
+GS_EXPORT NSString* const NSURLAddedToDirectoryDateKey;
+GS_EXPORT NSString* const NSURLQuarantinePropertiesKey;
+GS_EXPORT NSString* const NSThumbnail1024x1024SizeKey;
+GS_EXPORT NSString* const NSURLUbiquitousItemDownloadRequestedKey;
+GS_EXPORT NSString* const NSURLUbiquitousItemContainerDisplayNameKey;
+#endif
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_11, GS_API_LATEST)
+GS_EXPORT NSString* const NSURLIsApplicationKey;
+GS_EXPORT NSString* const NSURLApplicationIsScriptableKey;
+#endif
+
+/** Possible values for File Resource Type Key **/
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_7, GS_API_LATEST)
+GS_EXPORT NSString* const NSURLFileResourceTypeNamedPipe;
+GS_EXPORT NSString* const NSURLFileResourceTypeCharacterSpecial;
+GS_EXPORT NSString* const NSURLFileResourceTypeDirectory;
+GS_EXPORT NSString* const NSURLFileResourceTypeBlockSpecial;
+GS_EXPORT NSString* const NSURLFileResourceTypeRegular;
+GS_EXPORT NSString* const NSURLFileResourceTypeSymbolicLink;
+GS_EXPORT NSString* const NSURLFileResourceTypeSocket;
+GS_EXPORT NSString* const NSURLFileResourceTypeUnknown;
+#endif
+
+/** Possible values for Ubiquitous Item Downloading Key **/
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_9, GS_API_LATEST)
+GS_EXPORT NSString* const NSURLUbiquitousItemDownloadingStatusNotDownloaded;
+GS_EXPORT NSString* const NSURLUbiquitousItemDownloadingStatusDownloaded;
+GS_EXPORT NSString* const NSURLUbiquitousItemDownloadingStatusCurrent;
+#endif
+
+#endif	/* GS_API_MACOSX */
 
 #if     !NO_GNUSTEP && !defined(GNUSTEP_BASE_INTERNAL)
 #import <GNUstepBase/NSURL+GNUstepBase.h>
 #endif
 
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_10, GS_API_LATEST)
+
+GS_EXPORT_CLASS
+@interface NSURLQueryItem : NSObject <NSCopying, NSCoding>
+{
+#if	GS_EXPOSE(NSURLQueryItem)
+#endif
+#if     GS_NONFRAGILE
+#  if	defined(GS_NSURLQueryItem_IVARS)
+@public
+GS_NSURLQueryItem_IVARS;
+#  endif
+#else
+  /* Pointer to private additional data used to avoid breaking ABI
+   * when we don't have the non-fragile ABI available.
+   * Use this mechanism rather than changing the instance variable
+   * layout (see Source/GSInternal.h for details).
+   */
+  @private id _internal GS_UNUSED_IVAR;
+#endif
+}
+
+// Creating query items.
++ (instancetype)queryItemWithName: (NSString *)name 
+                            value: (NSString *)value;
+- (instancetype)initWithName: (NSString *)name 
+                       value: (NSString *)value;
+
+// Reading a name and value from a query
+- (NSString *) name;  
+- (NSString *) value;
+@end
+
+#endif // OS_API_VERSION
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_9, GS_API_LATEST)
+
+GS_EXPORT_CLASS
+@interface NSURLComponents : NSObject <NSCopying>
+{
+#if	GS_EXPOSE(NSURLComponents)
+#endif
+#if     GS_NONFRAGILE
+#  if	defined(GS_NSURLComponents_IVARS)
+@public
+GS_NSURLComponents_IVARS;
+#  endif
+#else
+  /* Pointer to private additional data used to avoid breaking ABI
+   * when we don't have the non-fragile ABI available.
+   * Use this mechanism rather than changing the instance variable
+   * layout (see Source/GSInternal.h for details).
+   */
+  @private id _internal GS_UNUSED_IVAR;
+#endif
+}
+  // Creating URL components...
++ (instancetype) componentsWithString: (NSString *)URLString;
++ (instancetype) componentsWithURL: (NSURL *)url 
+           resolvingAgainstBaseURL: (BOOL)resolve;
+- (instancetype) init;
+- (instancetype) initWithString: (NSString *)URLString;
+
+- (instancetype) initWithURL: (NSURL *)url 
+     resolvingAgainstBaseURL: (BOOL)resolve;
+
+// Getting the URL
+- (NSString *) string;
+- (void) setString: (NSString *)urlString;
+- (NSURL *) URL;
+- (void) setURL: (NSURL *)url;
+- (NSURL *)URLRelativeToURL: (NSURL *)baseURL;
+
+// Accessing Components in Native Format
+- (NSString *) fragment;
+- (void) setFragment: (NSString *)fragment;
+- (NSString *) host;
+- (void) setHost: (NSString *)host;
+- (NSString *) password;
+- (void) setPassword: (NSString *)password;
+- (NSString *) path;
+- (void) setPath: (NSString *)path;
+- (NSNumber *) port;
+- (void) setPort: (NSNumber *)port;
+- (NSString *) query;
+- (void) setQuery: (NSString *)query;
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_10, GS_API_LATEST)
+- (NSArray *) queryItems;
+- (void) setQueryItems: (NSArray *)queryItems;
+#endif
+- (NSString *) scheme;
+- (void) setScheme: (NSString *)scheme;
+- (NSString *) user;
+- (void) setUser: (NSString *)user;
+
+// Accessing Components in PercentEncoded Format
+- (NSString *) percentEncodedFragment; 
+- (void) setPercentEncodedFragment: (NSString *)fragment;
+- (NSString *) percentEncodedHost;
+- (void) setPercentEncodedHost: (NSString *)host;
+- (NSString *) percentEncodedPassword;
+- (void) setPercentEncodedPassword: (NSString *)password;
+- (NSString *) percentEncodedPath;
+- (void) setPercentEncodedPath: (NSString *)path;
+- (NSString *) percentEncodedQuery;
+- (void) setPercentEncodedQuery: (NSString *)query;
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_10, GS_API_LATEST)
+- (NSArray *) percentEncodedQueryItems;
+- (void) setPercentEncodedQueryItems: (NSArray *)queryItems;
+#endif
+- (NSString *) percentEncodedUser;
+- (void) setPercentEncodedUser: (NSString *)user;
+
+// Locating components of the URL string representation
+- (NSRange) rangeOfFragment;
+- (NSRange) rangeOfHost;
+- (NSRange) rangeOfPassword;
+- (NSRange) rangeOfPath;
+- (NSRange) rangeOfPort;
+- (NSRange) rangeOfQuery;
+- (NSRange) rangeOfScheme;
+- (NSRange) rangeOfUser;
+  
+@end
+
+#if defined(__cplusplus)
+}
+#endif
+
+#endif	/* GS_API_MACOSX */
+
 #endif	/* __NSURL_h_GNUSTEP_BASE_INCLUDE */
+
+
+
 

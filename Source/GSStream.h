@@ -16,12 +16,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    NSInputStream and NSOutputStream are clusters rather than concrete classes
    The inherance graph is:
@@ -76,6 +75,7 @@
   id		         _delegate;	/* Delegate controls operation.	*/\
   NSMutableDictionary	*_properties;	/* storage for properties	*/\
   BOOL                  _delegateValid; /* whether the delegate responds*/\
+  BOOL			_scheduled;	/* Are the loops sceduled?      */\
   NSError               *_lastError;    /* last error occured           */\
   NSStreamStatus         _currentStatus;/* current status               */\
   NSMapTable		*_loops;	/* Run loops and their modes.	*/\
@@ -90,6 +90,9 @@
  */
 @interface GSStream : NSStream
 IVARS
+/** Return description of current event mask.
+ */
+- (NSString*) _stringFromEvents;
 @end
 
 @interface GSAbstractServerStream : GSServerStream
@@ -122,10 +125,24 @@ IVARS
  */
 - (void) _schedule;
 
+/** Return YES if the stream is *actually* scheduled in one or more loops.
+ */
+- (BOOL) _scheduled;
+
+/** Low level method to place the stream in the scheduled runloop.
+ * Must only be called by -_schedule and -scheduleInRunLoop:forMode:
+ */
+- (void) _scheduleInRunLoop: (NSRunLoop*)aRunLoop forMode: (NSString*)mode;
+
 /**
  * send an event to delegate
  */
 - (void) _sendEvent: (NSStreamEvent)event;
+
+/**
+ * send an event to delegate
+ */
+- (void) _sendEvent: (NSStreamEvent)event delegate: (id)delegate;
 
 /**
  * setter for IO event reference (file descriptor, file handle etc )
@@ -144,6 +161,11 @@ IVARS
 - (void) _recordError; 
 - (void) _recordError: (NSError*)anError; 
 
+/** Low level method to remove the stream from the scheduled runloop.
+ * Must only be called by -_sunchedule and -removeFromRunLoop:forMode:
+ */
+- (void) _removeFromRunLoop: (NSRunLoop*)aRunLoop forMode: (NSString*)mode;
+
 /**
  * say whether there is unhandled data for the stream.
  */
@@ -153,6 +175,14 @@ IVARS
  * Remove the stream from all the scheduled runloops.
  */
 - (void) _unschedule;
+
+/** Return name of event
+ */
+- (NSString*) stringFromEvent: (NSStreamEvent)e;
+
+/** Return name of status
+ */
+- (NSString*) stringFromStatus: (NSStreamStatus)s;
 
 @end
 

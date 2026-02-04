@@ -1,7 +1,8 @@
-/* Interface for NSURLConnection for GNUstep
+/** Interface for NSURLConnection for GNUstep
    Copyright (C) 2006 Software Foundation, Inc.
 
-   Written by:  Richard Frith-Macdonald <frm@gnu.org>
+   Written by:  Armando Pesenti Gritti
+   Written by:  Richard Frith-Macdonald <rfm@gnu.org>
    Date: 2006
    
    This file is part of the GNUstep Base Library.
@@ -14,12 +15,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSURLConnection_h_GNUSTEP_BASE_INCLUDE
@@ -29,6 +29,7 @@
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_2,GS_API_LATEST) && GS_API_VERSION( 11300,GS_API_LATEST)
 
 #import	<Foundation/NSObject.h>
+#import <Foundation/NSRunLoop.h>
 
 #if	defined(__cplusplus)
 extern "C" {
@@ -37,12 +38,14 @@ extern "C" {
 @class NSCachedURLResponse;
 @class NSData;
 @class NSError;
+@class NSInputStream;
 @class NSURLAuthenticationChallenge;
 @class NSURLRequest;
 @class NSURLResponse;
 
 /**
  */
+GS_EXPORT_CLASS
 @interface NSURLConnection : NSObject
 {
 #if	GS_EXPOSE(NSURLConnection)
@@ -66,11 +69,27 @@ extern "C" {
 + (NSURLConnection *) connectionWithRequest: (NSURLRequest *)request
 				   delegate: (id)delegate;
 
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_5, GS_API_LATEST)
+/**
+ * Start the asynchronous load.  This method is only needed if NO is passed 
+ * into startImmediately when calling initWithRequest: delegate: startImmediately.
+ */ 
+- (void) start;
+#endif
+  
 /**
  * Cancel the asynchronous load in progress (if any) for this connection.
  */
 - (void) cancel;
 
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_5, GS_API_LATEST)
+- (void) scheduleInRunLoop: (NSRunLoop *)aRunLoop 
+                   forMode: (NSRunLoopMode)mode;
+
+- (void) unscheduleFromRunLoop: (NSRunLoop *)aRunLoop 
+                       forMode: (NSRunLoopMode)mode;
+#endif
+  
 /** <init />
  * Initialises the receiver with the specified request (performing
  * a deep copy so that the request does not change during loading)
@@ -86,6 +105,24 @@ extern "C" {
  */
 - (id) initWithRequest: (NSURLRequest *)request delegate: (id)delegate;
 
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_5, GS_API_LATEST)
+/** <init />
+ * Initialises the receiver with the specified request (performing
+ * a deep copy so that the request does not change during loading)
+ * and delegate.<br />
+ * This automatically initiates an asynchronous load for the request 
+ * if and only if startImmediately is set to YES.<br />
+ * Processing of the request is done in the thread which calls this
+ * method, so the thread must run its current run loop
+ * (in NSDefaultRunLoopMode) for processing to continue/complete.<br />
+ * The delegate will receive callbacks informing it of the progress
+ * of the load.<br />
+ * This method breaks with convention and retains the delegate object,
+ * releasing it when the connection finished loading, fails, or is cancelled.
+ */
+- (id) initWithRequest: (NSURLRequest *)request delegate: (id)delegate startImmediately: (BOOL)startImmediately;
+#endif
+  
 @end
 
 
@@ -142,7 +179,21 @@ extern "C" {
  *   </item>
  * </list>
  */
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_7,GS_API_LATEST) && GS_API_VERSION(11300,GS_API_LATEST)
+/** <ignore> autogsdoc will ignore everything up to the end tag */
+@protocol NSURLConnectionDelegate <NSObject>
+
+#if GS_PROTOCOLS_HAVE_OPTIONAL
+@optional
+#else
+@end
 @interface NSObject (NSURLConnectionDelegate)
+#endif
+/** end of text ignored by autogsdoc </ignore> */
+
+#else
+@interface NSObject (NSURLConnectionDelegate)
+#endif
 
 /**
  * Instructs the delegate that authentication for challenge has
@@ -211,10 +262,38 @@ extern "C" {
 - (NSURLRequest *) connection: (NSURLConnection *)connection
 	      willSendRequest: (NSURLRequest *)request
 	     redirectResponse: (NSURLResponse *)response;
-
 @end
 
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_2,GS_API_LATEST)
+@protocol NSURLConnectionDataDelegate <NSURLConnectionDelegate>
+#if GS_PROTOCOLS_HAVE_OPTIONAL
+@optional
+#endif
 
+- (NSURLRequest *) connection: (NSURLConnection *)connection
+              willSendRequest: (NSURLRequest *)request
+             redirectResponse: (NSURLResponse *)response;
+
+- (void) connection: (NSURLConnection *)connection
+ didReceiveResponse: (NSURLResponse *)response;
+
+- (void) connection: (NSURLConnection *) connection didReceiveData: (NSData *)data;
+
+- (NSInputStream *) connection: (NSURLConnection *)connection
+             needNewBodyStream: (NSURLRequest *)request;
+
+- (void) connection: (NSURLConnection *)connection
+    didSendBodyData: (NSInteger)bytesWritten
+  totalBytesWritten: (NSInteger)totalBytesWritten
+  totalBytesExpectedToWrite: (NSInteger)totalBytesExpectedToWrite;
+
+- (NSCachedURLResponse *) connection: (NSURLConnection *)connection
+                   willCacheResponse:(NSCachedURLResponse *)cachedResponse;
+
+- (void) connectionDidFinishLoading: (NSURLConnection *)connection;
+
+@end
+#endif
 
 /**
  * An interface to perform synchronous loading of URL requests.

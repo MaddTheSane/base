@@ -67,7 +67,7 @@ resourceDataDidBecomeAvailable: (NSData *)newBytes
     {
       [_receivedData release];
     }
-  _receivedData = newBytes;
+  _receivedData = [newBytes retain];
 }
 
 - (void) URLHandle: (NSURLHandle *)sender
@@ -98,7 +98,7 @@ resourceDidFailLoadingWithReason: (NSString *)reason
   NSURL *url;
   Class cls;
 
-  url = [NSURL URLWithString: @"http://www.gnustep.org/"];
+  url = [NSURL URLWithString: @"https://www.w3.org/"];
   cls = [NSURLHandle URLHandleClassForURL: url];
   handle = [[cls alloc] initWithURL: url cached: NO];
 
@@ -108,7 +108,7 @@ resourceDidFailLoadingWithReason: (NSString *)reason
   [handle beginLoadInBackground];
   [handle cancelLoadInBackground];
   PASS([self status] == URLHandleClientDidCancelLoading,
-    "URLHandleResourceDidCancelLoading called");
+    "URLHandleClientDidCancelLoading called");
   [handle release];
 
   handle = [[cls alloc] initWithURL: url cached: NO];
@@ -116,10 +116,32 @@ resourceDidFailLoadingWithReason: (NSString *)reason
   /* Don't get client messages in the foreground, so load in
    * background and wait a bit
    */
+  [handle writeProperty: @"POST" forKey: GSHTTPPropertyMethodKey];
+ NSData *d = [@"1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+   dataUsingEncoding: NSUTF8StringEncoding];
+ NSMutableData *m = AUTORELEASE([d mutableCopy]);
+ while ([m length] < 64 * 1024)
+   {
+     [m appendData: d];
+   }
+
+  [handle writeData: m];
+  [handle setReturnAll: YES];
   [handle loadInBackground];
   PASS([self status] == URLHandleClientDidBeginLoading,
-    "URLHandleResourceDidBeginLoading called");
+    "URLHandleClientDidBeginLoading called");
 
+  NSDate *limit = [NSDate dateWithTimeIntervalSinceNow: 5.0];
+  while ([limit timeIntervalSinceNow] > 0.0
+    && [self status] != URLHandleClientDidFinishLoading)
+    {
+      [[NSRunLoop currentRunLoop] runMode: NSDefaultRunLoopMode
+        beforeDate: limit];
+    }
+  PASS([self status] == URLHandleClientDidFinishLoading,
+    "URLHandleClientDidFinishLoading called");
+
+  NSLog(@"Data %@", [handle availableResourceData]);
   [handle release];
   return 0;
 }
@@ -129,10 +151,26 @@ resourceDidFailLoadingWithReason: (NSString *)reason
 int main(int argc, char **argv)
 {
   int status;
+  
+  /* The following test cases depend on the GSInetServerStream
+   * class which is completely broken on Windows.
+   *
+   * See: https://github.com/gnustep/libs-base/issues/266
+   *
+   * We will mark the test cases as hopeful on Windows.
+   */
+#if defined(_WIN32)
+  NSLog(@"Marking local web server tests as hopeful because GSInetServerStream is broken on Windows");
+  testHopeful = YES;
+#endif
 
   NSAutoreleasePool   *arp = [NSAutoreleasePool new];
   status = [[[[TestObject alloc] init] autorelease] runTest];
   [arp release]; arp = nil;
+
+#if defined(_WIN32)
+  testHopeful = NO;
+#endif
 
   return status;
 }

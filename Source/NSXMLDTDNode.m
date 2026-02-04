@@ -14,19 +14,17 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #import "common.h"
 
 #if defined(HAVE_LIBXML)
 
-#define GS_XMLNODETYPE	xmlEntity
 #define GSInternal	NSXMLDTDNodeInternal
 
 #import	"NSXMLPrivate.h"
@@ -101,12 +99,12 @@ GS_PRIVATE_INTERNAL(NSXMLDTDNode)
 
 - (NSString*) notationName
 {
-  return StringFromXMLStringPtr(internal->node->name);
+  return StringFromXMLStringPtr(internal->node.entity->name);
 }
 
 - (NSString*) publicID
 {
- return StringFromXMLStringPtr(internal->node->ExternalID);
+ return StringFromXMLStringPtr(internal->node.entity->ExternalID);
 }
 
 - (void) setDTDKind: (NSXMLDTDNodeKind)nodeKind
@@ -116,22 +114,22 @@ GS_PRIVATE_INTERNAL(NSXMLDTDNode)
 
 - (void) setNotationName: (NSString*)notationName
 {
-  internal->node->name = XMLSTRING(notationName);
+  internal->node.entity->name = XMLSTRING(notationName);
 }
 
 - (void) setPublicID: (NSString*)publicID
 {
-  internal->node->ExternalID = XMLSTRING(publicID);
+  internal->node.entity->ExternalID = XMLSTRING(publicID);
 }
 
 - (void) setSystemID: (NSString*)systemID
 {
-  internal->node->ExternalID = XMLSTRING(systemID);
+  internal->node.entity->ExternalID = XMLSTRING(systemID);
 }
 
 - (NSString*) systemID
 {
-  return StringFromXMLStringPtr(internal->node->SystemID);
+  return StringFromXMLStringPtr(internal->node.entity->SystemID);
 }
 
 @end

@@ -15,12 +15,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */
 
 #import "common.h"
@@ -55,7 +54,7 @@ static SEL      privateCountOfSel;
 @public
   GSIMapTable_t	map;
 @private
-  NSUInteger _version;
+  unsigned long	_version;
 }
 @end
 
@@ -105,6 +104,21 @@ static SEL      privateCountOfSel;
 static Class	arrayClass;
 static Class	setClass;
 static Class	mutableSetClass;
+
+- (NSUInteger) sizeOfContentExcluding: (NSHashTable*)exclude
+{
+  NSUInteger    	size = GSIMapSize(&map) - sizeof(GSIMapTable);
+  GSIMapEnumerator_t	enumerator = GSIMapEnumeratorForMap(&map);
+  GSIMapNode		node = GSIMapEnumeratorNextNode(&enumerator);
+
+  while (node != 0)
+    {
+      size += [node->key.obj sizeInBytesExcluding: exclude];
+      node = GSIMapEnumeratorNextNode(&enumerator);
+    }
+  GSIMapEndEnumerator(&enumerator);
+  return size;
+}
 
 + (void) initialize
 {
@@ -529,29 +543,16 @@ static Class	mutableSetClass;
     (&map, state, stackbuf, len);
 }
 
-- (NSUInteger) sizeInBytesExcluding: (NSHashTable*)exclude
-{
-  NSUInteger	size = GSPrivateMemorySize(self, exclude);
-
-  if (size > 0)
-    {
-      GSIMapEnumerator_t	enumerator = GSIMapEnumeratorForMap(&map);
-      GSIMapNode 		node = GSIMapEnumeratorNextNode(&enumerator);
-
-      size += GSIMapSize(&map) - sizeof(map);
-      while (node != 0)
-        {
-          size += [node->key.obj sizeInBytesExcluding: exclude];
-          node = GSIMapEnumeratorNextNode(&enumerator);
-        }
-      GSIMapEndEnumerator(&enumerator);
-    }
-  return size;
-}
-
 @end
 
 @implementation GSMutableSet
+
+- (NSUInteger) sizeOfContentExcluding: (NSHashTable*)exclude
+{
+  /* Can't safely calculate for mutable object; just buffer size
+   */
+  return map.nodeCount * sizeof(GSIMapNode);
+}
 
 + (void) initialize
 {
@@ -804,7 +805,7 @@ static Class	mutableSetClass;
                                    objects: (id*)stackbuf
                                      count: (NSUInteger)len
 {
-  state->mutationsPtr = (unsigned long *)&_version;
+  state->mutationsPtr = &_version;
   return GSIMapCountByEnumeratingWithStateObjectsCount
     (&map, state, stackbuf, len);
 }

@@ -14,49 +14,48 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */
 
 #import "common.h"
 #define	EXPOSE_NSError_IVARS	1
 #import	"Foundation/NSDictionary.h"
+#import	"Foundation/NSException.h"
 #import	"Foundation/NSError.h"
 #import	"Foundation/NSCoder.h"
+#import	"Foundation/NSArray.h"
 
-NSString* const NSFilePathErrorKey = @"NSFilePath";
-NSString* const NSLocalizedDescriptionKey = @"NSLocalizedDescriptionKey";
-NSString* const NSStringEncodingErrorKey = @"NSStringEncodingErrorKey";
-NSString* const NSURLErrorKey = @"NSURLErrorKey";
-NSString* const NSUnderlyingErrorKey = @"NSUnderlyingErrorKey";
-
-NSString* const NSLocalizedFailureReasonErrorKey
-  = @"NSLocalizedFailureReasonErrorKey";
-NSString* const NSLocalizedRecoveryOptionsErrorKey
-  = @"NSLocalizedRecoveryOptionsErrorKey";
-NSString* const NSLocalizedRecoverySuggestionErrorKey
-  = @"NSLocalizedRecoverySuggestionErrorKey";
-NSString* const NSRecoveryAttempterErrorKey
-  = @"NSRecoveryAttempterErrorKey";
-
-NSString* const NSURLErrorFailingURLErrorKey = @"NSErrorFailingURLKey";
-NSString* const NSURLErrorFailingURLStringErrorKey = @"NSErrorFailingURLStringKey";
-
-NSString* const NSMACHErrorDomain = @"NSMACHErrorDomain";
-NSString* const NSOSStatusErrorDomain = @"NSOSStatusErrorDomain";
-NSString* const NSPOSIXErrorDomain = @"NSPOSIXErrorDomain";
-NSString* const NSCocoaErrorDomain = @"NSCocoaErrorDomain";
+#import	"GSFastEnumeration.h"
 
 @implementation	NSError
 
-+ (id) errorWithDomain: (NSString*)aDomain
+/* For NSFileManager we have a private method which produces an error
+ * with mutable userInfo so that information can be added before the
+ * file manager returns the error to higher level code.
+ */
++ (NSError*) _error: (NSInteger)aCode
+        description: (NSString*)description
+{
+  NSError		*e = [self allocWithZone: NSDefaultMallocZone()];
+  NSMutableDictionary	*m;
+
+  e = [e initWithDomain: NSCocoaErrorDomain code: aCode userInfo: nil];
+  m = [[NSMutableDictionary allocWithZone: NSDefaultMallocZone()]
+    initWithCapacity: 3];
+  [m setObject: description forKey: NSLocalizedDescriptionKey];
+  e->_userInfo = m;
+  return AUTORELEASE(e);
+}
+
++ (id) errorWithDomain: (NSErrorDomain)aDomain
 		  code: (NSInteger)aCode
 	      userInfo: (NSDictionary*)aDictionary
 {
+
   NSError	*e = [self allocWithZone: NSDefaultMallocZone()];
 
   e = [e initWithDomain: aDomain code: aCode userInfo: aDictionary];
@@ -83,12 +82,73 @@ NSString* const NSCocoaErrorDomain = @"NSCocoaErrorDomain";
   [super dealloc];
 }
 
-- (NSString*) description
+- (NSString*) _fallback
 {
-  return [self localizedDescription];
+  return [NSString stringWithFormat: @"Error Domain=%@ Code=%lld",
+    [self domain], (long long)[self code]];
 }
 
-- (NSString*) domain
+- (NSString*) description
+{
+  NSMutableString	*m = [NSMutableString stringWithCapacity: 200];
+  NSUInteger		count = [_userInfo count];
+  NSString		*loc = [self localizedDescription];
+  NSString		*fallback = [self _fallback];
+
+  [m appendString: fallback];
+  if (NO == [fallback isEqual: loc])
+    {
+      [m appendFormat: @" \"%@\"", loc];
+    }
+
+  if ([loc isEqual: [_userInfo objectForKey: NSLocalizedDescriptionKey]])
+    {
+      count--;	// Don't repeat this information
+    }
+
+  if (count > 0)
+    {
+      NSArray		*keys = [_userInfo allKeys];
+      BOOL		first = YES;
+
+      keys = [keys sortedArrayUsingSelector: @selector(compare:)];
+      [m appendString: @" UserInfo={"];
+      FOR_IN(NSString*, k, keys)
+	{
+	  id	o = [_userInfo objectForKey: k];
+
+	  if ([k isEqualToString: NSLocalizedDescriptionKey])
+	    {
+	      continue;
+	    }
+
+	  if (first)
+	    {
+	      first = NO;
+	    }
+	  else
+	    {
+	      [m appendString: @", "];
+	    }
+	  [m appendString: k];
+	  [m appendString: @"="];
+	  if ([k isEqualToString: NSUnderlyingErrorKey])
+	    {
+	      [m appendFormat: @"%p {%@}", o, [o description]];
+	    }
+	  else
+	    {
+	      [m appendString: [o description]];
+	    }
+	}
+      END_FOR_IN(keys)
+
+      [m appendString: @"}"];
+    }
+  return m;
+}
+
+- (NSErrorDomain) domain
 {
   return _domain;
 }
@@ -136,7 +196,7 @@ NSString* const NSCocoaErrorDomain = @"NSCocoaErrorDomain";
   return self;
 }
 
-- (id) initWithDomain: (NSString*)aDomain
+- (id) initWithDomain: (NSErrorDomain)aDomain
 		 code: (NSInteger)aCode
 	     userInfo: (NSDictionary*)aDictionary
 {
@@ -157,13 +217,21 @@ NSString* const NSCocoaErrorDomain = @"NSCocoaErrorDomain";
 
 - (NSString *) localizedDescription
 {
-  NSString	*desc = [_userInfo objectForKey: NSLocalizedDescriptionKey];
+  NSString	*s = [_userInfo objectForKey: NSLocalizedDescriptionKey];
 
-  if (desc == nil)
+  if (nil == s)
     {
-      desc = [NSString stringWithFormat: @"%@ %d", _domain, _code];
+      s = [_userInfo objectForKey: NSLocalizedFailureReasonErrorKey];
+      if (s)
+	{
+	  s = [NSString stringWithFormat: @"Operation failed %@", s];
+	}
+      else
+        {
+          s = [self _fallback];
+        }
     }
-  return desc;
+  return s;
 }
 
 - (NSString *) localizedFailureReason

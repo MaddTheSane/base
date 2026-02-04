@@ -19,8 +19,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    AutogsdocSource: Additions/GCObject.m
    AutogsdocSource: Additions/GCArray.m
@@ -37,7 +36,7 @@
 
 #import "GNUstepBase/GCObject.h"
 
-#include <pthread.h>
+#import "../GSPThread.h"
 
 /*
  * The head of a linked list of all garbage collecting objects  is a
@@ -65,27 +64,20 @@
 
 static GCObject	*allObjects = nil;
 static BOOL	isCollecting = NO;
-
-#ifdef NeXT_RUNTIME
-static void *allocationLock = NULL;
-#define pthread_mutex_lock(lock)
-#define pthread_mutex_unlock(lock)
-#else
-static pthread_mutex_t *allocationLock = NULL;
-#endif
+static gs_mutex_t *allocationLock = NULL;
 
 + (void) _becomeMultiThreaded: (NSNotification *)aNotification
 {
   if (allocationLock == NULL)
     {
 #     ifndef NeXT_RUNTIME
-      allocationLock = malloc(sizeof(pthread_mutex_t));
+      allocationLock = malloc(sizeof(gs_mutex_t));
 	  if (allocationLock == NULL)
         {
 	      abort();
 		}
 	  
-	  pthread_mutex_init(allocationLock, NULL);
+	  GS_MUTEX_INIT(*allocationLock);
 #     endif
     }
 }
@@ -100,7 +92,7 @@ static pthread_mutex_t *allocationLock = NULL;
 
   if (allocationLock != 0)
     {
-      pthread_mutex_lock(allocationLock);
+      GS_MUTEX_LOCK(*allocationLock);
     }
   o->gc.next = allObjects;
   o->gc.previous = allObjects->gc.previous;
@@ -109,7 +101,7 @@ static pthread_mutex_t *allocationLock = NULL;
   o->gc.flags.refCount = 1;
   if (allocationLock != 0)
     {
-      pthread_mutex_unlock(allocationLock);
+      GS_MUTEX_UNLOCK(*allocationLock);
     }
 
   return o;
@@ -150,13 +142,13 @@ static pthread_mutex_t *allocationLock = NULL;
 
   if (allocationLock != 0)
     {
-      pthread_mutex_lock(allocationLock);
+      GS_MUTEX_LOCK(*allocationLock);
     }
   if (isCollecting == YES)
     {
       if (allocationLock != 0)
 	{
-	  pthread_mutex_unlock(allocationLock);
+	  GS_MUTEX_UNLOCK(*allocationLock);
 	}
       return;	// Don't allow recursion.
     }
@@ -216,7 +208,7 @@ static pthread_mutex_t *allocationLock = NULL;
   isCollecting = NO;
   if (allocationLock != 0)
     {
-      pthread_mutex_unlock(allocationLock);
+      GS_MUTEX_UNLOCK(*allocationLock);
     }
 }
 
@@ -267,7 +259,7 @@ static pthread_mutex_t *allocationLock = NULL;
 
   if (allocationLock != 0)
     {
-      pthread_mutex_lock(allocationLock);
+      GS_MUTEX_LOCK(*allocationLock);
     }
   // p = anObject->gc.previous;
   // n = anObject->gc.next;
@@ -279,7 +271,7 @@ static pthread_mutex_t *allocationLock = NULL;
   [n gcSetPreviousObject: p];
   if (allocationLock != 0)
     {
-      pthread_mutex_unlock(allocationLock);
+      GS_MUTEX_UNLOCK(*allocationLock);
     }
 }
 
@@ -294,7 +286,7 @@ static pthread_mutex_t *allocationLock = NULL;
 
   if (allocationLock != 0)
     {
-      pthread_mutex_lock(allocationLock);
+      GS_MUTEX_LOCK(*allocationLock);
     }
   o->gc.next = allObjects;
   o->gc.previous = allObjects->gc.previous;
@@ -303,7 +295,7 @@ static pthread_mutex_t *allocationLock = NULL;
   o->gc.flags.refCount = 1;
   if (allocationLock != 0)
     {
-      pthread_mutex_unlock(allocationLock);
+      GS_MUTEX_UNLOCK(*allocationLock);
     }
   return o;
 }
@@ -321,7 +313,7 @@ static pthread_mutex_t *allocationLock = NULL;
 
   if (allocationLock != 0)
     {
-      pthread_mutex_lock(allocationLock);
+      GS_MUTEX_LOCK(*allocationLock);
     }
   // p = anObject->gc.previous;
   // n = anObject->gc.next;
@@ -333,7 +325,7 @@ static pthread_mutex_t *allocationLock = NULL;
   [n gcSetPreviousObject: p];
   if (allocationLock != 0)
     {
-      pthread_mutex_unlock(allocationLock);
+      GS_MUTEX_UNLOCK(*allocationLock);
     }
   [super dealloc];
 }
@@ -416,7 +408,7 @@ static pthread_mutex_t *allocationLock = NULL;
 {
   if (allocationLock != 0)
     {
-      pthread_mutex_lock(allocationLock);
+      GS_MUTEX_LOCK(*allocationLock);
     }
   if (gc.flags.refCount > 0 && gc.flags.refCount-- == 1)
     {
@@ -425,7 +417,7 @@ static pthread_mutex_t *allocationLock = NULL;
     }
   if (allocationLock != 0)
     {
-      pthread_mutex_unlock(allocationLock);
+      GS_MUTEX_UNLOCK(*allocationLock);
     }
 }
 
@@ -436,12 +428,12 @@ static pthread_mutex_t *allocationLock = NULL;
 {
   if (allocationLock != 0)
     {
-      pthread_mutex_lock(allocationLock);
+      GS_MUTEX_LOCK(*allocationLock);
     }
   gc.flags.refCount++;
   if (allocationLock != 0)
     {
-      pthread_mutex_unlock(allocationLock);
+      GS_MUTEX_UNLOCK(*allocationLock);
     }
   return self;
 }

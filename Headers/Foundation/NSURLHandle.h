@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #ifndef __NSURLHandle_h_GNUSTEP_BASE_INCLUDE
@@ -115,6 +114,14 @@ GS_EXPORT NSString * const GSHTTPPropertyKeyFileKey;
  */
 GS_EXPORT NSString * const GSHTTPPropertyPasswordKey;
 
+/**
+ * Key for passing to [NSURLHandle]'s and [NSHTTPURLProtocol]'s 
+ * <code>propertyForKey..</code> methods. Specifying <code>YES</code> will 
+ * signal Digest Authentication logic to always omit the 'query' portion of the
+ * URI when generating the `Authorization` header.
+ */
+GS_EXPORT NSString * const GSHTTPPropertyDigestURIOmitsQuery;
+
 #endif
 
 /**
@@ -177,6 +184,7 @@ typedef NSUInteger NSURLHandleStatus;
 - (void) URLHandleResourceDidFinishLoading: (NSURLHandle*)sender;
 @end
 
+GS_EXPORT_CLASS
 @interface NSURLHandle : NSObject
 {
 #if	GS_EXPOSE(NSURLHandle)
@@ -211,11 +219,29 @@ typedef NSUInteger NSURLHandleStatus;
 - (id) propertyForKeyIfAvailable: (NSString*)propertyKey;
 - (void) removeClient: (id <NSURLHandleClient>)client;
 - (NSData*) resourceData;
+
+#if OS_API_VERSION(GS_API_NONE, GS_API_NONE)
+
+/** GNUstep extension to turn on debug logging for a handle.  Returns the
+ * previous debug setting for the handle.  Implemented for http/https only.
+ */
+- (int) setDebug: (int)flag;
+
+/** GNUstep extension to turn on returning of complete http/https response
+ * even when the status code is not in the 200 to 299 success range.
+ */
+- (void) setReturnAll: (BOOL)flag;
+
+/** GNUstep extension to change the URL that the handle sends requests to.
+ * Implemented for http/https only.
+ */
+- (void) setURL: (NSURL*)newUrl;
+#endif
+
 - (NSURLHandleStatus) status;
 - (BOOL) writeData: (NSData*)data;
 - (BOOL) writeProperty: (id)propertyValue
 		forKey: (NSString*)propertyKey;
-
 
 @end
 

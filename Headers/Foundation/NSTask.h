@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */
 
 #ifndef __NSTask_h_GNUSTEP_BASE_INCLUDE
@@ -36,6 +35,10 @@
 extern "C" {
 #endif
 
+DEFINE_BLOCK_TYPE_NO_ARGS(GSTaskTerminationHandler, void);
+  
+@class  NSThread;
+
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_5,GS_API_LATEST)
 enum {
   NSTaskTerminationReasonExit = 1,
@@ -44,6 +47,7 @@ enum {
 typedef NSInteger NSTaskTerminationReason;
 #endif
 
+GS_EXPORT_CLASS
 @interface NSTask : NSObject
 {
 #if	GS_EXPOSE(NSTask)
@@ -61,7 +65,9 @@ typedef NSInteger NSTaskTerminationReason;
   BOOL		_hasTerminated;
   BOOL		_hasCollected;
   BOOL		_hasNotified;
+  NSThread      *_launchingThread;
   NSTaskTerminationReason       _terminationReason;
+  GSTaskTerminationHandler      _handler;
 #endif
 #if     GS_NONFRAGILE
 #else
@@ -126,6 +132,19 @@ typedef NSInteger NSTaskTerminationReason;
 #if OS_API_VERSION(GS_API_NONE, GS_API_NONE)
 - (BOOL) usePseudoTerminal;
 - (NSString*) validatedLaunchPath;
+#endif
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_13, GS_API_LATEST)
++ (NSTask *) launchedTaskWithExecutableURL: (NSURL *)url 
+                                 arguments: (NSArray *)arguments 
+                                     error: (NSError **)error 
+                        terminationHandler: (GSTaskTerminationHandler)terminationHandler;
+
+- (BOOL) launchAndReturnError: (NSError **)error;
+
+- (NSURL *) executableURL;
+
+- (NSURL *) currentDirectoryURL;
 #endif
 @end
 

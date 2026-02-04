@@ -14,19 +14,17 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSCountedSet class reference</title>
    $Date$ $Revision$
    */
 
 #import "common.h"
-#import "GNUstepBase/GSLock.h"
 #import "Foundation/NSEnumerator.h"
 #import "Foundation/NSSet.h"
 #import "Foundation/NSCoder.h"
@@ -42,7 +40,7 @@
 /*
  *	Class variables for uniquing objects;
  */
-static GSLazyRecursiveLock	*uniqueLock = nil;
+static NSRecursiveLock	*uniqueLock = nil;
 static NSCountedSet	*uniqueSet = nil;
 static IMP		uniqueImp = 0;
 static IMP		lockImp = 0;
@@ -72,7 +70,7 @@ static Class NSCountedSet_concrete_class;
     {
       NSCountedSet_abstract_class = self;
       NSCountedSet_concrete_class = [GSCountedSet class];
-      uniqueLock = [GSLazyRecursiveLock new];
+      uniqueLock = [NSRecursiveLock new];
       [[NSObject leakAt: &uniqueLock] release];
       lockImp = [uniqueLock methodForSelector: @selector(lock)];
       unlockImp = [uniqueLock methodForSelector: @selector(unlock)];
@@ -98,7 +96,7 @@ static Class NSCountedSet_concrete_class;
 
 /**
  * Returns the number of times that an object that is equal to the
- * specified object (as determined by the [-isEqual:] method) has
+ * specified object (as determined by the [NSObject-isEqual:] method) has
  * been added to the set and not removed from it.
  */
 - (NSUInteger) countForObject: (id)anObject
@@ -251,14 +249,14 @@ static Class NSCountedSet_concrete_class;
   id	o = [self member: anObject];
 
   [self addObject: anObject];
-  if (o == nil)
+  if (nil == o)
     {
       o = anObject;
     }
-  if (o != anObject)
+  else
     {
-      [anObject release];
-      [o retain];
+      RELEASE(anObject);
+      RETAIN(o);
     }
   return o;
 }

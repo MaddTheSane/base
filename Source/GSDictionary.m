@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */
 
 
@@ -60,7 +59,7 @@
 {
 @public
   GSIMapTable_t	map;
-  NSUInteger _version;
+  unsigned long	_version;
 }
 @end
 
@@ -79,6 +78,22 @@
 
 static SEL	nxtSel;
 static SEL	objSel;
+
+- (NSUInteger) sizeOfContentExcluding: (NSHashTable*)exclude
+{
+  NSUInteger    	size = GSIMapSize(&map) - sizeof(GSIMapTable);
+  GSIMapEnumerator_t	enumerator = GSIMapEnumeratorForMap(&map);
+  GSIMapNode		node = GSIMapEnumeratorNextNode(&enumerator);
+
+  while (node != 0)
+    {
+      size += [node->key.obj sizeInBytesExcluding: exclude];
+      size += [node->value.obj sizeInBytesExcluding: exclude];
+      node = GSIMapEnumeratorNextNode(&enumerator);
+    }
+  GSIMapEndEnumerator(&enumerator);
+  return size + [super sizeOfContentExcluding: exclude];
+}
 
 + (void) initialize
 {
@@ -197,7 +212,7 @@ static SEL	objSel;
       node = GSIMapNodeForKey(&map, (GSIMapKey)(id)keys[i]);
       if (node)
 	{
-	  IF_NO_GC(RETAIN(objs[i]));
+	  IF_NO_ARC(RETAIN(objs[i]);)
 	  RELEASE(node->value.obj);
 	  node->value.obj = objs[i];
 	}
@@ -219,6 +234,10 @@ static SEL	objSel;
   NSUInteger	c = [other count];
 
   GSIMapInitWithZoneAndCapacity(&map, z, c);
+  if (nil == other || other == self)
+    {
+      return self;
+    }
   if (c > 0)
     {
       NSEnumerator	*e = [other keyEnumerator];
@@ -235,20 +254,13 @@ static SEL	objSel;
 
 	  if (isProxy == YES)
 	    {
-	      k = [e nextObject];
+	      if (nil == (k = [e nextObject])) break;
 	      o = [other objectForKey: k];
 	    }
 	  else
 	    {
-	      k = (*nxtObj)(e, nxtSel);
+	      if (nil == (k = (*nxtObj)(e, nxtSel))) break;
 	      o = (*otherObj)(other, objSel, k);
-	    }
-	  k = [k copyWithZone: z];
-	  if (k == nil)
-	    {
-	      DESTROY(self);
-	      [NSException raise: NSInvalidArgumentException
-			  format: @"Tried to init dictionary with nil key"];
 	    }
 	  if (shouldCopy)
 	    {
@@ -257,12 +269,6 @@ static SEL	objSel;
 	  else
 	    {
 	      o = RETAIN(o);
-	    }
-	  if (o == nil)
-	    {
-	      DESTROY(self);
-	      [NSException raise: NSInvalidArgumentException
-			  format: @"Tried to init dictionary with nil value"];
 	    }
 
 	  node = GSIMapNodeForKey(&map, (GSIMapKey)k);
@@ -273,7 +279,8 @@ static SEL	objSel;
 	    }
 	  else
 	    {
-	      GSIMapAddPairNoRetain(&map, (GSIMapKey)k, (GSIMapVal)o);
+	      GSIMapAddPair(&map, (GSIMapKey)k, (GSIMapVal)o);
+	      RELEASE(o);
 	    }
 	}
     }
@@ -356,30 +363,16 @@ static SEL	objSel;
     (&map, state, stackbuf, len);
 }
 
-- (NSUInteger) sizeInBytesExcluding: (NSHashTable*)exclude
-{
-  NSUInteger	size = GSPrivateMemorySize(self, exclude);
-
-  if (size > 0)
-    {
-      GSIMapEnumerator_t	enumerator = GSIMapEnumeratorForMap(&map);
-      GSIMapNode 		node = GSIMapEnumeratorNextNode(&enumerator);
-
-      size += GSIMapSize(&map) - sizeof(map);
-      while (node != 0)
-        {
-          size += [node->key.obj sizeInBytesExcluding: exclude];
-          size += [node->value.obj sizeInBytesExcluding: exclude];
-          node = GSIMapEnumeratorNextNode(&enumerator);
-        }
-      GSIMapEndEnumerator(&enumerator);
-    }
-  return size;
-}
-
 @end
 
 @implementation GSMutableDictionary
+
+- (NSUInteger) sizeOfContentExcluding: (NSHashTable*)exclude
+{
+  /* Can't safely calculate for mutable object; just buffer size
+   */
+  return map.nodeCount * sizeof(GSIMapNode);
+}
 
 + (void) initialize
 {
@@ -424,7 +417,6 @@ static SEL	objSel;
 {
   GSIMapNode	node;
 
-  _version++;
   if (aKey == nil)
     {
       NSException	*e;
@@ -446,10 +438,11 @@ static SEL	objSel;
 				userInfo: self];
       [e raise];
     }
+  _version++;
   node = GSIMapNodeForKey(&map, (GSIMapKey)aKey);
   if (node)
     {
-      IF_NO_GC(RETAIN(anObject));
+      IF_NO_ARC(RETAIN(anObject);)
       RELEASE(node->value.obj);
       node->value.obj = anObject;
     }
@@ -483,7 +476,7 @@ static SEL	objSel;
 				   objects: (__unsafe_unretained id[])stackbuf
 				     count: (NSUInteger)len
 {
-  state->mutationsPtr = (unsigned long *)&_version;
+  state->mutationsPtr = &_version;
   return GSIMapCountByEnumeratingWithStateObjectsCount
     (&map, state, stackbuf, len);
 }
@@ -493,9 +486,11 @@ static SEL	objSel;
 
 - (id) initWithDictionary: (NSDictionary*)d
 {
-  [super init];
-  dictionary = (GSDictionary*)RETAIN(d);
-  enumerator = GSIMapEnumeratorForMap(&dictionary->map);
+  if (nil != (self = [super init]))
+    {
+      dictionary = (GSDictionary*)RETAIN(d);
+      enumerator = GSIMapEnumeratorForMap(&dictionary->map);
+    }
   return self;
 }
 

@@ -19,8 +19,7 @@
 #
 #  You should have received a copy of the GNU Lesser General Public
 #  License along with this library; if not, write to the Free
-#  Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-#  Boston, MA 02111 USA.
+#  Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 #
 
 ifeq ($(GNUSTEP_MAKEFILES),)
@@ -82,12 +81,12 @@ libgnustep-baseadd_SUBPROJECTS += Additions
 
 ifeq ($(GNUSTEP_TARGET_OS), mingw32)
   libgnustep-base_SUBPROJECTS += win32
+else ifeq ($(GNUSTEP_TARGET_OS), mingw64)
+  libgnustep-base_SUBPROJECTS += win32
+else ifeq ($(GNUSTEP_TARGET_OS), windows)
+  libgnustep-base_SUBPROJECTS += win32
 else
-  ifeq ($(GNUSTEP_TARGET_OS), mingw64)
-    libgnustep-base_SUBPROJECTS += win32
-  else
-    libgnustep-base_SUBPROJECTS += unix
-  endif
+  libgnustep-base_SUBPROJECTS += unix
 endif
 
 DEFS+= -DGNUSTEP_TARGET_DIR=\"$(GNUSTEP_TARGET_DIR)\" \
@@ -109,8 +108,9 @@ endif
 
 ifeq ($(GNUSTEP_TARGET_OS), mingw32)
   GNU_MFILES += libgnustep-base-entry.m
-endif
-ifeq ($(GNUSTEP_TARGET_OS), mingw64)
+else ifeq ($(GNUSTEP_TARGET_OS), mingw64)
+  GNU_MFILES += libgnustep-base-entry.m
+else ifeq ($(GNUSTEP_TARGET_OS), windows)
   GNU_MFILES += libgnustep-base-entry.m
 endif
 
@@ -120,18 +120,19 @@ win32-def.top \
 libgnustep-base.def
 
 GNUSTEPBASE_HEADERS = \
+GCObject.h \
 GSBlocks.h \
 GSVersionMacros.h \
 GSObjCRuntime.h \
 GSUnion.h \
 GSIArray.h \
 GSIMap.h \
-GCObject.h \
-GSLock.h \
 GSFunctions.h \
-GSMime.h \
-GSXML.h \
 GSLocale.h \
+GSMime.h \
+GSTLS.h \
+GSURITemplate.h \
+GSXML.h \
 NSArray+GNUstepBase.h \
 NSAttributedString+GNUstepBase.h \
 NSBundle+GNUstepBase.h \
@@ -140,7 +141,6 @@ NSData+GNUstepBase.h \
 NSDebug+GNUstepBase.h \
 NSFileHandle+GNUstepBase.h \
 NSHashTable+GNUstepBase.h \
-NSLock+GNUstepBase.h \
 NSMutableString+GNUstepBase.h \
 NSNetServices+GNUstepBase.h \
 NSNumber+GNUstepBase.h \
@@ -171,6 +171,7 @@ GSFormat.m \
 GSHTTPAuthentication.m \
 GSHTTPURLHandle.m \
 GSICUString.m \
+GSOrderedSet.m \
 GSPrivateHash.m \
 GSQuickSort.m \
 GSRunLoopWatcher.m \
@@ -187,12 +188,17 @@ GSSocksParser/GSSocksParserPrivate.m \
 GSSocksParser/GSSocks4Parser.m \
 GSSocksParser/GSSocks5Parser.m \
 NSAffineTransform.m \
+NSAppleEventDescriptor.m \
+NSAppleEventManager.m \
+NSAppleScript.m \
 NSArchiver.m \
 NSArray.m \
 NSAssertionHandler.m \
 NSAttributedString.m \
 NSAutoreleasePool.m \
+NSBackgroundActivityScheduler.m \
 NSBundle.m \
+NSByteCountFormatter.m \
 NSCache.m \
 NSCachedURLResponse.m \
 NSCalendar.m \
@@ -208,7 +214,10 @@ NSConcreteMapTable.m \
 NSConnection.m \
 NSData.m \
 NSDate.m \
+NSDateComponentsFormatter.m \
 NSDateFormatter.m \
+NSDateInterval.m \
+NSDateIntervalFormatter.m \
 NSDebug.m \
 NSDecimal.m \
 NSDecimalNumber.m \
@@ -216,15 +225,22 @@ NSDictionary.m \
 NSDistantObject.m \
 NSDistributedLock.m \
 NSDistributedNotificationCenter.m \
+NSEnergyFormatter.m \
 NSEnumerator.m \
 NSError.m \
 NSException.m \
+NSExtensionContext.m \
+NSExtensionItem.m \
+NSFileCoordinator.m \
 NSFileHandle.m \
 NSFileManager.m \
+NSFileVersion.m \
+NSFileWrapper.m \
 NSFormatter.m \
 NSGarbageCollector.m \
 NSGeometry.m \
 NSHashTable.m \
+NSHFSFileTypes.m \
 NSHost.m \
 NSHTTPCookie.m \
 NSHTTPCookieStorage.m \
@@ -232,17 +248,26 @@ NSIndexPath.m \
 NSIndexSet.m \
 NSInvocation.m \
 NSInvocationOperation.m \
+NSISO8601DateFormatter.m \
+NSItemProvider.m \
+NSItemProviderReadingWriting.m \
 NSJSONSerialization.m \
 NSKeyedArchiver.m \
 NSKeyedUnarchiver.m \
 NSKeyValueCoding.m \
-NSKeyValueObserving.m \
+NSLengthFormatter.m \
+NSLinguisticTagger.m \
 NSLocale.m \
 NSLock.m \
 NSLog.m \
 NSMapTable.m \
+NSMassFormatter.m \
+NSMeasurementFormatter.m \
+NSMeasurement.m \
 NSMetadata.m \
+NSMetadataAttributes.m \
 NSMethodSignature.m \
+NSNetServices.m \
 NSNotification.m \
 NSNotificationCenter.m \
 NSNotificationQueue.m \
@@ -251,10 +276,15 @@ NSNumber.m \
 NSNumberFormatter.m \
 NSObjCRuntime.m \
 NSObject.m \
+NSObjectScripting.m \
 NSObject+NSComparisonMethods.m \
 NSOperation.m \
+NSOrderedSet.m \
+NSOrthography.m \
 NSPage.m \
 NSPathUtilities.m \
+NSPersonNameComponents.m \
+NSPersonNameComponentsFormatter.m \
 NSPipe.m \
 NSPointerArray.m \
 NSPointerFunctions.m \
@@ -265,6 +295,7 @@ NSPortMessage.m \
 NSPortNameServer.m \
 NSPredicate.m \
 NSProcessInfo.m \
+NSProgress.m \
 NSPropertyList.m \
 NSProtocolChecker.m \
 NSProxy.m \
@@ -272,6 +303,18 @@ NSRange.m \
 NSRegularExpression.m\
 NSRunLoop.m \
 NSScanner.m \
+NSScriptClassDescription.m \
+NSScriptCoercionHandler.m \
+NSScriptCommand.m \
+NSScriptCommandDescription.m \
+NSScriptExecutionContext.m \
+NSScriptKeyValueCoding.m \
+NSScriptObjectSpecifiers.m \
+NSScriptStandardSuiteCommands.m \
+NSScriptSuiteRegistry.m \
+NSUnit.m \
+NSUserActivity.m \
+NSUserScriptTask.m \
 NSSerializer.m \
 NSSet.m \
 NSSocketPort.m \
@@ -283,6 +326,7 @@ NSTask.m \
 NSThread.m \
 NSTimer.m \
 NSTimeZone.m \
+NSUbiquitousKeyValueStore.m \
 NSUnarchiver.m \
 NSUndoManager.m \
 NSURL.m \
@@ -309,39 +353,70 @@ NSXMLDTDNode.m \
 NSXMLElement.m \
 NSXMLNode.m \
 NSXMLParser.m \
+NSXPCConnection.m \
 NSZone.m \
 externs.m \
 objc-load.m 
 
+# We have two implementations for Key Value Observing.
+# One highly-optimised one that depends on libobjc2
+# and the original implementation.
+ifeq ($(GNUSTEP_BASE_HAVE_NEWKVO), 1)
+  BASE_MFILES += \
+  NSKVOSupport.m \
+  NSKVOSwizzling.m
+else
+  BASE_MFILES += \
+  NSKeyValueObserving.m
+endif
+
+ifeq ($(OBJC_RUNTIME_LIB), ng)
+  BASE_MFILES += \
+  NSKeyValueCoding+Caching.m
+endif
+
 ifneq ($(GNUSTEP_TARGET_OS), mingw32)
   ifneq ($(GNUSTEP_TARGET_OS), mingw64)
-BASE_MFILES += \
-GSFileHandle.m \
-NSMessagePort.m \
-NSMessagePortNameServer.m
+    ifneq ($(GNUSTEP_TARGET_OS), windows)
+      BASE_MFILES += \
+	GSFileHandle.m \
+	NSMessagePort.m \
+	NSMessagePortNameServer.m
+    endif
   endif
 endif
 
+ifeq ($(HAVE_BLOCKS), 1)
+ifeq ($(GNUSTEP_BASE_HAVE_LIBDISPATCH), 1)
+ifeq ($(GNUSTEP_BASE_HAVE_LIBCURL), 1)
+  BASE_MFILES += \
+	NSURLSession.m \
+	NSURLSessionTask.m \
+	NSURLSessionConfiguration.m
+endif
+endif
+endif
+
 ifeq ($(GNUSTEP_BASE_HAVE_MDNS), 1)
-  BASE_MFILES += NSNetServices.m \
-                 GSMDNSNetServices.m
+  BASE_MFILES += \
+	GSMDNSNetServices.m
 endif
 
 ifeq ($(GNUSTEP_BASE_HAVE_AVAHI), 1)
-  BASE_MFILES += NSNetServices.m \
-                 GSAvahiNetService.m \
-                 GSAvahiNetServiceBrowser.m \
-                 GSAvahiClient.m \
-                 GSAvahiRunLoopIntegration.m
+  BASE_MFILES += \
+	GSAvahiNetService.m \
+	GSAvahiNetServiceBrowser.m \
+	GSAvahiClient.m \
+	GSAvahiRunLoopIntegration.m
 endif
 
 ifeq ($(WITH_FFI),libffi)
-GNU_MFILES += cifframe.m
-BASE_MFILES += GSFFIInvocation.m
+  GNU_MFILES += cifframe.m
+  BASE_MFILES += GSFFIInvocation.m
 endif
 ifeq ($(WITH_FFI),ffcall)
-GNU_MFILES += callframe.m
-BASE_MFILES += GSFFCallInvocation.m
+  GNU_MFILES += callframe.m
+  BASE_MFILES += GSFFCallInvocation.m
 endif
 
 BASE_OTHER_SRCFILES = \
@@ -355,15 +430,26 @@ win32-load.h \
 NSCallBacks.h \
 tzfile.h
 
+# Definitions for toll-free bridging of known structures
+# such as NSRect, NSPoint, or NSSize.
+COREFOUNDATION_HEADERS = \
+CFCGTypes.h
+
 FOUNDATION_HEADERS = \
 Foundation.h \
 FoundationErrors.h \
+FoundationLegacySwiftCompatibility.h \
 NSAffineTransform.h \
+NSAppleEventDescriptor.h \
+NSAppleEventManager.h \
+NSAppleScript.h \
 NSArchiver.h \
 NSArray.h \
 NSAttributedString.h \
 NSAutoreleasePool.h \
+NSBackgroundActivityScheduler.h \
 NSBundle.h \
+NSByteCountFormatter.h \
 NSByteOrder.h \
 NSCache.h\
 NSCalendar.h \
@@ -375,7 +461,10 @@ NSComparisonPredicate.h \
 NSCompoundPredicate.h \
 NSConnection.h \
 NSData.h \
+NSDateComponentsFormatter.h \
 NSDateFormatter.h \
+NSDateInterval.h \
+NSDateIntervalFormatter.h \
 NSDate.h \
 NSDebug.h \
 NSDecimal.h \
@@ -384,17 +473,26 @@ NSDictionary.h \
 NSDistantObject.h \
 NSDistributedLock.h \
 NSDistributedNotificationCenter.h \
+NSEnergyFormatter.h \
 NSEnumerator.h \
 NSError.h \
 NSErrorRecoveryAttempting.h \
 NSException.h \
+NSExtensionContext.h \
+NSExtensionItem.h \
+NSExtensionRequestHandling.h \
 NSExpression.h \
+NSFileCoordinator.h \
 NSFileHandle.h \
 NSFileManager.h \
+NSFilePresenter.h \
+NSFileVersion.h \
+NSFileWrapper.h \
 NSFormatter.h \
 NSGarbageCollector.h \
 NSGeometry.h \
 NSHashTable.h \
+NSHFSFileTypes.h \
 NSHost.h \
 NSHTTPCookie.h \
 NSHTTPCookieStorage.h \
@@ -402,14 +500,23 @@ NSIndexPath.h \
 NSIndexSet.h \
 NSInvocation.h \
 NSInvocationOperation.h \
+NSISO8601DateFormatter.h \
+NSItemProvider.h \
+NSItemProviderReadingWriting.h \
 NSJSONSerialization.h \
 NSKeyedArchiver.h \
 NSKeyValueCoding.h \
 NSKeyValueObserving.h \
+NSLengthFormatter.h \
+NSLinguisticTagger.h \
 NSLocale.h \
 NSLock.h \
 NSMapTable.h \
+NSMassFormatter.h \
+NSMeasurementFormatter.h \
+NSMeasurement.h \
 NSMetadata.h \
+NSMetadataAttributes.h \
 NSMethodSignature.h \
 NSNetServices.h \
 NSNotification.h \
@@ -418,8 +525,13 @@ NSNull.h \
 NSNumberFormatter.h \
 NSObjCRuntime.h \
 NSObject.h \
+NSObjectScripting.h \
 NSOperation.h \
+NSOrderedSet.h \
+NSOrthography.h \
 NSPathUtilities.h \
+NSPersonNameComponents.h \
+NSPersonNameComponentsFormatter.h \
 NSPointerArray.h \
 NSPointerFunctions.h \
 NSPortCoder.h \
@@ -428,6 +540,7 @@ NSPortMessage.h \
 NSPortNameServer.h \
 NSPredicate.h \
 NSProcessInfo.h \
+NSProgress.h \
 NSPropertyList.h \
 NSProtocolChecker.h \
 NSProxy.h \
@@ -435,6 +548,18 @@ NSRange.h \
 NSRegularExpression.h\
 NSRunLoop.h \
 NSScanner.h \
+NSScriptClassDescription.h \
+NSScriptCoercionHandler.h \
+NSScriptCommand.h \
+NSScriptCommandDescription.h \
+NSScriptExecutionContext.h \
+NSScriptKeyValueCoding.h \
+NSScriptObjectSpecifiers.h \
+NSScriptStandardSuiteCommands.h \
+NSScriptSuiteRegistry.h \
+NSUnit.h \
+NSUserActivity.h \
+NSUserScriptTask.h \
 NSScriptWhoseTests.h \
 NSSerialization.h \
 NSSet.h \
@@ -447,6 +572,7 @@ NSTextCheckingResult.h\
 NSThread.h \
 NSTimer.h \
 NSTimeZone.h \
+NSUbiquitousKeyValueStore.h \
 NSUndoManager.h \
 NSURLAuthenticationChallenge.h \
 NSURLCache.h \
@@ -461,6 +587,7 @@ NSURLProtectionSpace.h \
 NSURLProtocol.h \
 NSURLRequest.h \
 NSURLResponse.h \
+NSURLSession.h \
 NSUserDefaults.h \
 NSUserNotification.h \
 NSUtilities.h \
@@ -474,12 +601,14 @@ NSXMLElement.h \
 NSXMLNode.h \
 NSXMLNodeOptions.h \
 NSXMLParser.h \
+NSXPCConnection.h \
 NSZone.h
 
 HEADERS_INSTALL = \
 	$(OBJECTIVEC2_HEADERS) \
 	$(GNUSTEPBASE_HEADERS) \
-	$(FOUNDATION_HEADERS)
+	$(FOUNDATION_HEADERS) \
+  $(COREFOUNDATION_HEADERS)
 
 GENERATED_HFILES = \
 dynamic-load.h \
@@ -511,7 +640,7 @@ libgnustep-base_HEADER_FILES = $(FOUNDATION_HEADERS)
 RESOURCE_SET_NAME = libbase-resources
 
 # This is for gnustep-make >= 14-02-2007
-libbase-resources_INSTALL_DIR = $(GNUSTEP_LIBRARY)/Libraries/gnustep-base/Versions/$(libgnustep-base_INTERFACE_VERSION)/Resources
+libbase-resources_INSTALL_DIR = $(GNUSTEP_LIBRARY)/Libraries/gnustep-base/Versions/$(MAJOR_VERSION).$(MINOR_VERSION)/Resources
 # This is kept temporarily for gnustep-make < 14-02-2007
 libbase-resources_RESOURCE_FILES_INSTALL_DIR = /Library/Libraries/Resources/gnustep-base
 
@@ -522,6 +651,7 @@ libbase-resources_RESOURCE_FILES = Info-gnustep.plist
 
 libgnustep-base_NEEDS_GUI = NO
 libgnustep-baseadd_NEEDS_GUI = NO
+libgnustep-base_PKGCONFIG_FILES = "gnustep-base.pc"
 
 # Build the Additions subproject first.  It can then be used in by
 # both gnustep-base and gnustep-baseadd (otherwise, if we ever build

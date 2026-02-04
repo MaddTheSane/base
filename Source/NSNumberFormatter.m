@@ -16,12 +16,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSNumberFormatter class reference</title>
    $Date$ $Revision$
@@ -60,11 +59,15 @@
 #import "Foundation/NSCharacterSet.h"
 
 #import "GNUstepBase/GSLocale.h"
+#import "GSPrivate.h"
 
 @class NSDoubleNumber;
 
 #if	defined(HAVE_UNICODE_UNUM_H)
 # include <unicode/unum.h>
+#endif
+#if defined(HAVE_ICU_H)
+# include <icu.h>
 #endif
 
 #define BUFFER_SIZE 1024
@@ -509,22 +512,22 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
 {
   NSNumberFormatter	*o = (NSNumberFormatter*) NSCopyObject(self, 0, zone);
 
-  IF_NO_GC(RETAIN(o->_negativeFormat);)
-  IF_NO_GC(RETAIN(o->_positiveFormat);)
-  IF_NO_GC(RETAIN(o->_attributesForPositiveValues);)
-  IF_NO_GC(RETAIN(o->_attributesForNegativeValues);)
-  IF_NO_GC(RETAIN(o->_maximum);)
-  IF_NO_GC(RETAIN(o->_minimum);)
-  IF_NO_GC(RETAIN(o->_roundingBehavior);)
-  IF_NO_GC(RETAIN(o->_attributedStringForNil);)
-  IF_NO_GC(RETAIN(o->_attributedStringForNotANumber);)
-  IF_NO_GC(RETAIN(o->_attributedStringForZero);)
+  IF_NO_ARC(RETAIN(o->_negativeFormat);)
+  IF_NO_ARC(RETAIN(o->_positiveFormat);)
+  IF_NO_ARC(RETAIN(o->_attributesForPositiveValues);)
+  IF_NO_ARC(RETAIN(o->_attributesForNegativeValues);)
+  IF_NO_ARC(RETAIN(o->_maximum);)
+  IF_NO_ARC(RETAIN(o->_minimum);)
+  IF_NO_ARC(RETAIN(o->_roundingBehavior);)
+  IF_NO_ARC(RETAIN(o->_attributedStringForNil);)
+  IF_NO_ARC(RETAIN(o->_attributedStringForNotANumber);)
+  IF_NO_ARC(RETAIN(o->_attributedStringForZero);)
   if (0 != internal)
     {
       int	idx;
 
       GS_COPY_INTERNAL(o, zone)
-      IF_NO_GC(
+      IF_NO_ARC(
 	[GSIVar(o,_locale) retain];
 	for (idx = 0; idx < MAX_SYMBOLS; ++idx)
 	  {
@@ -557,7 +560,7 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
   RELEASE(_attributedStringForNil);
   RELEASE(_attributedStringForNotANumber);
   RELEASE(_attributedStringForZero);
-  if (internal != 0)
+  if (GS_EXISTS_INTERNAL)
     {
       int idx;
 
@@ -897,12 +900,12 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
   return _localizesFormat;
 }
 
-- (NSDecimalNumber*) maximum
+- (NSNumber*) maximum
 {
   return _maximum;
 }
 
-- (NSDecimalNumber*) minimum
+- (NSNumber*) minimum
 {
   return _minimum;
 }
@@ -999,13 +1002,13 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
   _localizesFormat = flag;
 }
 
-- (void) setMaximum: (NSDecimalNumber*)aMaximum
+- (void) setMaximum: (NSNumber*)aMaximum
 {
   // FIXME: NSNumberFormatterBehavior10_4
   ASSIGN(_maximum, aMaximum);
 }
 
-- (void) setMinimum: (NSDecimalNumber*)aMinimum
+- (void) setMinimum: (NSNumber*)aMinimum
 {
   // FIXME: NSNumberFormatterBehavior10_4
   ASSIGN(_minimum, aMinimum);
@@ -1048,6 +1051,56 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
 
 - (NSString*) stringForObjectValue: (id)anObject
 {
+  NSDecimalNumber *zeroNumber;
+  NSDecimalNumber *nanNumber;
+  NSAttributedString *attrStr;
+  
+  // Handle nil objects
+  if (nil == anObject)
+    {
+      attrStr = [self attributedStringForNil];
+      if (attrStr != nil)
+        {
+          return [attrStr string];
+        }
+      return @"";
+    }
+  
+  // Handle non-NSNumber objects
+  if (![anObject isKindOfClass: [NSNumber class]])
+    {
+      attrStr = [self attributedStringForNotANumber];
+      if (attrStr != nil)
+        {
+          return [attrStr string];
+        }
+      return @"";
+    }
+  
+  // Handle NaN
+  nanNumber = [NSDecimalNumber notANumber];
+  if ([anObject isEqual: nanNumber])
+    {
+      attrStr = [self attributedStringForNotANumber];
+      if (attrStr != nil)
+        {
+          return [attrStr string];
+        }
+      return @"";
+    }
+  
+  // Handle zero
+  zeroNumber = [NSDecimalNumber zero];
+  if ([anObject isEqual: zeroNumber])
+    {
+      attrStr = [self attributedStringForZero];
+      if (attrStr != nil)
+        {
+          return [attrStr string];
+        }
+      // Fall through to normal formatting if no special zero string is set
+    }
+  
   if (MYBEHAVIOR == NSNumberFormatterBehaviorDefault
     || MYBEHAVIOR == NSNumberFormatterBehavior10_4)
     {
@@ -1083,10 +1136,6 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
        * falling through to the double case for this, which will lose us some
        * precision, but hopefully not matter too much...
        */
-      if (nil == anObject)
-        return [self nilSymbol];
-      if (![anObject isKindOfClass: [NSNumber class]])
-        return [self notANumberSymbol];
       switch ([anObject objCType][0])
         {
           case _C_LNG_LNG:
@@ -1100,7 +1149,7 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
            * don't think it matters, because we don't bother with anything
            * smaller than int for NSNumbers
 	   */
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
           case _C_BOOL:
             STRING_FROM_NUMBER(unum_format, (int)[anObject boolValue]);
             break;
@@ -1174,16 +1223,6 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
         characterSetWithCharactersInString: @"0123456789#.,_"];
       placeHolders = [NSCharacterSet 
         characterSetWithCharactersInString: @"0123456789#_"];
-
-      if (nil == anObject)
-        return [[self attributedStringForNil] string];
-      if (![anObject isKindOfClass: [NSNumber class]])
-        return [[self attributedStringForNotANumber] string];
-      if ([anObject isEqual: [NSDecimalNumber notANumber]])
-        return [[self attributedStringForNotANumber] string];
-      if (_attributedStringForZero
-          && [anObject isEqual: [NSDecimalNumber zero]])
-        return [[self attributedStringForZero] string];
       
       useFormat = _positiveFormat;
       if ([(NSNumber*)anObject compare: [NSDecimalNumber zero]]
@@ -1329,44 +1368,37 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
       //fix up the fractional part
       if (displayFractionalPart)
         {
-          if (0 != decimalPlaces)
-            {
-	      NSMutableString	*ms;
+          NSMutableString	*ms;
 
-              fracPart = [fracPart decimalNumberByMultiplyingByPowerOf10:
-		decimalPlaces];
-              ms = [[fracPart descriptionWithLocale: locale] mutableCopy];
-              if ([fracPad length] > [ms length])
-                {
-                  NSRange fpRange;
-
-                  fpRange = NSMakeRange([ms length],
-		    ([fracPad length] - [ms length]));
-                  [ms insertString:
-		    [fracPad substringWithRange: fpRange] atIndex: 0];
-                  [ms replaceOccurrencesOfString: @"#"
-		    withString: @""
-		    options: (NSBackwardsSearch | NSAnchoredSearch)
-		    range: NSMakeRange(0, [ms length])];
-                  [ms replaceOccurrencesOfString: @"#"
-		    withString: @"0"
-		    options: 0
-		    range: NSMakeRange(0, [ms length])];
-                  [ms replaceOccurrencesOfString: @"_"
-		    withString: @" "
-		    options: 0
-		    range: NSMakeRange(0, [ms length])];
-                }
-              [ms replaceOccurrencesOfString: @"0"
-		withString: @""
-		options: (NSBackwardsSearch | NSAnchoredSearch)
-		range: NSMakeRange(0, [ms length])];
-	      fracPartString = AUTORELEASE(ms);
-            }
-          else
+          fracPart = [fracPart decimalNumberByMultiplyingByPowerOf10:
+            decimalPlaces];
+          ms = [[fracPart descriptionWithLocale: locale] mutableCopy];
+          if ([fracPad length] > [ms length])
             {
-              fracPartString = @"0";
+              NSRange fpRange;
+
+              fpRange = NSMakeRange([ms length],
+                ([fracPad length] - [ms length]));
+              [ms insertString:
+                [fracPad substringWithRange: fpRange] atIndex: 0];
+              [ms replaceOccurrencesOfString: @"#"
+                withString: @""
+                options: (NSBackwardsSearch | NSAnchoredSearch)
+                range: NSMakeRange(0, [ms length])];
+              [ms replaceOccurrencesOfString: @"#"
+                withString: @"0"
+                options: 0
+                range: NSMakeRange(0, [ms length])];
+              [ms replaceOccurrencesOfString: @"_"
+                withString: @" "
+                options: 0
+                range: NSMakeRange(0, [ms length])];
             }
+          [ms replaceOccurrencesOfString: @"0"
+            withString: @""
+            options: (NSBackwardsSearch | NSAnchoredSearch)
+            range: NSMakeRange(0, [ms length])];
+          fracPartString = AUTORELEASE(ms);
           [formattedNumber appendString: [self decimalSeparator]];
           [formattedNumber appendString: fracPartString];
         }
@@ -1412,55 +1444,57 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
 
 - (NSNumber *) numberFromString: (NSString *)string
 {
+  NSNumber	*result = nil;
 // This is a 10.4 and above method and should not work with earlier version.
 #if GS_USE_ICU == 1
-  NSNumber *result;
-  NSUInteger length;
-  NSRange range;
-  UErrorCode err = U_ZERO_ERROR;
-  unichar *ustring;
-  int64_t intNum;
-  double doubleNum;
-  
-  if (string == nil)
-    return nil;
-  
-  length = [string length];
-  ustring = NSZoneMalloc ([self zone], sizeof(unichar) * length);
-  if (ustring == NULL)
-    return nil;
-  
-  [string getCharacters: ustring range: NSMakeRange(0, length)];
-  
-  // FIXME: Not sure if this is correct....
-  range = [string rangeOfString: @"."];
-  if (range.location == NSNotFound)
+  NSUInteger 	length = [string length];
+
+  if (length > 0)
     {
-      intNum = unum_parseInt64(internal->_formatter,
-        ustring, length, NULL, &err);
-      if (U_FAILURE(err))
-        return nil;
-      if (intNum == 0 || intNum == 1)
-        result = [NSNumber numberWithBool: (BOOL) intNum];
-      else if (intNum < INT_MAX && intNum > INT_MIN)
-        result = [NSNumber numberWithInt: (int32_t)intNum];
+      NSRange 		range;
+      UErrorCode 	err = U_ZERO_ERROR;
+      int64_t 		intNum;
+      double 		doubleNum;
+      GS_BEGINITEMBUF(ustring, length * sizeof(unichar), unichar)
+  
+      [string getCharacters: ustring range: NSMakeRange(0, length)];
+  
+      // FIXME: Not sure if this is correct....
+      range = [string rangeOfString: @"."];
+      if (range.location == NSNotFound)
+	{
+	  intNum = unum_parseInt64(internal->_formatter,
+	    ustring, length, NULL, &err);
+	  if (!U_FAILURE(err))
+	    {
+	      if (intNum == 0 || intNum == 1)
+		{
+		  result = [NSNumber numberWithBool: (BOOL) intNum];
+		}
+	      else if (intNum < INT_MAX && intNum > INT_MIN)
+		{
+		  result = [NSNumber numberWithInt: (int32_t)intNum];
+		}
+	      else
+		{
+		  result = [NSNumber numberWithLongLong: intNum];
+		}
+	    }
+	}
       else
-        result = [NSNumber numberWithLongLong: intNum];
+	{
+	  doubleNum = unum_parseDouble(internal->_formatter,
+	    ustring, length, NULL, &err);
+	  if (!U_FAILURE(err))
+	    {
+	      result = [NSNumber numberWithDouble: doubleNum];
+	    }
+	}
+      
+      GS_ENDITEMBUF()
     }
-  else
-    {
-      doubleNum = unum_parseDouble(internal->_formatter,
-        ustring, length, NULL, &err);
-      if (U_FAILURE(err))
-        return nil;
-      result = [NSNumber numberWithDouble: doubleNum];
-    }
-  
-  NSZoneFree ([self zone], ustring);
-  return result;
-#else
-  return nil;
 #endif
+  return result;
 }
 
 

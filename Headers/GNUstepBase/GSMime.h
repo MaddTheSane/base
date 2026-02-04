@@ -20,8 +20,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    AutogsdocSource: Additions/GSMime.m
 */
@@ -56,6 +55,7 @@ extern "C" {
  * A trivial class for mantaining state while decoding/encoding data.
  * Each encoding type requires its own subclass.
  */
+GS_EXPORT_CLASS
 @interface	GSMimeCodingContext : NSObject
 {
   BOOL		atEnd;	/* Flag to say that data has ended.	*/
@@ -67,6 +67,7 @@ extern "C" {
 - (void) setAtEnd: (BOOL)flag;
 @end
 
+GS_EXPORT_CLASS
 @interface      GSMimeHeader : NSObject <NSCopying>
 {
 #if	GS_EXPOSE(GSMimeHeader)
@@ -124,7 +125,7 @@ extern "C" {
 - (NSString*) value;
 @end
 
-
+GS_EXPORT_CLASS
 @interface	GSMimeDocument : NSObject <NSCopying>
 {
 #if	GS_EXPOSE(GSMimeDocument)
@@ -135,6 +136,10 @@ extern "C" {
   void			*_unused;
 #endif
 }
+
+/* Examine xml data/string to find out the characterset encoding specified
+ */
++ (NSString*) charsetForXml: (id)xml;
 
 + (NSString*) charsetFromEncoding: (NSStringEncoding)enc;
 
@@ -160,6 +165,7 @@ extern "C" {
  */
 + (NSData*) encodeBase64: (NSData*)source;
 + (NSString*) encodeBase64String: (NSString*)source;
++ (NSStringEncoding) encodingForXml: (id)xml;
 + (NSStringEncoding) encodingFromCharset: (NSString*)charset;
 
 - (void) addContent: (id)newContent;
@@ -216,6 +222,7 @@ extern "C" {
 
 @end
 
+GS_EXPORT_CLASS
 @interface	GSMimeParser : NSObject
 {
 #if	GS_EXPOSE(GSMimeParser)
@@ -297,6 +304,7 @@ extern "C" {
  * in a form suitable for sending as an Email over the SMTP protocol
  * or in other forms.
  */
+GS_EXPORT_CLASS
 @interface GSMimeSerializer : NSObject <NSCopying>
 {
   NSUInteger    foldAt;         /** Fold long lines at this position */
@@ -407,6 +415,7 @@ typedef NS_ERROR_ENUM(GSMimeErrorDomain, GSMimeErrorCode) {
 /** The GSMimeSMTPClient class provides the ability to send EMails
  * ([GSMimeDocument] instances) via an SMTP server.
  */
+GS_EXPORT_CLASS
 @interface	GSMimeSMTPClient : NSObject
 {
 #if	GS_NONFRAGILE
@@ -439,6 +448,10 @@ GS_GSMimeSMTPClient_IVARS;
  */
 - (NSError*) lastError;
 
+/** Returns the number of messages currently in the queue.
+ */ 
+- (NSUInteger) queueSize;
+
 /** Add the message to the queue of emails to be sent by the receiver.
  */
 - (void) send: (GSMimeDocument*)message;
@@ -469,6 +482,13 @@ GS_GSMimeSMTPClient_IVARS;
  */
 - (void) setIdentity: (NSString*)s;
 
+/** Sets the maximum number of messages which may remain in the queue.
+ * If this is exceeded then any unsuccessful send attempt results in
+ * excess queued messages discarded as unsent.<br />
+ * The method returns the previous setting.
+ */
+- (NSUInteger) setMaximum: (NSUInteger)m;
+ 
 /** Set the originator for any emails sent by the SMTP client.<br />
  * This overrides the value in the 'from' header of an email.<br />
  * If this is not set (or is set to nil) then the GSMimeSMTPClientOriginator

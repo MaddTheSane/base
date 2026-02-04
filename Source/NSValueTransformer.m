@@ -15,12 +15,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #import "common.h"
@@ -30,9 +29,9 @@
 #import "Foundation/NSDictionary.h"
 #import "Foundation/NSException.h"
 #import "Foundation/NSArchiver.h"
+#import "Foundation/NSLock.h"
 #import "Foundation/NSValue.h"
 #import "Foundation/NSValueTransformer.h"
-#import "GNUstepBase/GSLock.h"
 
 @interface NSNegateBooleanTransformer : NSValueTransformer
 @end
@@ -52,7 +51,7 @@
 // non-abstract methods
 
 static NSMutableDictionary *registry = nil;
-static GSLazyLock *lock = nil;
+static NSRecursiveLock *lock = nil;
 
 + (void) initialize
 {
@@ -60,7 +59,7 @@ static GSLazyLock *lock = nil;
     {
       NSValueTransformer	*t;
 
-      lock = [GSLazyLock new];
+      lock = [NSRecursiveLock new];
       [[NSObject leakAt: &lock] release];
       registry = [[NSMutableDictionary alloc] init];
       [[NSObject leakAt: &registry] release];
@@ -101,7 +100,7 @@ static GSLazyLock *lock = nil;
 
   [lock lock];
   transformer = [registry objectForKey: name];
-  IF_NO_GC([transformer retain];)
+  IF_NO_ARC([transformer retain];)
 
   if (transformer == nil)
     {

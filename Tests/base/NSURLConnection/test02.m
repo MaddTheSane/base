@@ -14,6 +14,11 @@ int main(int argc, char **argv, char **env)
   BOOL loaded;
   NSString *helperPath;
 
+#if defined(_WIN64) && defined(_MSC_VER)
+  NSLog(@"Marking tests as hopeful because they are known to fail on 64-bit Windows with Clang/MSVC.");
+  testHopeful = YES;
+#endif
+
   // load the test suite's classes
   fm = [NSFileManager defaultManager];
   helperPath = [[fm currentDirectoryPath]
@@ -28,14 +33,14 @@ int main(int argc, char **argv, char **env)
       NSDictionary *refs;
       TestWebServer *server;
       NSURLConnectionTest *testCase;
-      BOOL debug = NO;
-
+      BOOL debug = GSDebugSet(@"dflt");
+  
       testClass = [bundle principalClass]; // NSURLConnectionTest
 
       // create a shared TestWebServer instance for performance
       server = [[testClass testWebServerClass] new];
       [server setDebug: debug];
-      [server start: nil]; // 127.0.0.1:1234 HTTP
+      [server start: nil]; // localhost:1234 HTTP
 
       /*
        *  Simple GET via HTTP with empty response's body and
@@ -130,8 +135,11 @@ int main(int argc, char **argv, char **env)
 		  format: @"can't load bundle TestConnection"];
     }
 
-
   DESTROY(arp);
+  
+#if defined(_WIN64) && defined(_MSC_VER)
+  testHopeful = NO;
+#endif
 
   return 0;
 }

@@ -15,12 +15,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #ifndef __NSInvocation_h_GNUSTEP_BASE_INCLUDE
@@ -28,11 +27,13 @@
 #import	<GNUstepBase/GSVersionMacros.h>
 
 #import	<Foundation/NSMethodSignature.h>
+#include <stdbool.h>
 
 #if	defined(__cplusplus)
 extern "C" {
 #endif
 
+GS_EXPORT_CLASS
 @interface NSInvocation : NSObject
 {
 #if	GS_EXPOSE(NSInvocation)
@@ -153,6 +154,47 @@ extern "C" {
   [__proxy message]; \
   [NSInvocation _returnInvocationAndDestroyProxy: __proxy]; \
 })
+
+typedef NS_ENUM(char, _NSObjCValueType)
+{
+  NSObjCArrayType = '[',
+  NSObjCBitfield = 'b',
+  NSObjCBoolType = 'B',
+  NSObjCCharType = 'c',
+  NSObjCDoubleType = 'd',
+  NSObjCFloatType = 'f',
+  NSObjCLonglongType = 'q',
+  NSObjCLongType = 'l',
+  NSObjCNoType = '\0',
+  NSObjCObjectType = '@',
+  NSObjCPointerType = '^',
+  NSObjCSelectorType = ':',
+  NSObjCShortType = 's',
+  NSObjCStringType = '*',
+  NSObjCStructType = '{',
+  NSObjCUnionType = '(',
+  NSObjCVoidType = 'v',
+};
+
+typedef struct
+{
+  _NSObjCValueType type;
+  union
+  {
+    bool boolValue;
+    char charValue;
+    double doubleValue;
+    float floatValue;
+    long long longlongValue;
+    long longValue;
+    id objectValue;
+    void *pointerValue;
+    SEL selectorValue;
+    short shortValue;
+    char *cStringLocation;
+    void *structLocation;
+  } value;
+} NSObjCValue;
 
 #if	defined(__cplusplus)
 }

@@ -18,8 +18,7 @@
 
    You should have received a copy of the GNU General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */
 
 /* Ported to mingw 07/12/00 by Bjorn Giesler <Bjoern.Giesler@gmx.de> */
@@ -100,6 +99,9 @@
 #include <sys/stropts.h>
 #endif
 #endif
+
+#define	SOCKET	int
+
 #endif /* !__MINGW__ */
 
 
@@ -153,7 +155,7 @@ static	errbuf[BUFSIZ];
 #define	MAX_EXTRA	((GDO_NAME_MAX_LEN - 2 * IASIZE)/IASIZE)
 
 #define ROUND(V, A) \
-  ({ typeof(V) __v=(V); typeof(A) __a=(A); \
+  ({ __typeof__(V) __v=(V); __typeof__(A) __a=(A); \
 	 __a*((__v+__a-1)/__a); })
 
 typedef	unsigned char	*uptr;
@@ -193,7 +195,7 @@ static char	*local_hostname = 0;
  */
 static void	dump_stats();
 #ifndef __MINGW__
-static void	dump_tables();
+static void	dump_tables(int);
 #endif
 static void	handle_accept();
 static void	handle_io();
@@ -413,13 +415,34 @@ is_local_host(struct in_addr a)
 }
 
 static int
+is_probe_host(struct in_addr a)
+{
+  if (plist)
+    {
+      plentry	*p;
+
+      /* Hosts explicitly configured to be probed are ones we treat
+       * as being part of our LAN and therefore trusted.
+       */
+      for (p = plist; p != 0; p = p->next)
+	{
+	  if (a.s_addr == p->addr.s_addr)
+	    {
+	      return 1;
+	    }
+	}
+    }
+  return 0;
+}
+
+static int
 is_local_net(struct in_addr a)
 {
   int	i;
 
   for (i = 0; i < interfaces; i++)
     {
-      if ((mask[i].s_addr && addr[i].s_addr) == (mask[i].s_addr && a.s_addr))
+      if ((mask[i].s_addr & addr[i].s_addr) == (mask[i].s_addr & a.s_addr))
 	{
 	  return 1;
 	}
@@ -440,11 +463,7 @@ static fd_set	write_fds;	/* Descriptors which are writable.	*/
    Bjoern Giesler <Bjoern.Giesler@gmx.de> to work on Win32. */
 
 typedef struct {
-#if	defined(__MINGW__)
   SOCKET s;
-#else
-  int s;
-#endif /* __MINGW__ */
   struct sockaddr_in	addr;	/* Address of process making request.	*/
   socklen_t		pos;	/* Position reading data.		*/
   union {
@@ -454,11 +473,7 @@ typedef struct {
 } RInfo;		/* State of reading each request.	*/
 
 typedef struct {
-#if	defined(__MINGW__)
   SOCKET s;
-#else
-  int s;
-#endif /* __MINGW__ */
   int	len;		/* Length of data to be written.	*/
   int	pos;		/* Amount of data already written.	*/
   char*	buf;		/* Buffer for data.			*/
@@ -472,11 +487,7 @@ static unsigned _wInfoCapacity = 0;
 static unsigned _wInfoCount = 0;
 
 static void
-#if	defined(__MINGW__)
 delRInfo(SOCKET s)
-#else
-delRInfo(int s)
-#endif /* __MINGW__ */
 {
   unsigned int	i;
 
@@ -490,8 +501,8 @@ delRInfo(int s)
   if (i == _rInfoCount)
     {
       snprintf(ebuf, sizeof(ebuf),
-	"%s requested unallocated RInfo struct (socket %d)",
-	__FUNCTION__, s);
+	"%s requested unallocated RInfo struct (socket %ld)",
+	__FUNCTION__, (long int)s);
       gdomap_log(LOG_ERR);
       return;
     }
@@ -504,11 +515,7 @@ delRInfo(int s)
 
 
 static RInfo *
-#if	defined(__MINGW__)
 getRInfo(SOCKET s, int make)
-#else
-getRInfo(int s, int make)
-#endif
 {
   unsigned int	i;
 
@@ -546,11 +553,7 @@ getRInfo(int s, int make)
 }
 
 static void
-#if	defined(__MINGW__)
 delWInfo(SOCKET s)
-#else
-delWInfo(int s)
-#endif /* __MINGW__ */
 {
   unsigned int	i;
 
@@ -564,8 +567,8 @@ delWInfo(int s)
   if (i == _wInfoCount)
     {
       snprintf(ebuf, sizeof(ebuf),
-	"%s requested unallocated WInfo struct (socket %d)",
-	__FUNCTION__, s);
+	"%s requested unallocated WInfo struct (socket %ld)",
+	__FUNCTION__, (long int)s);
       gdomap_log(LOG_ERR);
       return;
     }
@@ -578,11 +581,7 @@ delWInfo(int s)
 
 
 static WInfo *
-#if	defined(__MINGW__)
 getWInfo(SOCKET s, int make)
-#else
-getWInfo(int s, int make)
-#endif
 {
   unsigned int	i;
 
@@ -930,7 +929,7 @@ prb_add(struct in_addr *p)
     {
       return;
     }
-  if (is_local_net(*p) == 0)
+  if (is_local_net(*p) == 0 && is_probe_host(*p) == 0)
     {
       return;
     }
@@ -1115,7 +1114,7 @@ dump_stats()
 
 #ifndef __MINGW__
 static void
-dump_tables()
+dump_tables(int sig)
 {
   FILE	*fptr;
 
@@ -1123,7 +1122,7 @@ dump_tables()
   if (access(".", W_OK) != 0)
     {
       snprintf(ebuf, sizeof(ebuf),
-	"Failed to access gdomap.dump file for output\n");
+	"Failed to access gdomap.dump file for output (sig %d)\n", sig);
       gdomap_log(LOG_ERR);
       return;
     }
@@ -1154,7 +1153,7 @@ dump_tables()
   else
     {
       snprintf(ebuf, sizeof(ebuf),
-	"Failed to open gdomap.dump file for output\n");
+	"Failed to open gdomap.dump file for output (sig %d)\n", sig);
       gdomap_log(LOG_ERR);
     }
 }
@@ -1170,7 +1169,7 @@ init_iface()
 {
 #if	defined(__MINGW__)
   INTERFACE_INFO InterfaceList[20];
-  uint32_t nBytesReturned;
+  DWORD nBytesReturned;
   int i, countActive, nNumInterfaces;
   SOCKET desc = WSASocket(PF_INET, SOCK_RAW, AF_INET, 0, 0, 0);
 
@@ -1500,18 +1499,24 @@ load_iface(const char* from)
   int	num_iface = 0;
 
   in_config = 1;
-  if (access(from, R_OK) != 0)
-    {
-      snprintf(ebuf, sizeof(ebuf),
-	"Unable to access address config - '%s'", from);
-      gdomap_log(LOG_CRIT);
-      exit(EXIT_FAILURE);
-    }
+
+  /* Can we open the fiel with current privs
+   */
   fptr = fopen(from, "rt");
   if (fptr == 0)
     {
       snprintf(ebuf, sizeof(ebuf),
 	"Unable to open address config - '%s'", from);
+      gdomap_log(LOG_CRIT);
+      exit(EXIT_FAILURE);
+    }
+  /* Should we be opening it?
+   */
+  if (access(from, R_OK) != 0)
+    {
+      fclose(fptr);
+      snprintf(ebuf, sizeof(ebuf),
+	"Unable to access address config - '%s'", from);
       gdomap_log(LOG_CRIT);
       exit(EXIT_FAILURE);
     }
@@ -1530,7 +1535,7 @@ load_iface(const char* from)
 	}
       if (ptr != buf)
 	{
-	  strcpy(buf, ptr);
+	  memmove(buf, ptr, strlen(ptr) + 1);
 	}
       /*
        *	Strip comments.
@@ -1602,7 +1607,7 @@ load_iface(const char* from)
 	}
       if (ptr != buf)
 	{
-	  strcpy(buf, ptr);
+	  memmove(buf, ptr, strlen(ptr) + 1);
 	}
       /*
        *	Strip comments.
@@ -1760,7 +1765,7 @@ init_ports()
   int		r;
   struct sockaddr_in	sa;
 #if	defined(__MINGW__)
-  uint32_t dummy;
+  DWORD dummy;
 #endif /* __MINGW__ */
 
   /*
@@ -2000,7 +2005,7 @@ init_ports()
   /*
    *	Enable table dumping to /tmp/gdomap.dump
    */
-  signal(SIGUSR1, dump_tables);
+  signal(SIGUSR1, (void(*)(int))dump_tables);
 #endif /* !__MINGW__  */
 }
 
@@ -2145,7 +2150,8 @@ init_probe()
 		      snprintf(ebuf, sizeof(ebuf), "netmask %s will be "
 			"treated as 255.255.255.0 for ",
 			inet_ntoa(mask[iface]));
-		      strcat(ebuf, inet_ntoa(addr[iface]));
+		      strncat(ebuf, inet_ntoa(addr[iface]),
+			sizeof(ebuf) - strlen(ebuf) - 1);
 		      gdomap_log(LOG_WARNING);
 		      hm |= ~255;
 		    }
@@ -2224,7 +2230,7 @@ init_probe()
 	    }
 	}
 
-      if (elen > 0)
+      if (other != NULL)
 	{
 	  free(other);
 	}
@@ -2310,7 +2316,7 @@ handle_accept()
     {
       RInfo		*ri;
 #if	defined(__MINGW__)
-      uint32_t	dummy = 1;
+      DWORD	dummy = 1;
 #else
       int		r;
 #endif /* !__MINGW__ */
@@ -2552,7 +2558,11 @@ handle_io()
 		      dump_stats();
 		    }
 		}
-	      if (FD_ISSET(i, &wfds))
+              /* Look for a descriptor found to be writeable and which
+               * was not closed (due to reading eof etc)
+               */
+	      if (FD_ISSET(i, &wfds)
+                && (FD_ISSET(i, &write_fds) || i == udp_desc))
 		{
 		  if (i == udp_desc)
 		    {
@@ -2684,7 +2694,6 @@ handle_recv()
 	    "recvfrom returned %d - %s", r, lastErr());
 	  gdomap_log(LOG_DEBUG);
 	}
-      clear_chan(udp_desc);
     }
 }
 
@@ -3090,6 +3099,20 @@ handle_request(int desc)
       unsigned int	i;
       unsigned int	j;
 
+      /* See if this is a request from a local process.
+       *
+       * This request is only useful locally.  Do not allow remote
+       * requests for the server list.  Our response can be large,
+       * so it would make a great UDP amplification attack.
+       */
+      if (is_local_host(ri->addr.sin_addr) == 0)
+	{
+	  snprintf(ebuf, sizeof(ebuf), "Illegal attempt to list servers!");
+	  gdomap_log(LOG_ERR);
+	  clear_chan(desc);
+	  return;
+	}
+
       free(wi->buf);
       wi->buf = (char*)calloc(sizeof(uint32_t)
 	+ (prb_used+1)*IASIZE, 1);
@@ -3250,8 +3273,8 @@ handle_request(int desc)
 		    {
 		      continue;
 		    }
-		  if ((mask[i].s_addr && addr[i].s_addr) ==
-			(mask[i].s_addr && ri->addr.sin_addr.s_addr))
+		  if ((mask[i].s_addr & addr[i].s_addr) ==
+			(mask[i].s_addr & ri->addr.sin_addr.s_addr))
 		    {
 		      laddr = addr[i];
 		      memcpy(wbuf, &laddr, IASIZE);
@@ -3660,7 +3683,7 @@ tryWrite(int desc, int tim, unsigned char* dat, int len)
 #if	defined(__MINGW__) /* FIXME: Is this correct? */
 	  rval = send(desc, (const char*)&dat[pos], len - pos, 0);
 #else
-	  void	(*ifun)();
+	  void	(*ifun)(int);
 
 	  /*
 	   *	Should be able to write this short a message immediately, but
@@ -3708,13 +3731,13 @@ static int
 tryHost(unsigned char op, unsigned char len, const unsigned char *name,
 int ptype, struct sockaddr_in *addr, unsigned short *p, uptr *v)
 {
-  int desc = socket(AF_INET, SOCK_STREAM, 0);
-  int	e = 0;
+  int           desc = socket(AF_INET, SOCK_STREAM, 0);
+  int	        e = 0;
   uint32_t	port = *p;
-  gdo_req		msg;
+  gdo_req	msg;
   struct sockaddr_in sin;
 #if	defined(__MINGW__)
-  uint32_t dummy;
+  DWORD dummy;
 #endif /* __MINGW__ */
 
   *p = 0;
@@ -3843,6 +3866,29 @@ int ptype, struct sockaddr_in *addr, unsigned short *p, uptr *v)
     }
   port = ntohl(port);
 
+  if (port > 0xffff)
+    {
+      if (GDO_NAMES == op)
+        {
+          if (port > 10000000)
+            {
+              snprintf(ebuf, sizeof(ebuf),
+                "Insanely large list of registered names");
+              gdomap_log(LOG_ERR);
+              close(desc);
+              return 5;     // Unreasonable number of registrations
+            }
+        }
+      else
+        {
+          snprintf(ebuf, sizeof(ebuf),
+            "Port number of incoming message is out of range");
+          gdomap_log(LOG_ERR);
+          close(desc);
+          return 5;     // Unreasonable port number
+        }
+    }
+
   /*
    *	Special case for GDO_SERVERS - allocate buffer and read list.
    */
@@ -3900,7 +3946,7 @@ int ptype, struct sockaddr_in *addr, unsigned short *p, uptr *v)
        */
       ptr = b;
       port = 0;
-      while (ptr < &b[len])
+      while (ptr < (b + len))
 	{
 	  ptr += 2 + ptr[0];
 	  port++;
@@ -3939,26 +3985,34 @@ nameFail(int why)
   switch (why)
     {
       case 0:	break;
+
       case 1:
 	snprintf(ebuf, sizeof(ebuf),
 	  "failed to contact name server - socket - %s",
 	  strerror(errno));
 	gdomap_log(LOG_ERR);
+        break;
+
       case 2:
 	snprintf(ebuf, sizeof(ebuf),
 	  "failed to contact name server - socket - %s",
 	  strerror(errno));
 	gdomap_log(LOG_ERR);
+        break;
+
       case 3:
 	snprintf(ebuf, sizeof(ebuf),
 	  "failed to contact name server - socket - %s",
 	  strerror(errno));
 	gdomap_log(LOG_ERR);
+        break;
+
       case 4:
 	snprintf(ebuf, sizeof(ebuf),
 	  "failed to contact name server - socket - %s",
 	  strerror(errno));
 	gdomap_log(LOG_ERR);
+        break;
     }
 }
 
@@ -4061,7 +4115,7 @@ nameServer(const char* name, const char* host, int op, int ptype, struct sockadd
             return -1;
           }
       }
-    memcpy(&sin.sin_addr, info->ai_addr, info->ai_addrlen);
+    sin.sin_addr = ((struct sockaddr_in *)info->ai_addr)->sin_addr;
     freeaddrinfo(info);
   }
 #else
@@ -4102,15 +4156,7 @@ nameServer(const char* name, const char* host, int op, int ptype, struct sockadd
        * the specified server on it.
        */
       rval = tryHost(GDO_SERVERS, 0, 0, ptype, &sin, &num, (uptr*)&b);
-      if (rval != 0)
-	{
-	  snprintf(ebuf, sizeof(ebuf),
-	    "failed to contact gdomap on %s(%s) - %s",
-	    local_hostname, inet_ntoa(sin.sin_addr), strerror(errno));
-	  gdomap_log(LOG_ERR);
-	  return -1;
-	}
-      if (rval == 0)
+      if (0 == rval)
 	{
 	  int	i;
 
@@ -4148,7 +4194,11 @@ nameServer(const char* name, const char* host, int op, int ptype, struct sockadd
 	}
       else
 	{
-	  nameFail(rval);
+	  snprintf(ebuf, sizeof(ebuf),
+	    "failed to contact gdomap on %s(%s) - %s",
+	    local_hostname, inet_ntoa(sin.sin_addr), strerror(errno));
+	  gdomap_log(LOG_ERR);
+	  return -1;
 	}
     }
   else
@@ -4275,18 +4325,19 @@ donames(const char *host)
     memset(&hints, '\0', sizeof(hints));
     hints.ai_family = AF_INET;
 
-    if (getaddrinfo(host, NULL, &hints, &info) != 0 && first_dot != 0)
+    if ((err = getaddrinfo(host, NULL, &hints, &info) != 0) && first_dot != 0)
       {
         *first_dot = '.';
-        if ((err = getaddrinfo(host, NULL, &hints, &info)) != 0)
-          {
-            snprintf(ebuf, sizeof(ebuf),
-              "getaddrinfo('%s') failed: %s", host, gai_strerror(err));
-            gdomap_log(LOG_ERR);
-            return;
-          }
+        err = getaddrinfo(host, NULL, &hints, &info);
       }
-    memcpy(&sin.sin_addr, info->ai_addr, info->ai_addrlen);
+    if (err != 0)
+    {
+        snprintf(ebuf, sizeof(ebuf),
+          "getaddrinfo('%s') failed: %s", host, gai_strerror(err));
+        gdomap_log(LOG_ERR);
+        return;
+    }
+    sin.sin_addr = ((struct sockaddr_in *)info->ai_addr)->sin_addr;
     freeaddrinfo(info);
   }
 #else
@@ -4345,6 +4396,135 @@ donames(const char *host)
 	  snprintf(ebuf, sizeof(ebuf), "  %s", buf);
 	  gdomap_log(LOG_INFO);
 	  p += 2 + p[0];
+	}
+    }
+  free(b);
+}
+
+static void
+doservers(const char *host)
+{
+  struct sockaddr_in	sin;
+  unsigned short	p;
+  unsigned short	num = 0;
+  int			rval;
+  uptr			b;
+  char			*first_dot = 0;
+
+  if (host == 0 || *host == '\0')
+    {
+      /*
+       * If no host name is given, we use the name of the local host.
+       */
+      first_dot = strchr(local_hostname, '.');
+      if (first_dot)
+	{
+	  *first_dot = '\0';
+	}
+      host = local_hostname;
+    }
+
+  memset((char*)&sin, '\0', sizeof(sin));
+  sin.sin_family = AF_INET;
+
+#if	GDOMAP_PORT_OVERRIDE
+  p = htons(GDOMAP_PORT_OVERRIDE);
+#else
+  {
+    struct servent      *sp;
+    /*
+     *	Ensure we have port number to connect to name server.
+     *	The TCP service name 'gdomap' overrides the default port.
+     */
+    if ((sp = getservbyname("gdomap", "tcp")) != 0)
+      {
+        p = sp->s_port;		/* Network byte order.	*/
+      }
+    else
+      {
+        p = htons(GDOMAP_PORT);
+      }
+  }
+#endif
+
+  sin.sin_port = p;
+ 
+#if     HAVE_GETADDRINFO
+  {
+    struct addrinfo       hints;
+    struct addrinfo       *info;
+    int                   err;
+
+    memset(&hints, '\0', sizeof(hints));
+    hints.ai_family = AF_INET;
+
+    if ((err = getaddrinfo(host, NULL, &hints, &info) != 0) && first_dot != 0)
+      {
+        *first_dot = '.';
+        err = getaddrinfo(host, NULL, &hints, &info);
+      }
+    if (err != 0)
+    {
+        snprintf(ebuf, sizeof(ebuf),
+          "getaddrinfo('%s') failed: %s", host, gai_strerror(err));
+        gdomap_log(LOG_ERR);
+        return;
+    }
+    sin.sin_addr = ((struct sockaddr_in *)info->ai_addr)->sin_addr;
+    freeaddrinfo(info);
+  }
+#else
+  {
+    struct hostent        *hp;
+
+    if ((hp = gethostbyname(host)) == 0 && first_dot != 0)
+      {
+        *first_dot = '.';
+        hp = gethostbyname(host);
+      }
+    if (hp == 0)
+      {
+        snprintf(ebuf, sizeof(ebuf),
+          "gethostbyname('%s') failed: %s", host, strerror(errno));
+        gdomap_log(LOG_ERR);
+        return;
+      }
+    if (hp->h_addrtype != AF_INET)
+      {
+        snprintf(ebuf, sizeof(ebuf),
+          "non-internet network not supported for %s", host);
+        gdomap_log(LOG_ERR);
+        return;
+      }
+
+    memcpy(&sin.sin_addr, hp->h_addr, hp->h_length);
+  }
+#endif
+
+  rval = tryHost(GDO_SERVERS, 0, 0, 0, &sin, &num, (uptr*)&b);
+  if (rval != 0)
+    {
+      snprintf(ebuf, sizeof(ebuf), "failed to contact gdomap on %s(%s) - %s",
+        local_hostname, inet_ntoa(sin.sin_addr), strerror(errno));
+      gdomap_log(LOG_ERR);
+      return;
+    }
+  if (num == 0)
+    {
+      snprintf(ebuf, sizeof(ebuf), "No servers currently known to gdomap");
+      gdomap_log(LOG_INFO);
+    }
+  else
+    {
+      struct in_addr	*p = (struct in_addr*)(b + 4);
+
+      snprintf(ebuf, sizeof(ebuf), "Known servers are -");
+      gdomap_log(LOG_INFO);
+      while (num-- > 0)
+	{
+	  snprintf(ebuf, sizeof(ebuf), "  %s", inet_ntoa(*p));
+	  gdomap_log(LOG_INFO);
+	  p++;
 	}
     }
   free(b);
@@ -4425,6 +4605,7 @@ static void do_help(int argc, char **argv, char *options)
   printf("-N		list all names registered on host\n");
   printf("-P number	port number required for R option.\n");
   printf("-R name		register name locally then quit.\n");
+  printf("-S		list all gdomap servers known to host\n");
   printf("-T type		port type for L, R and U options -\n");
   printf("		tcp_gdo, udp_gdo,\n");
   printf("		tcp_foreign, udp_foreign.\n");
@@ -4541,9 +4722,9 @@ main(int argc, char** argv)
 {
   extern char	*optarg;
 #if	defined(__MINGW__)
-  char	*options = "-CHI:L:M:NP:R:T:U:a:bc:dfi:p";
+  char	*options = "-CHI:L:M:NP:R:ST:U:a:bc:dfi:p";
 #else
-  char	*options = "-CHI:L:M:NP:R:T:U:a:bc:dfi:j:p";
+  char	*options = "-CHI:L:M:NP:R:ST:U:a:bc:dfi:j:p";
   const char    *jail = 0;
 #endif
   int		c;
@@ -4552,6 +4733,7 @@ main(int argc, char** argv)
   const char	*machine = 0;
   const char	*lookupf = 0;
   int		donamesf = 0;
+  int		doserversf = 0;
 
 #if	defined(__MINGW__)
   WORD wVersionRequested;
@@ -4673,6 +4855,10 @@ printf(
 	    doregister(optarg, port, ptype);
 	    exit(EXIT_SUCCESS);
 
+	  case 'S':
+	    doserversf = 1;
+	    break;
+
 	  case 'T':
 	    if (strcmp(optarg, "tcp_gdo") == 0)
 	      {
@@ -4723,19 +4909,24 @@ printf(
 	      char	buf[128];
 
 	      in_config = 1;
-	      if (access(optarg, R_OK) != 0)
-		{
-		  snprintf(ebuf, sizeof(ebuf),
-		    "Unable to access probe config - '%s'\n",
-		    optarg);
-		  gdomap_log(LOG_CRIT);
-		  exit(EXIT_FAILURE);
-		}
+              /* First see if we *can* access the file.
+               */
 	      fptr = fopen(optarg, "rt");
 	      if (fptr == 0)
 		{
 		  snprintf(ebuf, sizeof(ebuf),
 		    "Unable to open probe config - '%s'\n",
+		    optarg);
+		  gdomap_log(LOG_CRIT);
+		  exit(EXIT_FAILURE);
+		}
+              /* Now check that we *should* be accessing it.
+               */
+	      if (access(optarg, R_OK) != 0)
+		{
+                  fclose(fptr);
+		  snprintf(ebuf, sizeof(ebuf),
+		    "Unable to access probe config - '%s'\n",
 		    optarg);
 		  gdomap_log(LOG_CRIT);
 		  exit(EXIT_FAILURE);
@@ -4755,7 +4946,7 @@ printf(
 		    }
 		  if (ptr != buf)
 		    {
-		      strcpy(buf, ptr);
+		      memmove(buf, ptr, strlen(ptr) + 1);
 		    }
 		  /*
 		   *	Strip comments.
@@ -4880,11 +5071,15 @@ printf(
 	    exit(EXIT_SUCCESS);
 	}
     }
-  if (donamesf || lookupf)
+  if (donamesf || doserversf || lookupf)
     {
       if (donamesf)
 	{
 	  donames(machine);
+	}
+      if (doserversf)
+	{
+	  doservers(machine);
 	}
       if (lookupf)
 	{
@@ -5193,8 +5388,8 @@ queue_probe(struct in_addr* to, struct in_addr* from, int l, struct in_addr* e, 
     {
       snprintf(ebuf, sizeof(ebuf),
 	"Probing for server on '%s' from '", inet_ntoa(*to));
-      strcat(ebuf, inet_ntoa(*from));
-      strcat(ebuf, "'");
+      strncat(ebuf, inet_ntoa(*from), sizeof(ebuf) - strlen(ebuf) - 1);
+      strncat(ebuf, "'", sizeof(ebuf) - strlen(ebuf) - 1);
       gdomap_log(LOG_DEBUG);
       if (l > 0)
 	{

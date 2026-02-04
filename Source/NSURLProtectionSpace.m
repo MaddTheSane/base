@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */ 
 
 #import "common.h"
@@ -27,19 +26,6 @@
 #define	EXPOSE_NSURLProtectionSpace_IVARS	1
 #import "GSURLPrivate.h"
 #import "GNUstepBase/NSURL+GNUstepBase.h"
-
-NSString * const NSURLProtectionSpaceFTPProxy = @"ftp";	
-NSString * const NSURLProtectionSpaceHTTPProxy = @"http";
-NSString * const NSURLProtectionSpaceHTTPSProxy = @"https";
-NSString * const NSURLProtectionSpaceSOCKSProxy = @"SOCKS";
-NSString * const NSURLAuthenticationMethodDefault
-  = @"NSURLAuthenticationMethodDefault";
-NSString * const NSURLAuthenticationMethodHTMLForm
-  = @"NSURLAuthenticationMethodHTMLForm";
-NSString * const NSURLAuthenticationMethodHTTPBasic
-  = @"NSURLAuthenticationMethodHTTPBasic";
-NSString * const NSURLAuthenticationMethodHTTPDigest
-  = @"NSURLAuthenticationMethodHTTPDigest";
 
 // Internal data storage
 typedef struct {
@@ -146,6 +132,26 @@ authenticationMethod: (NSString *)authenticationMethod
 	NSURLAuthenticationMethodHTTPDigest] == YES)
 	{
 	  this->authenticationMethod = NSURLAuthenticationMethodHTTPDigest;
+	}
+      else if ([authenticationMethod isEqualToString: 
+	NSURLAuthenticationMethodNTLM] == YES)
+	{
+	  this->authenticationMethod = NSURLAuthenticationMethodNTLM;
+	}
+      else if ([authenticationMethod isEqualToString: 
+	NSURLAuthenticationMethodNegotiate] == YES)
+	{
+	  this->authenticationMethod = NSURLAuthenticationMethodNegotiate;
+	}
+      else if ([authenticationMethod isEqualToString: 
+	NSURLAuthenticationMethodClientCertificate] == YES)
+	{
+	  this->authenticationMethod = NSURLAuthenticationMethodClientCertificate;
+	}
+      else if ([authenticationMethod isEqualToString: 
+	NSURLAuthenticationMethodServerTrust] == YES)
+	{
+	  this->authenticationMethod = NSURLAuthenticationMethodServerTrust;
 	}
       else
         {
@@ -292,6 +298,11 @@ authenticationMethod: (NSString *)authenticationMethod
 	}
     }
   return NO;
+}
+
+- (NSArray *) distinguishedNames
+{
+  return nil;
 }
 
 @end

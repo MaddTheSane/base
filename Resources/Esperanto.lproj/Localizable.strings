@@ -31,4 +31,4 @@ NSKOI8RStringEncoding = 		"Kirila KOI8-R (Rusa)";
 NSJapaneseEUCStringEncoding = 		"Japana EUC";
 NSShiftJISStringEncoding = 		"Japana Shift-JIS";
 NSISO2022JPStringEncoding = 		"Japana JIS (7 bits) (ISO 2022)";
-NSGB2312StringEncoding = 		"Simpligita ĉina GB2312";
+NSChineseEUCStringEncoding = 		"Simpligita ĉina GB2312";

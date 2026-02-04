@@ -19,8 +19,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
 */
 
@@ -52,7 +51,7 @@ extern "C" {
 */
 - (NSComparisonResult) compare: (id)anObject;
 
-/** For backward compatibility only ... use class_isMetaClass() on the
+/** For backward compatibility only ... use "class_isMetaClass()" on the
  * class of the receiver instead.
  */
 - (BOOL) isInstance;
@@ -111,27 +110,89 @@ extern "C" {
 
 @end
 
-/** This is an informal protocol ... classes may implement the method to
- * report how much memory is used by the instance and any objects it acts
- * as a container for.
+/** This is an informal protocol; classes may implement the
+ * +contentSizeOf:excluding: method to report how much memory
+ * is used by any objects/pointers it acts as a container for.<br />
+ * Code may call the -sizeInBytesExcluding: or -sizeInBytes method to
+ * determine how much heap memory an object (and its content) occupies.
  */
 @interface      NSObject(MemoryFootprint)
-/* This method returns the memory usage of the receiver, excluding any
+/** This method returns the size of the memory used by the object instance
+ * variables of the target object (excluding any in the specified set).<br />
+ * This is not the memory occupied by instance variable pointers.
+ * It is the memory referenced by any objects inside the target.<br />
+ * This method is not intended to be overridden, rather it is provided for
+ * use as a helper for the -sizeOfContentExcluding: method.<br />
+ * This method must not be called for a mutable object unless it is protected
+ * by a locking mechanism to prevent mutation while it is examining the 
+ * instance variables of the object.
+ * <example>
+ * @interface	foo : bar
+ * {
+ *   id	a;		// Some object
+ *   id b;		// More storage
+ *   unsigned capacity;	// Buffer size
+ *   char *p;		// The buffer
+ * }
+ * @end
+ * @implementation foo
+ * - (NSUInteger) sizeOfContentExcluding: (NSHashTable*)exclude
+ *{ 
+ *  NSUInteger	size;
+ *
+ *  // get the size of the objects (a and b)
+ *  size = [NSObject contentSizeOf: self
+ *			 excluding: exclude];
+ *  // add the memory pointed to by p
+ *  size += capacity * sizeof(char);
+ *  return size;
+ *}
+ *@end
+ * </example>
+ */
++ (NSUInteger) contentSizeOf: (NSObject*)obj
+                   excluding: (NSHashTable*)exclude;
+
+/** This method returns the memory usage of the receiver, excluding any
  * objects already present in the exclude table.<br />
  * The argument is a hash table configured to hold non-retained pointer
  * objects and is used to inform the receiver that its size should not
  * be counted again if it's already in the table.<br />
  * The NSObject implementation returns zero if the receiver is in the
  * table, but otherwise adds itself to the table and returns its memory
- * footprint (the sum of all of its instance variables, but not any
- * memory pointed to by those variables).<br />
- * Subclasses should override this method by calling the superclass
- * implementation, and either return the result (if it was zero) or
- * return that value plus the sizes of any memory owned by the receiver
- * (eg found by calling the same method on objects pointed to by the
- * receiver's instance variables).
+ * footprint (the sum of all of its instance variables, plus the result
+ * of calling -sizeOfContentExcluding: for the instance).<br />
+ * Classes should not override this method, instead they should implement
+ * -sizeOfContentExcluding: to return the extra memory usage
+ * of the pointer/object instance variables (heap memory) they add to
+ * their superclass.<br />
+ * NB. mutable objects must either prevent mutation while calculating
+ * their content size, or must override -sizeOfContentExcluding: to refrain
+ * from dealing with content which might change.
  */
 - (NSUInteger) sizeInBytesExcluding: (NSHashTable*)exclude;
+
+/** Convenience method calling -sizeInBytesExcluding: with a newly created
+ * exclusion hash table, and destroying the table once the size is calculated.
+ */
+- (NSUInteger) sizeInBytes;
+
+/** This method is called by -sizeInBytesExcluding: to calculate the size of
+ * any objects or heap memory contained by the receiver.<br />
+ * The base class implementation simply returns zero (as it is not possible
+ * to safely calculate content sizes of mutable objects), but subclasses should
+ * override it to provide correct information where possible (eg if the object
+ * is immutable or if locking is used to prevent mutation while calculating
+ * content size).<br />
+ * Subclasses may use the +contentSizeOf:excluding: method as a convenience
+ * to provide the sizes of object instance variables.
+ */
+- (NSUInteger) sizeOfContentExcluding: (NSHashTable*)exclude;
+
+/** Helper method called by -sizeInBytesExcluding: to return the size of
+ * the instance excluding any contents (things referenced by pointers).
+ */
+- (NSUInteger) sizeOfInstance;
 @end
 
 /** This is an informal protocol ... classes may implement the method and
@@ -151,51 +212,60 @@ extern "C" {
 + (void) atExit;
 @end
 
-/** Category for methods handling leaked memory cleanup on exit of process
+/** Category for methods handling leaked memory clean-up on exit of process
  * (for use when debugging memory leaks).<br />
  * You enable this by calling the +setShouldCleanUp: method (done implicitly
  * by gnustep-base if the GNUSTEP_SHOULD_CLEAN_UP environment variable is
  * set to YES).<br />
- * Your class then has two options for performing cleanup when the process
+ * Your class then has two options for performing clean-up when the process
  * ends:
- * <p>1. Use the +leak: method to register objects which are simply to be 
- * retained until the process ends, and then either ignored or released
- * depending on the cleanup setting in force.  This mechanism is simple
- * and should be sufficient for many classes.
+ * <p>1. Use the +keep:at: method to register static/global variables whose
+ * contents are to be retained for the lifetime of the program (up to exit)
+ * and either ignored or released depending on the clean-up setting in force
+ * when the program exits.<br />
+ * This mechanism is simple and should be sufficient for many classes.
  * </p>
- * <p>2. Implement a +atExit method to be run when the process ends and,
- * within your +initialize implementation, call +shouldCleanUp to determine
- * whether cleanup should be done, and if it returns YES then call
- * +registerAtExit to have your +atExit method called when the process
- * terminates.
+ * <p>2. Implement an +atExit method to be run when the process ends and,
+ * within your +initialize implementation, +registerAtExit to have your
+ * +atExit method called when the process exits.  Within the +atExit method
+ * you may call +shouldCleanUp to determine whether celan up has been
+ * requested.
  * </p>
  * <p>The order in which 'leaked' objects are released and +atExit methods
  * are called on process exist is the reverse of the order in which they
- * werse set up suing this API.
+ * werse set up using this API.
  * </p>
  */
-@interface NSObject(GSCleanup)
+@interface NSObject(GSCleanUp)
 
+/** Returns YES if the process is exiting (and perhaps performing clean-up).
+ */
++ (BOOL) isExiting;
 
-/** This method simply retains its argument so that it will never be
- * deallocated during normal operation, but keeps track of it so that
- * it is released during process exit if cleanup is enabled.<br />
- * Returns its argument.
+/** This method stores anObject at anAddress (which should be a static or
+ * global variable) and retains it. The code notes that the object should
+ * persist until the process exits.  If clean-up is enabled the object will
+ *  be released (and the address content zeroed out) upon process exit.
+ * If this method is called while the process is already exiting it
+ * simply zeros out the memory location then returns nil, otherwise
+ * it returns the object stored at the memory location.
+ * Raises an exception if anObject is nil or anAddress is NULL or the old
+ * value at anAddresss is not nil (unless the process is already exiting).
+ */
++ (id) NS_RETURNS_RETAINED keep: (id)anObject at: (id*)anAddress;
+
+/** DEPRECATED ... use +keep:at: instead.
  */
 + (id) NS_RETURNS_RETAINED leak: (id)anObject;
 
-/** This method retains the object at *anAddress so that it will never be
- * deallocated during normal operation, but keeps track of the address
- * so that the object is released and the address is zeroed during process
- * exit if cleanup is enabled.<br />
- * Returns the object at *anAddress.
+/** DEPRECATED ... use +keep:at: instead.
  */
 + (id) NS_RETURNS_RETAINED leakAt: (id*)anAddress;
 
 /** Sets the receiver to have its +atExit method called at the point when
  * the process terminates.<br />
  * Returns YES on success and NO on failure (if the class does not implement
- * the method or if it is already registered to call it).<br />
+ * +atExit or if it is already registered to call it).<br />
  * Implemented as a call to +registerAtExit: with the selector for the +atExit
  * method as its argument.
  */
@@ -204,14 +274,14 @@ extern "C" {
 /** Sets the receiver to have the specified  method called at the point when
  * the process terminates.<br />
  * Returns YES on success and NO on failure (if the class does not implement
- * the method ir if it is already registered to call it).
+ * the method or if it is already registered to call a method at exit).
  */
 + (BOOL) registerAtExit: (SEL)aSelector;
 
-/** Specifies the default cleanup behavior on process exit ... the value
- * returned by the NSObject implementation of the +shouldClanUp method.<br />
- * Calling this method with a YES argument implicitly calls the +enableAtExit
- * method as well.<br />
+/** Specifies the default clean-up behavior on process exit ... the value
+ * returned by the NSObject implementation of the +shouldCleanUp method.<br />
+ * Calling this method with a YES argument implicitly enables the support for
+ * clean-up at exit.<br />
  * The GNUstep Base library calls this method with the value obtained from
  * the GNUSTEP_SHOULD_CLEAN_UP environment variable when NSObject is
  * initialised.
@@ -226,6 +296,37 @@ extern "C" {
 + (BOOL) shouldCleanUp;
 
 @property (class) BOOL shouldCleanUp;
+
+/** Turns on tracking of the ownership for all instances of the receiver.
+ * This could have major performance impact and if possible you should not
+ * call this class method but should use the instance method instead.
+ * Using this method will will not work for NSObject itself or for classes
+ * whose instances are expected to live forever (literal strings, tiny objects
+ * etc).
+ */
++ (void) trackOwnership;
+
+/** Turns on tracking of ownership for the receiver.<br />
+ * This works best in conjunction with leak detection (eg as provided by
+ * AddressSanitizer/LeakSanitizer) which reports leaked memory at program
+ * exit:  once you know where leaked memory was allocated, you can alter
+ * the code to call -trackOwnership on the offending object, and can then
+ * see a log of the object life cycle to work out why it is leaked.<br />
+ * This operates by altering the class of the receiver by overriding the
+ * -retain, -release, and -dealloc methods to report when they are called
+ * for the instance.  The logs include the instance address and the stack
+ * trace at which the method was called.<br />
+ * This method also turns on atexit handing to report tracked instances
+ * which have not been deallocated by the time the process exits.
+ * All instances of a tracked class (and its subclasses) incur an overhead
+ * when the overridden methods are executed, and that overhead scales with
+ * the number of tracked instances (and classes) so tracking should be
+ * used sparingly (probably never in production code).<br />
+ * Using this method will will not work for an instance of the root class
+ * or for most objects which are expected to live forever (literal strings,
+ * tiny objects etc).
+ */
+- (void) trackOwnership;
 
 @end
 

@@ -15,12 +15,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
   AutogsdocSource: NSNotification.m
   AutogsdocSource: NSNotificationCenter.m
@@ -43,19 +42,26 @@ extern "C" {
 @class NSLock;
 @class NSOperationQueue;
 
+typedef NSString* NSNotificationName;
+
+GS_EXPORT_CLASS
 @interface NSNotification : NSObject <NSCopying, NSCoding>
 
 /* Creating a Notification Object */
-+ (NSNotification*) notificationWithName: (NSString*)name
++ (NSNotification*) notificationWithName: (NSNotificationName)name
 				  object: (id)object;
 
-+ (NSNotification*) notificationWithName: (NSString*)name
++ (NSNotification*) notificationWithName: (NSNotificationName)name
 				  object: (id)object
 			        userInfo: (NSDictionary*)info;
 
+- (instancetype) initWithName: (NSNotificationName)name
+		       object: (id)object
+		     userInfo: (NSDictionary*)userInfo;
+
 /* Querying a Notification Object */
 
-- (NSString*) name;
+- (NSNotificationName) name;
 - (id) object;
 - (NSDictionary*) userInfo;
 
@@ -66,11 +72,12 @@ extern "C" {
 DEFINE_BLOCK_TYPE(GSNotificationBlock, void, NSNotification *);
 #endif
 
+GS_EXPORT_CLASS
 @interface NSNotificationCenter : NSObject
 {
 #if	GS_EXPOSE(NSNotificationCenter)
 @private
-  void	*_table;
+  void	         *_table;
 #endif
 }
 

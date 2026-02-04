@@ -1,7 +1,7 @@
 /** Interface for NSException for GNUStep
    Copyright (C) 1995, 1996 Free Software Foundation, Inc.
 
-   Written by:  Adam Fedor <fedor@boulder.colorado.edu>
+   Written by:  Adam Fedor <fedor@gnu.org>
    Date: 1995
    
    This file is part of the GNUstep Base Library.
@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
     <title>NSException and NSAssertionHandler class reference</title>
 
@@ -35,7 +34,7 @@
 
 #if     defined(_NATIVE_OBJC_EXCEPTIONS)
 #  define USER_NATIVE_OBJC_EXCEPTIONS       1
-#elif defined(BASE_NATIVE_OBJC_EXCEPTIONS) && defined(OBJC_ZEROCOST_EXCEPTIONS)
+#elif   BASE_NATIVE_OBJC_EXCEPTIONS && defined(OBJC_ZEROCOST_EXCEPTIONS)
 #  define USER_NATIVE_OBJC_EXCEPTIONS       1
 #  define _NATIVE_OBJC_EXCEPTIONS           1
 #endif
@@ -53,15 +52,6 @@
 
 #include <setjmp.h>
 #include <stdarg.h>
-
-#if	defined(__WIN64__)
-/* This hack is to deal with the fact that currently (June 2016) the
- * implementation of longjmp in mingw-w64  sometimes crashes in msvcrt.dll
- * but the builtin version provided by gcc seems to work.
- */
-#define	setjmp(X)	__builtin_setjmp(X)
-#define	longjmp(X,Y)	__builtin_longjmp(X,Y)
-#endif
 
 #if	defined(__cplusplus)
 extern "C" {
@@ -108,6 +98,7 @@ extern "C" {
    message before the program terminates.
    </p>
 */
+GS_EXPORT_CLASS
 @interface NSException : NSObject <NSCoding, NSCopying>
 {    
 #if	GS_EXPOSE(NSException)
@@ -134,7 +125,8 @@ extern "C" {
  * <em>raised</em> using the -raise method.
  */
 + (void) raise: (NSString*)name
-	format: (NSString*)format,... NS_FORMAT_FUNCTION(2,3);
+	format: (NSString*)format,...
+  NS_FORMAT_FUNCTION(2,3) GS_NORETURN_METHOD;
 
 /**
  * Creates an exception with a name and a reason string using the
@@ -144,7 +136,8 @@ extern "C" {
  */
 + (void) raise: (NSString*)name
 	format: (NSString*)format
-     arguments: (va_list)argList NS_FORMAT_FUNCTION(2,0);
+     arguments: (va_list)argList
+  NS_FORMAT_FUNCTION(2,0) GS_NORETURN_METHOD;
 
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_5,GS_API_LATEST) && GS_API_VERSION( 11501,GS_API_LATEST)
 /** Returns an array of the call stack return addresses at the point when
@@ -189,7 +182,7 @@ extern "C" {
  * NB. all other exception raising methods call this one, so if you
  * want to set a breakpoint when debugging, set it in this method.
  */
-- (void) raise;
+- (void) raise GS_NORETURN_METHOD;
 
 /** Returns the exception reason. */
 - (NSString*) reason;
@@ -390,6 +383,33 @@ GS_EXPORT void _NSRemoveHandler( NSHandler *handler );
 /*   Assertion Handling */
 /* ------------------------------------------------------------------------ */
 
+/**
+ * <p>NSAssertionHandler objects are used to raise exceptions on behalf of
+ * macros implementing assertions.<br />
+ * Each thread has its own assertion handler instance.<br />
+ * </p>
+ * <p>The macros work together with the assertion handler object to
+ * produce meaningful exception messages containing the name of the
+ * source file, the position within that file, and the name of the
+ * ObjC method or C function in which the assertion failed.
+ * </p>
+ * <p>An NSAssertionHandler instance is created on demand for each thread
+ * and is stored in the thread's dictionary under the key NSAssertionHandler.
+ * A custom NSAssertionHandler can be used by adding it to the thread
+ * dictionary under this key.
+ * </p>
+ * The assertion macros are:
+ * NSAssert(), NSCAssert(),
+ * NSAssert1(), NSCAssert1(),
+ * NSAssert2(), NSCAssert2(),
+ * NSAssert3(), NSCAssert3(),
+ * NSAssert4(), NSCAssert4(),
+ * NSAssert5(), NSCAssert5(),
+ * NSParameterAssert(), NSCParameterAssert()<br />
+ * The numbered macros arre obsolete, dating from a time when NSAssert() and
+ * NSCAssert() did not support a variable number of arguments.
+ */
+GS_EXPORT_CLASS
 @interface NSAssertionHandler : NSObject
 
 + (NSAssertionHandler*) currentHandler;
@@ -406,130 +426,126 @@ GS_EXPORT void _NSRemoveHandler( NSHandler *handler );
 		   description: (NSString*)format,... GS_NORETURN_METHOD;
 
 @end
-extern NSString *const NSAssertionHandlerKey;
+
+GS_EXPORT NSString *const NSAssertionHandlerKey;
 
 #ifdef	NS_BLOCK_ASSERTIONS
-#define _NSAssertArgs(condition, desc, args...)		
-#define _NSCAssertArgs(condition, desc, args...)	
+#define NSAssert(condition, desc, args...)		
+#define NSCAssert(condition, desc, args...)	
 #else
-#define _NSAssertArgs(condition, desc, args...)			\
-    do {							\
-	if (!(condition)) {					\
-	    [[NSAssertionHandler currentHandler] 		\
-	    	handleFailureInMethod: _cmd 			\
-		object: self 					\
-		file: [NSString stringWithUTF8String: __FILE__] 	\
-		lineNumber: __LINE__ 				\
-		description: (desc) , ## args]; 			\
-	}							\
-    } while(0)
+/** Used in an ObjC method body.<br />
+ * See [NSAssertionHandler] for details.<br />
+ * When condition is false, raise an exception using desc and args. */
+#define NSAssert(condition, desc, args...)			\
+  do {							        \
+    if (!(condition)) {			                        \
+      [[NSAssertionHandler currentHandler] 		        \
+        handleFailureInMethod: _cmd 			        \
+        object: self 					        \
+        file: [NSString stringWithUTF8String: __FILE__] 	\
+        lineNumber: __LINE__ 				        \
+        description: (desc) , ## args]; 			\
+    }							        \
+  } while(0)
 
-#define _NSCAssertArgs(condition, desc, args...)		\
-    do {							\
-	if (!(condition)) {					\
-	    [[NSAssertionHandler currentHandler] 		\
-	    handleFailureInFunction: [NSString stringWithUTF8String: __PRETTY_FUNCTION__] 				\
-	    file: [NSString stringWithUTF8String: __FILE__] 		\
-	    lineNumber: __LINE__ 				\
-	    description: (desc) , ## args]; 			\
-	}							\
-    } while(0)
+/** Used in plain C code (not in an ObjC method body).<br />
+ * See [NSAssertionHandler] for details.<br />
+ * When condition is false, raise an exception using desc
+ */
+#define NSCAssert(condition, desc, args...)		        \
+  do {							        \
+    if (!(condition)) {					        \
+      [[NSAssertionHandler currentHandler] 		        \
+      handleFailureInFunction: [NSString stringWithUTF8String:  \
+        __PRETTY_FUNCTION__] 				        \
+      file: [NSString stringWithUTF8String: __FILE__] 		\
+      lineNumber: __LINE__ 				        \
+      description: (desc) , ## args]; 			        \
+    }							        \
+  } while(0)
 #endif
 
-/** Used in an ObjC method body.<br />
+/** Used in an ObjC method body (obsolete ... use NSAssert).<br />
  * See [NSAssertionHandler] for details.<br />
  * When condition is false, raise an exception using desc and arg1, arg2,
  * arg3, arg4, arg5 */
 #define NSAssert5(condition, desc, arg1, arg2, arg3, arg4, arg5)	\
-    _NSAssertArgs((condition), (desc), (arg1), (arg2), (arg3), (arg4), (arg5))
+  NSAssert((condition), (desc), (arg1), (arg2), (arg3), (arg4), (arg5))
 
-/** Used in an ObjC method body.<br />
+/** Used in an ObjC method body (obsolete ... use NSAssert).<br />
  * See [NSAssertionHandler] for details.<br />
  * When condition is false, raise an exception using desc and arg1, arg2,
  * arg3, arg4 */
 #define NSAssert4(condition, desc, arg1, arg2, arg3, arg4)	\
-    _NSAssertArgs((condition), (desc), (arg1), (arg2), (arg3), (arg4))
+  NSAssert((condition), (desc), (arg1), (arg2), (arg3), (arg4))
 
-/** Used in an ObjC method body.<br />
+/** Used in an ObjC method body (obsolete ... use NSAssert).<br />
  * See [NSAssertionHandler] for details.<br />
  * When condition is false, raise an exception using desc and arg1, arg2,
  * arg3 */
 #define NSAssert3(condition, desc, arg1, arg2, arg3)	\
-    _NSAssertArgs((condition), (desc), (arg1), (arg2), (arg3))
+  NSAssert((condition), (desc), (arg1), (arg2), (arg3))
 
-/** Used in an ObjC method body.<br />
+/** Used in an ObjC method body (obsolete ... use NSAssert).<br />
  * See [NSAssertionHandler] for details.<br />
  * When condition is false, raise an exception using desc and arg1, arg2 */
 #define NSAssert2(condition, desc, arg1, arg2)		\
-    _NSAssertArgs((condition), (desc), (arg1), (arg2))
+  NSAssert((condition), (desc), (arg1), (arg2))
 
-/** Used in an ObjC method body.<br />
+/** Used in an ObjC method body (obsolete ... use NSAssert).<br />
  * See [NSAssertionHandler] for details.<br />
  * When condition is false, raise an exception using desc  and arg1 */
 #define NSAssert1(condition, desc, arg1)		\
-    _NSAssertArgs((condition), (desc), (arg1))
-
-/** Used in an ObjC method body.<br />
- * See [NSAssertionHandler] for details.<br />
- * When condition is false, raise an exception using desc */
-#define NSAssert(condition, desc)			\
-    _NSAssertArgs((condition), (desc))
+  NSAssert((condition), (desc), (arg1))
 
 /** Used in an ObjC method body.<br />
  * See [NSAssertionHandler] for details.<br />
  * When condition is false, raise an exception saying that an invalid
  * parameter was supplied to the method. */
 #define NSParameterAssert(condition)			\
-    _NSAssertArgs((condition), @"Invalid parameter not satisfying: %s", #condition)
+  NSAssert((condition), @"Invalid parameter not satisfying: %s", #condition)
 
-/** Used in plain C code (not in an ObjC method body).<br />
+/** Obsolete ... use NSCAssert().<br />
  * See [NSAssertionHandler] for details.<br />
  * When condition is false, raise an exception using desc and arg1, arg2,
  * arg3, arg4, arg5 */
 #define NSCAssert5(condition, desc, arg1, arg2, arg3, arg4, arg5)	\
-    _NSCAssertArgs((condition), (desc), (arg1), (arg2), (arg3), (arg4), (arg5))
+    NSCAssert((condition), (desc), (arg1), (arg2), (arg3), (arg4), (arg5))
 
-/** Used in plain C code (not in an ObjC method body).<br />
+/** Obsolete ... use NSCAssert().<br />
  * See [NSAssertionHandler] for details.<br />
  * When condition is false, raise an exception using desc and arg1, arg2,
  * arg3, arg4 */
 #define NSCAssert4(condition, desc, arg1, arg2, arg3, arg4)	\
-    _NSCAssertArgs((condition), (desc), (arg1), (arg2), (arg3), (arg4))
+    NSCAssert((condition), (desc), (arg1), (arg2), (arg3), (arg4))
 
-/** Used in plain C code (not in an ObjC method body).<br />
+/** Obsolete ... use NSCAssert().<br />
  * See [NSAssertionHandler] for details.<br />
  * When condition is false, raise an exception using desc and arg1, arg2,
  * arg3 */
 #define NSCAssert3(condition, desc, arg1, arg2, arg3)	\
-    _NSCAssertArgs((condition), (desc), (arg1), (arg2), (arg3))
+    NSCAssert((condition), (desc), (arg1), (arg2), (arg3))
 
-/** Used in plain C code (not in an ObjC method body).<br />
+/** Obsolete ... use NSCAssert().<br />
  * See [NSAssertionHandler] for details.<br />
  * When condition is false, raise an exception using desc and arg1, arg2
  */
 #define NSCAssert2(condition, desc, arg1, arg2)		\
-    _NSCAssertArgs((condition), (desc), (arg1), (arg2))
+    NSCAssert((condition), (desc), (arg1), (arg2))
 
-/** Used in plain C code (not in an ObjC method body).<br />
+/** Obsolete ... use NSCAssert().<br />
  * See [NSAssertionHandler] for details.<br />
  * When condition is false, raise an exception using desc and arg1
  */
 #define NSCAssert1(condition, desc, arg1)		\
-    _NSCAssertArgs((condition), (desc), (arg1))
-
-/** Used in plain C code (not in an ObjC method body).<br />
- * See [NSAssertionHandler] for details.<br />
- * When condition is false, raise an exception using desc
- */
-#define NSCAssert(condition, desc)			\
-    _NSCAssertArgs((condition), (desc))
+    NSCAssert((condition), (desc), (arg1))
 
 /** Used in plain C code (not in an ObjC method body).<br />
  * See [NSAssertionHandler] for details.<br />
  * When condition is false, raise an exception saying that an invalid
  * parameter was supplied to the method. */
 #define NSCParameterAssert(condition)			\
-    _NSCAssertArgs((condition), @"Invalid parameter not satisfying: %s", #condition)
+    NSCAssert((condition), @"Invalid parameter not satisfying: %s", #condition)
 
 #if	defined(__cplusplus)
 }

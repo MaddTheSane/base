@@ -19,8 +19,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>The MIME parsing system</title>
    <chapter>
@@ -69,6 +68,7 @@
   GSMimeDocument	*current;\
   GSMimeHeader		*version;\
   NSMutableArray	*queue;\
+  NSUInteger		maximum;\
   NSMutableArray	*pending;\
   NSInputStream		*istream;\
   NSOutputStream	*ostream;\
@@ -121,16 +121,17 @@ static	Class		NSArrayClass = 0;
 static	Class		NSStringClass = 0;
 static	Class		NSDataClass = 0;
 static	Class		documentClass = 0;
-static	Class		headerClass = 0;
 
 static BOOL             oldStyleFolding = NO;
 static NSString         *const Cte7bit = @"7bit";
 static NSString         *const Cte8bit = @"8bit";
 static NSString         *const CteBase64 = @"base64";
 static NSString         *const CteBinary = @"binary";
+static NSString         *const CteContentType = @"content-type";
 static NSString         *const CteQuotedPrintable = @"quoted-printable";
 static NSString         *const CteXuuencode = @"x-uuencode";
 
+typedef id (*oaiIMP)(id, SEL, NSUInteger);
 typedef BOOL (*boolIMP)(id, SEL, id);
 
 static char	*hex = "0123456789ABCDEF";
@@ -878,7 +879,7 @@ wordData(NSString *word, BOOL *encoded)
   if ([parser isComplete] == YES)
     {
       newDocument = [parser mimeDocument];
-      IF_NO_GC(RETAIN(newDocument);)
+      IF_NO_ARC(RETAIN(newDocument);)
     }
   RELEASE(parser);
   return AUTORELEASE(newDocument);
@@ -886,6 +887,29 @@ wordData(NSString *word, BOOL *encoded)
 
 + (void) initialize
 {
+  NSMutableCharacterSet	*m = [[NSMutableCharacterSet alloc] init];
+
+  [m formUnionWithCharacterSet:
+    [NSCharacterSet characterSetWithCharactersInString:
+    @".()<>@,;:[]\"\\"]];
+  [m formUnionWithCharacterSet:
+    [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+  [m formUnionWithCharacterSet:
+    [NSCharacterSet controlCharacterSet]];
+  [m formUnionWithCharacterSet:
+    [NSCharacterSet illegalCharacterSet]];
+  rfc822Specials = [m copy];
+  [[NSObject leakAt: &rfc822Specials] release];
+  [m formUnionWithCharacterSet:
+    [NSCharacterSet characterSetWithCharactersInString:
+    @"/?="]];
+  [m removeCharactersInString: @"."];
+  rfc2045Specials = [m copy];
+  [[NSObject leakAt: &rfc2045Specials] release];
+  [m release];
+  whitespace = RETAIN([NSCharacterSet whitespaceAndNewlineCharacterSet]);
+  [[NSObject leakAt: &whitespace] release];
+
   if (NSArrayClass == 0)
     {
       NSArrayClass = [NSArray class];
@@ -901,10 +925,6 @@ wordData(NSString *word, BOOL *encoded)
   if (documentClass == 0)
     {
       documentClass = [GSMimeDocument class];
-    }
-  if (headerClass == 0)
-    {
-      headerClass = [GSMimeHeader class];
     }
 }
 
@@ -1524,7 +1544,7 @@ wordData(NSString *word, BOOL *encoded)
     }
 
   NSDebugMLLog(@"GSMime", @"Parse %u bytes - '%*.*s'",
-    (NSUInteger)l, (NSUInteger)l, (NSUInteger)l, [d bytes]);
+    (unsigned)l, (unsigned)l, (unsigned)l, (char*)[d bytes]);
 
   r = [self _endOfHeaders: d];
   if (r.location == NSNotFound)
@@ -1715,7 +1735,6 @@ wordData(NSString *word, BOOL *encoded)
   GSMimeHeader		*info;
 
   NSDebugMLLog(@"GSMime", @"Parse header - '%@'", aHeader);
-  info = AUTORELEASE([headerClass new]);
 
   /*
    * Special case - permit web response status line to act like a header.
@@ -1744,9 +1763,9 @@ wordData(NSString *word, BOOL *encoded)
   /*
    * Set the header name.
    */
-  info = [headerClass headerWithName: name
-                               value: nil
-                          parameters: nil];
+  info = [GSMimeHeader headerWithName: name
+                                value: nil
+                           parameters: nil];
   name = [info name];
 
   /*
@@ -1778,7 +1797,7 @@ wordData(NSString *word, BOOL *encoded)
 	}
       [document deleteHeaderNamed: name];	// Should be unique
     }
-  else if ([name isEqualToString: @"content-type"] == YES)
+  else if ([name isEqualToString: CteContentType] == YES)
     {
       NSString	*tmp = [info parameterForKey: @"boundary"];
       NSString	*type;
@@ -2011,7 +2030,7 @@ NSDebugMLLog(@"GSMime", @"Header parsed - %@", info);
 	}
       value = [value lowercaseString];
     }
-  else if ([name isEqualToString: @"content-type"] == YES)
+  else if ([name isEqualToString: CteContentType] == YES)
     {
       NSString	*type;
       NSString	*subtype = nil;
@@ -2410,12 +2429,12 @@ NSDebugMLLog(@"GSMime", @"Header parsed - %@", info);
 	  expect = 0;
 	}
       context = [self contextFor: hdr];
-      IF_NO_GC([context retain];)
+      IF_NO_ARC([context retain];)
       NSDebugMLLog(@"GSMime", @"Parse body expects %u bytes", expect);
     }
 
   NSDebugMLLog(@"GSMime", @"Parse %u bytes - '%*.*s'",
-    (NSUInteger)l, (NSUInteger)l, (NSUInteger)l, [d bytes]);
+    (unsigned)l, (unsigned)l, (unsigned)l, (char*)[d bytes]);
   // NSDebugMLLog(@"GSMime", @"Boundary - '%*.*s'", [boundary length], [boundary length], [boundary bytes]);
 
   if ([context atEnd] == YES)
@@ -2425,7 +2444,7 @@ NSDebugMLLog(@"GSMime", @"Header parsed - %@", info);
       if ([d length] > 0)
 	{
 	  NSLog(@"Additional data (%*.*s) ignored after parse complete",
-	    (int)[d length], (int)[d length], [d bytes]);
+	    (unsigned)[d length], (unsigned)[d length], (char*)[d bytes]);
 	}
       needsMore = NO;	/* Nothing more to do	*/
     }
@@ -2434,7 +2453,7 @@ NSDebugMLLog(@"GSMime", @"Header parsed - %@", info);
       GSMimeHeader	*typeInfo;
       NSString		*type;
 
-      typeInfo = [document headerNamed: @"content-type"];
+      typeInfo = [document headerNamed: CteContentType];
       type = [typeInfo objectForKey: @"Type"];
       if ([type isEqualToString: @"multipart"] == YES)
 	{
@@ -2692,7 +2711,7 @@ NSDebugMLLog(@"GSMime", @"Header parsed - %@", info);
 	       * document, we set it as the default characterset inherited
 	       * by any child documents.
 	       */
-	      cset = [[document headerNamed: @"content-type"]
+	      cset = [[document headerNamed: CteContentType]
 		parameterForKey: @"charset"];
 	      if (cset != nil)
 		{
@@ -2741,15 +2760,25 @@ NSDebugMLLog(@"GSMime", @"Header parsed - %@", info);
 		{
 		  pos--;
 		}
-	      /* Since we know the child can't modify it, and we know
-	       * that we aren't going to change the buffer while the
-	       * child is using it, we can safely pass a data object
-	       * which simply references the memory in our own buffer.
-	       */
-	      childBody = [[NSData alloc]
-		initWithBytesNoCopy: (void*)(buf + sectionStart)
-			     length: pos - sectionStart
-		       freeWhenDone: NO];
+	      if (pos > sectionStart)
+		{
+		  /* Since we know the child can't modify it, and we know
+		   * that we aren't going to change the buffer while the
+		   * child is using it, we can safely pass a data object
+		   * which simply references the memory in our own buffer.
+		   */
+		  childBody = [[NSData alloc]
+		    initWithBytesNoCopy: (void*)(buf + sectionStart)
+				 length: pos - sectionStart
+			   freeWhenDone: NO];
+		}
+	      else
+		{
+		  /* If we have a corrupt multipart document a part of it
+		   * might be completely empty ... allow for that.
+		   */
+		  childBody = [NSData new];
+		}
 	      if ([child parse: childBody] == YES)
 		{
 		  /*
@@ -2788,7 +2817,7 @@ NSDebugMLLog(@"GSMime", @"Header parsed - %@", info);
 	       */
 	      lineStart += bLength;
 	      sectionStart = lineStart;
-	      if (endedFinalPart == YES)
+	      if (endedFinalPart)
 		{
 		  if (eol < len)
 		    {
@@ -2998,12 +3027,12 @@ unfold(const unsigned char *src, const unsigned char *end, BOOL *folded)
 
 	      src = tmp + 1;
 	      if (src >= end) return nil;
-	      c = tolower(*src);
-	      if (c == 'b')
+	      c = toupper(*src);
+	      if (c == 'B')
 		{
 		  encoding = WE_BASE64;
 		}
-	      else if (c == 'q')
+	      else if (c == 'Q')
 		{
 		  encoding = WE_QUOTED;
 		}
@@ -3044,7 +3073,7 @@ unfold(const unsigned char *src, const unsigned char *end, BOOL *folded)
 	       */
 	      if (tmp > src)
 		{
-		  unsigned char	buf[tmp - src];
+		  unsigned char	buf[tmp - src + 1];
 		  unsigned char	*ptr;
 
 		  ptr = decodeWord(buf, src, tmp, encoding);
@@ -3343,7 +3372,6 @@ unfold(const unsigned char *src, const unsigned char *end, BOOL *folded)
 
 @end
 
-
 
 @interface	_GSMutableInsensitiveDictionary : NSMutableDictionary
 @end
@@ -3371,6 +3399,8 @@ static NSCharacterSet	*tokenSet = nil;
 
 + (void) initialize
 {
+  [GSMimeParser class];	// Force initialisation of some stuff we need
+
   if (nonToken == nil)
     {
       NSMutableCharacterSet	*ms;
@@ -3383,22 +3413,6 @@ static NSCharacterSet	*tokenSet = nil;
       RELEASE(ms);
       nonToken = RETAIN([tokenSet invertedSet]);
       [[NSObject leakAt: &nonToken] release];
-      if (NSArrayClass == 0)
-	{
-	  NSArrayClass = [NSArray class];
-	}
-      if (NSStringClass == 0)
-	{
-	  NSStringClass = [NSString class];
-	}
-      if (documentClass == 0)
-	{
-	  documentClass = [GSMimeDocument class];
-	}
-      if (headerClass == 0)
-        {
-          headerClass = [GSMimeHeader class];
-        }
       [[NSNotificationCenter defaultCenter] addObserver: self
         selector: @selector(_defaultsChanged:)
         name: NSUserDefaultsDidChangeNotification
@@ -3510,13 +3524,104 @@ static NSCharacterSet	*tokenSet = nil;
   return [self makeToken: t preservingCase: NO];
 }
 
+/* Used to put headers in the HTTP requests we generate.
+ * If masked is non-NULL then the data object it points to is modified to
+ * make it a version of the request with authenticiation hidden (for debug
+ * logging). If the receiver is an authentication header and masked is not
+ * NULL but points to a nil object, an autoreleased mutable data object is
+ * created to hold the debug information.
+ */
+- (void) addToBuffer: (NSMutableData*)buf
+	     masking: (NSMutableData**)masked
+{
+  NSUInteger	pos = [buf length];
+  BOOL		maskThis = NO;
+
+  if (masked)
+    {
+      NSString	*n = [self name];
+
+      if ([n isEqualToString: @"authorization"])
+	{
+	  NSUInteger	len = [*masked length];
+
+	  maskThis = YES;
+	  if (0 == len)
+	    {
+	      *masked = AUTORELEASE([buf mutableCopy]);
+	    }
+	  else if (len < pos)
+	    {
+	      [*masked appendBytes: [buf bytes] + len
+			    length: pos - len];
+	    }
+	}
+    }
+  [self rawMimeDataPreservingCase: YES foldedAt: 0 to: buf];
+  if (masked && *masked)
+    {
+      NSUInteger	len = [buf length];
+      const uint8_t	*from = [buf bytes];
+
+      if (maskThis)
+	{
+	  uint8_t   *to;
+	  uint8_t   c;
+
+	  [*masked setLength: len];
+	  to = [*masked mutableBytes];
+	  memcpy(to + pos, from + pos, 14);	// Authorization:
+	  pos += 14;
+
+	  /* Show spaces before scheme
+	   */
+	  while (pos < len && isspace((c = from[pos])))
+	    {
+	      to[pos++] = c;
+	    }
+
+	  /* Show authorisation scheme
+	   */
+	  while (pos < len && ((c = from[pos]) == '-' || isalnum(c)))
+	    {
+	      to[pos++] = c;
+	    }
+
+	  /* Show spaces after scheme
+	   */
+	  while (pos < len && isspace((c = from[pos])))
+	    {
+	      to[pos++] = c;
+	    }
+
+	  /* Mask out everything apart from line wrapping/termination.
+	   */
+	  while (pos < len)
+	    {
+	      uint8_t	c = from[pos];
+
+	      if (c != '\n' && c != '\r' && c != '\t')
+		{
+		  c = '*';
+		}
+	      to[pos++] = c;
+	    }
+	}
+      else
+	{
+	  [*masked appendBytes: from + pos
+		        length: len - pos];
+	}
+    }
+}
+
 - (id) copyWithZone: (NSZone*)z
 {
   GSMimeHeader	*c;
   NSEnumerator	*e;
   NSString	*k;
 
-  c = [headerClass allocWithZone: z];
+  c = [[self class] allocWithZone: z];
   c = [c initWithName: [self namePreservingCase: YES]
 		value: [self value]
 	   parameters: [self parametersPreservingCase: YES]];
@@ -3540,18 +3645,68 @@ static NSCharacterSet	*tokenSet = nil;
 
 - (NSString*) description
 {
-  NSString	*desc;
+  NSString	*desc = [super description];
+  NSString	*n = [self name];
+  NSString	*v = [self value];
   NSDictionary  *p = [self parameters];
 
-  if ([p count] > 0)
+  if ([n isEqualToString: @"authorization"])
     {
-      desc = [NSString stringWithFormat: @"%@ %@: %@ params: %@",
-        [super description], [self name], [self value], p];
+      NSRange	r = [v rangeOfCharacterFromSet: whitespace];
+      NSString	*scheme;
+
+      if (r.length > 0)
+	{
+	  scheme = [v substringToIndex: r.location];
+	  v = [v substringFromIndex: NSMaxRange(r)];
+	}
+      else
+	{
+	  scheme = v;
+	  v = @"";
+	}
+      if ([p count] > 0)
+	{
+	  if ([scheme caseInsensitiveCompare: @"digest"] == NSOrderedSame)
+	    {
+	      NSMutableDictionary	*m = AUTORELEASE([p mutableCopy]);
+
+	      /* For a digest, it's good for debug to be able to see the
+	       * digest parameters.  Only the 'response' is sensitive.
+	       */
+	      [m setObject: @"masked" forKey: @"response"];
+	      v = [v stringByTrimmingSpaces];
+	      if ([v length] > 0)
+		{
+		  v = @"value-masked";
+		}
+	      desc = [NSString stringWithFormat: @"%@ %@: %@ params: %@",
+		desc, n, v, m];
+	    }
+	  else
+	    {
+	      desc = [NSString stringWithFormat: @"%@ %@: value-masked",
+		desc, n];
+	    }
+	}
+      else
+	{
+	  desc = [NSString stringWithFormat: @"%@ %@: value-masked",
+	    desc, n];
+	}
     }
   else
     {
-      desc = [NSString stringWithFormat: @"%@ %@: %@",
-        [super description], [self name], [self value]];
+      if ([p count] > 0)
+	{
+	  desc = [NSString stringWithFormat: @"%@ %@: %@ params: %@",
+	    desc, n, v, p];
+	}
+      else
+	{
+	  desc = [NSString stringWithFormat: @"%@ %@: %@",
+	    desc, n, v];
+	}
     }
   return desc;
 }
@@ -3581,7 +3736,7 @@ static NSCharacterSet	*tokenSet = nil;
 	{
 	  NSString	*v;
 
-	  v = [headerClass makeQuoted: [params objectForKey: k] always: NO];
+	  v = [[self class] makeQuoted: [params objectForKey: k] always: NO];
 	  [m appendString: @"; "];
 	  [m appendString: k];
 	  [m appendString: @"="];
@@ -3628,16 +3783,15 @@ static NSCharacterSet	*tokenSet = nil;
 	      value: (NSString*)v
 	 parameters: (NSDictionary*)p
 {
-  n = [headerClass makeToken: n preservingCase: YES];
+  n = [[self class] makeToken: n preservingCase: YES];
   if ([n length] == 0)
     {
       n = @"unknown";
     }
   ASSIGN(name, n);
-  if ([@"content-type" caseInsensitiveCompare: name]
-    == NSOrderedSame)
+  if ([CteContentType caseInsensitiveCompare: name] == NSOrderedSame)
     {
-      n = @"content-type";
+      n = CteContentType;
     }
   else if ([@"content-transfer-encoding" caseInsensitiveCompare: name]
     == NSOrderedSame)
@@ -3667,7 +3821,7 @@ static NSCharacterSet	*tokenSet = nil;
     {
       return YES;
     }
-  if (NO == [other isKindOfClass: headerClass])
+  if (NO == [other isKindOfClass: [self class]])
     {
       return NO;
     }
@@ -3736,7 +3890,7 @@ static NSCharacterSet	*tokenSet = nil;
 
   if (p == nil)
     {
-      k = [headerClass makeToken: k];
+      k = [[self class] makeToken: k];
       p = [params objectForKey: k];
     }
   return p;
@@ -3809,7 +3963,7 @@ static char* _charsToEncode = "()<>@,;:_\"/[]?.=";
 
 static NSUInteger
 quotableLength(const uint8_t *ptr, NSUInteger size, NSUInteger max,
-  NSUInteger *quotedLength)
+  NSUInteger *quotedLength, BOOL utf8)
 {
   NSUInteger    encoded;
   NSUInteger    index;
@@ -3817,17 +3971,45 @@ quotableLength(const uint8_t *ptr, NSUInteger size, NSUInteger max,
   for (encoded = index = 0; index < size; index++)
     {
       uint8_t   c = ptr[index];
-      int       add = 1;
 
       if (c < 32 || c >= 127 || strchr(_charsToEncode, c))
         {
-          add += 2;
+          if (encoded + 3 > max)
+            {
+              break;
+            }
+          encoded += 3;
         }
-      if (encoded + add > max)
+      else
         {
-          break;
+          if (encoded >= max)
+            {
+              break;
+            }
+          encoded++;
         }
-      encoded += add;
+    }
+
+  if (YES == utf8 && index < size)
+    {
+      uint8_t   c = ptr[index];
+
+      /* We are breaking up a utf-8 string, so we must make sure
+       * we don't break inside a character.
+       */
+      if ((c & 0xc0) == 0x80)
+        {
+          /* The next byte is a continuation byte, so we must be
+           * inside a utf-8 codepoint and need to step back out
+           * of it.
+           */
+          do
+            {
+              encoded -= 3;
+              c = ptr[--index];
+            }
+          while ((c & 0xc0) == 0x80);
+        }
     }
   *quotedLength = encoded;
   return index;
@@ -4063,8 +4245,13 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
       NSString          *cset = selectCharacterSet(str, &d);
       const uint8_t     *ptr = (const uint8_t*)[d bytes];
       NSUInteger        len = [d length];
+      BOOL              utf8 = NO;
 
-      if ([cset isEqualToString: @"us-ascii"])
+      if ([cset isEqualToString: @"utf-8"])
+        {
+          utf8 = YES;
+        }
+      else if ([cset isEqualToString: @"us-ascii"])
         {
           if (0 == fold)
             {
@@ -4153,8 +4340,8 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
               uint8_t           *buffer;
               NSUInteger        existingLength;
               NSUInteger        quotedLength;
-              NSUInteger        charLength;
-              uint8_t           style = 'q';
+              NSUInteger        byteLength;
+              uint8_t           style = 'Q';
 
               /* Calculate the number of encoded characters we can
                * fit on the current line.  If there's no room, we
@@ -4172,23 +4359,34 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
                   offset = 1;
                 }
 
-              charLength = quotableLength(ptr + pos, len - pos,
-                fold - offset - overhead, &quotedLength);
-              if (quotedLength > (charLength * 4) / 3)
+              byteLength = quotableLength(ptr + pos, len - pos,
+                fold - offset - overhead, &quotedLength, utf8);
+              if (quotedLength > (byteLength * 4) / 3)
                 {
                   /* Using base64 is more compact than using quoted
                    * text, so lets do that.
                    */
-                  style = 'b';
-                  charLength = ((fold - offset - overhead) / 4) * 3;
-                  if (charLength >= len - pos)
+                  style = 'B';
+                  byteLength = ((fold - offset - overhead) / 4) * 3;
+                  if (byteLength >= len - pos)
                     {
                       /* If we have less text than we can fit,
                        * just encode all of it.
                        */
-                      charLength = len - pos;
+                      byteLength = len - pos;
                     }
-                  quotedLength = 4 * ((charLength + 2) / 3);
+                  else if (YES == utf8
+                    && (ptr[pos + byteLength] % 0xc0) == 0x80)
+                    {
+                      /* The byte after the end of the data we propose
+                       * to encode is a utf8 continuation byte
+                       * so step back to the character boundary.
+                       */
+                      do {
+                        byteLength--;
+                      } while ((ptr[pos + byteLength] % 0xc0) == 0x80);
+                    }
+                  quotedLength = 4 * ((byteLength + 2) / 3);
                 }
 
               /* make sure we have enough space in the output buffer.
@@ -4206,23 +4404,33 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
               *buffer++ = '?';
               *buffer++ = style;
               *buffer++ = '?';
-              if ('q' == style)
+              if ('Q' == style)
                 {
-                  quotedWord(ptr + pos, charLength, buffer);
+                  quotedWord(ptr + pos, byteLength, buffer);
                 }
               else
                 {
-                  GSPrivateEncodeBase64(ptr + pos, charLength, buffer);
+                  GSPrivateEncodeBase64(ptr + pos, byteLength, buffer);
                 }
               buffer[quotedLength] = '?';
               buffer[quotedLength + 1] = '=';
               offset += quotedLength + overhead;
-              pos += charLength;
+              pos += byteLength;
             }
         }
       return offset;
     }
 }
+/* For testing
++ (NSUInteger) appendString: (NSString*)str
+                         to: (NSMutableData*)m
+                         at: (NSUInteger)offset
+                       fold: (NSUInteger)fold
+                         ok: (BOOL*)ok
+{
+  return appendString(m, offset, fold, str, ok);
+}
+*/
 
 /**
  * Returns the full text of the header, built from its component parts,
@@ -4346,7 +4554,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
       NSUInteger        kLength;
       NSUInteger        vLength;
 
-      v = [headerClass makeQuoted: [params objectForKey: k] always: NO];
+      v = [[self class] makeQuoted: [params objectForKey: k] always: NO];
       if (preserve == NO)
         {
 	  k = [k lowercaseString];
@@ -4434,7 +4642,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
  */
 - (void) setParameter: (NSString*)v forKey: (NSString*)k
 {
-  k = [headerClass makeToken: k preservingCase: YES];
+  k = [[self class] makeToken: k preservingCase: YES];
   if (v == nil)
     {
       [params removeObjectForKey: k];
@@ -4468,7 +4676,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	{
           NSString      *v = [d objectForKey: k];
 
-          k = [headerClass makeToken: k preservingCase: YES];
+          k = [[self class] makeToken: k preservingCase: YES];
 	  [m setObject: v forKey: k];
 	}
     }
@@ -4492,8 +4700,11 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
       NSArray   *a;
 
       a = [[value lowercaseString] componentsSeparatedByString: @"/"];
-      [self setObject: [a objectAtIndex: 0] forKey: @"Type"];
-      [self setObject: [a objectAtIndex: 1] forKey: @"Subtype"];
+      if ([a count] == 2)
+        {
+          [self setObject: [a objectAtIndex: 0] forKey: @"Type"];
+          [self setObject: [a objectAtIndex: 1] forKey: @"Subtype"];
+        }
     }
 }
 
@@ -4511,7 +4722,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
 /**
  * Returns the value of this header (excluding any parameters).<br />
- * Use the -fullValue m,ethod if you want parameter included.
+ * Use the -fullValue method if you want parameter included.
  */
 - (NSString*) value
 {
@@ -4576,20 +4787,25 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
       /*
        * Determine encoding using byte-order-mark if present
        */
-      if ((ptr[0] == 0xFE && ptr[1] == 0xFF)
-        || (ptr[0] == 0xFF && ptr[1] == 0xFE))
+      if (ptr[0] == 0xFE && ptr[1] == 0xFF)
+	{
+          return @"utf-16be";
+	}
+      if (ptr[0] == 0xFF && ptr[1] == 0xFE)
         {
-          return @"utf-16";
+          return @"utf-16le";
         }
       if (ptr[0] == 0xEF && ptr[1] == 0xBB && ptr[2] == 0xBF)
         {
           return @"utf-8";
         }
-      if ((ptr[0] == 0x00 && ptr[1] == 0x00)
-        && ((ptr[2] == 0xFE && ptr[3] == 0xFF)
-          || (ptr[2] == 0xFF && ptr[3] == 0xFE)))
+      if (ptr[0] == 0x00 && ptr[1] == 0x00 && ptr[2] == 0xFE && ptr[3] == 0xFF)
+	{
+          return @"utf-32be";
+	}
+      if (ptr[0] == 0xFF && ptr[1] == 0xFE && ptr[2] == 0x00 && ptr[3] == 0x00)
         {
-          return @"ucs-4";
+          return @"utf-32le";
         }
 
       /*
@@ -4647,7 +4863,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
             }
           else
             {
-              return @"ucs-4";
+              return @"utf-32";
             }
         }
       ptr += size * 5;	// Step past '<?xml' prefix
@@ -4694,7 +4910,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
                   tmp = [[NSString alloc] initWithBytes: buffer
                     length: buflen
                     encoding: NSASCIIStringEncoding];
-                  IF_NO_GC([tmp autorelease];)
+                  IF_NO_ARC([tmp autorelease];)
                   return [tmp lowercaseString];
                 }
               buflen = 0;
@@ -4922,7 +5138,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
     {
       r = [NSStringClass allocWithZone: NSDefaultMallocZone()];
       r = [r initWithData: d encoding: NSUTF8StringEncoding];
-      IF_NO_GC([r autorelease];)
+      IF_NO_ARC([r autorelease];)
     }
   return r;
 }
@@ -4983,9 +5199,20 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
     {
       r = [NSStringClass allocWithZone: NSDefaultMallocZone()];
       r = [r initWithData: d encoding: NSASCIIStringEncoding];
-      IF_NO_GC([r autorelease];)
+      IF_NO_ARC([r autorelease];)
     }
   return r;
+}
+
++ (NSStringEncoding) encodingForXml: (id)xml
+{
+  NSString	*charset = [self charsetForXml: xml];
+
+  if (nil == charset)
+    {
+      return GSUndefinedEncoding;
+    }
+  return [self encodingFromCharset: charset];
 }
 
 /**
@@ -5005,11 +5232,11 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
   if (charset != nil)
     {
-      enc = (NSStringEncoding)NSMapGet(charsets, charset);
+      enc = (NSStringEncoding)(intptr_t)NSMapGet(charsets, charset);
       if (enc == 0)
 	{
 	  charset = [charset lowercaseString];
-	  enc = (NSStringEncoding)NSMapGet(charsets, charset);
+	  enc = (NSStringEncoding)(intptr_t)NSMapGet(charsets, charset);
 	}
     }
   return enc;
@@ -5017,42 +5244,10 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
 + (void) initialize
 {
+  [GSMimeParser class];	// Force initialisation of some stuff we need
+
   if (self == [GSMimeDocument class])
     {
-      NSMutableCharacterSet	*m = [[NSMutableCharacterSet alloc] init];
-
-      if (documentClass == 0)
-	{
-	  documentClass = [GSMimeDocument class];
-	}
-      [m formUnionWithCharacterSet:
-	[NSCharacterSet characterSetWithCharactersInString:
-	@".()<>@,;:[]\"\\"]];
-      [m formUnionWithCharacterSet:
-	[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-      [m formUnionWithCharacterSet:
-	[NSCharacterSet controlCharacterSet]];
-      [m formUnionWithCharacterSet:
-	[NSCharacterSet illegalCharacterSet]];
-      rfc822Specials = [m copy];
-      [[NSObject leakAt: &rfc822Specials] release];
-      [m formUnionWithCharacterSet:
-	[NSCharacterSet characterSetWithCharactersInString:
-	@"/?="]];
-      [m removeCharactersInString: @"."];
-      rfc2045Specials = [m copy];
-      [[NSObject leakAt: &rfc2045Specials] release];
-      [m release];
-      whitespace = RETAIN([NSCharacterSet whitespaceAndNewlineCharacterSet]);
-      [[NSObject leakAt: &whitespace] release];
-      if (NSArrayClass == 0)
-	{
-	  NSArrayClass = [NSArray class];
-	}
-      if (NSStringClass == 0)
-	{
-	  NSStringClass = [NSString class];
-	}
       if (0 == charsets)
 	{
 	  charsets = NSCreateMapTable (NSObjectMapKeyCallBacks,
@@ -5214,13 +5409,33 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
 	  NSMapInsert(charsets, (void*)@"NSUTF16BigEndianStringEncoding",
 	    (void*)NSUTF16BigEndianStringEncoding);
+	  NSMapInsert(charsets, (void*)@"utf-16be",
+	    (void*)NSUTF16BigEndianStringEncoding);
+	  NSMapInsert(charsets, (void*)@"utf16be",
+	    (void*)NSUTF16BigEndianStringEncoding);
 	  NSMapInsert(charsets, (void*)@"NSUTF16LittleEndianStringEncoding",
+	    (void*)NSUTF16LittleEndianStringEncoding);
+	  NSMapInsert(charsets, (void*)@"utf-16le",
+	    (void*)NSUTF16LittleEndianStringEncoding);
+	  NSMapInsert(charsets, (void*)@"utf16le",
 	    (void*)NSUTF16LittleEndianStringEncoding);
 	  NSMapInsert(charsets, (void*)@"NSUTF32StringEncoding",
 	    (void*)NSUTF32StringEncoding);
+	  NSMapInsert(charsets, (void*)@"utf-32",
+	    (void*)NSUTF32StringEncoding);
+	  NSMapInsert(charsets, (void*)@"utf32",
+	    (void*)NSUTF32StringEncoding);
 	  NSMapInsert(charsets, (void*)@"NSUTF32BigEndianStringEncoding",
 	    (void*)NSUTF32BigEndianStringEncoding);
+	  NSMapInsert(charsets, (void*)@"utf-32be",
+	    (void*)NSUTF32BigEndianStringEncoding);
+	  NSMapInsert(charsets, (void*)@"utf32be",
+	    (void*)NSUTF32BigEndianStringEncoding);
 	  NSMapInsert(charsets, (void*)@"NSUTF32LittleEndianStringEncoding",
+	    (void*)NSUTF32LittleEndianStringEncoding);
+	  NSMapInsert(charsets, (void*)@"utf-32le",
+	    (void*)NSUTF32LittleEndianStringEncoding);
+	  NSMapInsert(charsets, (void*)@"utf32le",
 	    (void*)NSUTF32LittleEndianStringEncoding);
 
 #if     !defined(NeXT_Foundation_LIBRARY)
@@ -5275,7 +5490,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	  NSMapInsert(charsets, (void*)@"iso8859-15",
 	    (void*)NSISOLatin9StringEncoding);
 	  NSMapInsert(charsets, (void*)@"big5",
-	    (void*)NSBIG5StringEncoding);
+	    (void*)NSBig5StringEncoding);
 	  NSMapInsert(charsets, (void*)@"utf-7",
 	    (void*)NSUTF7StringEncoding);
 	  NSMapInsert(charsets, (void*)@"utf7",
@@ -5291,9 +5506,101 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	  NSMapInsert(charsets, (void*)@"ksc5601",
 	    (void*)NSKoreanEUCStringEncoding);
 	  NSMapInsert(charsets, (void*)@"gb2312.1980",
-	    (void*)NSGB2312StringEncoding);
+	    (void*)NSChineseEUCStringEncoding);
 	  NSMapInsert(charsets, (void*)@"gb2312",
-	    (void*)NSGB2312StringEncoding);
+	    (void*)NSChineseEUCStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm437",
+	    (void*)NSDOSLatinUSStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp437",
+	    (void*)NSDOSLatinUSStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm737",
+	    (void*)NSDOSGreekStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp737",
+	    (void*)NSDOSGreekStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm775",
+	    (void*)NSDOSBalticRimStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp775",
+	    (void*)NSDOSBalticRimStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm850",
+	    (void*)NSDOSLatin1StringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp850",
+	    (void*)NSDOSLatin1StringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm851",
+	    (void*)NSDOSGreek1StringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp851",
+	    (void*)NSDOSGreek1StringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm852",
+	    (void*)NSDOSLatin2StringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp852",
+	    (void*)NSDOSLatin2StringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm855",
+	    (void*)NSDOSCyrillicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp855",
+	    (void*)NSDOSCyrillicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm857",
+	    (void*)NSDOSTurkishStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp857",
+	    (void*)NSDOSTurkishStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm861",
+	    (void*)NSDOSIcelandicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp861",
+	    (void*)NSDOSIcelandicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm862",
+	    (void*)NSDOSHebrewStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp862",
+	    (void*)NSDOSHebrewStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm863",
+	    (void*)NSDOSCanadianFrenchStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp863",
+	    (void*)NSDOSCanadianFrenchStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm864",
+	    (void*)NSDOSArabicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp864",
+	    (void*)NSDOSArabicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm865",
+	    (void*)NSDOSNordicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp865",
+	    (void*)NSDOSNordicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm866",
+	    (void*)NSDOSRussianStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp866",
+	    (void*)NSDOSRussianStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm869",
+	    (void*)NSDOSGreek2StringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp869",
+	    (void*)NSDOSGreek2StringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm874",
+	    (void*)NSDOSThaiStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp874",
+	    (void*)NSDOSThaiStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm932",
+	    (void*)NSDOSJapaneseStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp932",
+	    (void*)NSDOSJapaneseStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm936",
+	    (void*)NSDOSChineseSimplifStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp936",
+	    (void*)NSDOSChineseSimplifStringEncoding);
+	  NSMapInsert(charsets, (void*)@"gbk",
+	    (void*)NSDOSChineseSimplifStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm949",
+	    (void*)NSDOSKoreanStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp949",
+	    (void*)NSDOSKoreanStringEncoding);
+	  NSMapInsert(charsets, (void*)@"ibm950",
+	    (void*)NSDOSChineseTradStringEncoding);
+	  NSMapInsert(charsets, (void*)@"cp950",
+	    (void*)NSDOSChineseTradStringEncoding);
+	  NSMapInsert(charsets, (void*)@"windows-1255",
+	    (void*)NSWindowsHebrewStringEncoding);
+	  NSMapInsert(charsets, (void*)@"windows-1256",
+	    (void*)NSWindowsArabicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"windows-1257",
+	    (void*)NSWindowsBalticRimStringEncoding);
+	  NSMapInsert(charsets, (void*)@"windows-1258",
+	    (void*)NSWindowsVietnameseStringEncoding);
+	  NSMapInsert(charsets, (void*)@"windows-1361",
+	    (void*)NSWindowsKoreanJohabStringEncoding);
 
 	  /* Also map from GNUstep encoding names.
 	   */
@@ -5325,14 +5632,72 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	    (void*)NSISOLatin9StringEncoding);
 	  NSMapInsert(charsets, (void*)@"NSUTF7StringEncoding",
 	    (void*)NSUTF7StringEncoding);
-	  NSMapInsert(charsets, (void*)@"NSGB2312StringEncoding",
-	    (void*)NSGB2312StringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSChineseEUCStringEncoding",
+	    (void*)NSChineseEUCStringEncoding);
 	  NSMapInsert(charsets, (void*)@"NSGSM0338StringEncoding",
 	    (void*)NSGSM0338StringEncoding);
-	  NSMapInsert(charsets, (void*)@"NSBIG5StringEncoding",
-	    (void*)NSBIG5StringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSBig5StringEncoding",
+	    (void*)NSBig5StringEncoding);
 	  NSMapInsert(charsets, (void*)@"NSKoreanEUCStringEncoding",
 	    (void*)NSKoreanEUCStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSLatinUSStringEncoding",
+	    (void*)NSDOSLatinUSStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSGreekStringEncoding",
+	    (void*)NSDOSGreekStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSBalticRimStringEncoding",
+	    (void*)NSDOSBalticRimStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSLatin1StringEncoding",
+	    (void*)NSDOSLatin1StringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSGreek1StringEncoding",
+	    (void*)NSDOSGreek1StringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSLatin2StringEncoding",
+	    (void*)NSDOSLatin2StringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSCyrillicStringEncoding",
+	    (void*)NSDOSCyrillicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSTurkishStringEncoding",
+	    (void*)NSDOSTurkishStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOICortugueseStringEncoding",
+	    (void*)NSDOICortugueseStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSIcelandicStringEncoding",
+	    (void*)NSDOSIcelandicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSHebrewStringEncoding",
+	    (void*)NSDOSHebrewStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSCanadianFrenchStringEncoding",
+	    (void*)NSDOSCanadianFrenchStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSArabicStringEncoding",
+	    (void*)NSDOSArabicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSNordicStringEncoding",
+	    (void*)NSDOSNordicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSRussianStringEncoding",
+	    (void*)NSDOSRussianStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSGreek2StringEncoding",
+	    (void*)NSDOSGreek2StringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSThaiStringEncoding",
+	    (void*)NSDOSThaiStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSJapaneseStringEncoding",
+	    (void*)NSDOSJapaneseStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSChineseSimplifStringEncoding",
+	    (void*)NSDOSChineseSimplifStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSKoreanStringEncoding",
+	    (void*)NSDOSKoreanStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSDOSChineseTradStringEncoding",
+	    (void*)NSDOSChineseTradStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSWindowsHebrewStringEncoding",
+	    (void*)NSWindowsHebrewStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSWindowsArabicStringEncoding",
+	    (void*)NSWindowsArabicStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSWindowsBalticRimStringEncoding",
+	    (void*)NSWindowsBalticRimStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSWindowsVietnameseStringEncoding",
+	    (void*)NSWindowsVietnameseStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSWindowsKoreanJohabStringEncoding",
+	    (void*)NSWindowsKoreanJohabStringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSGB_2312_80StringEncoding",
+	    (void*)NSGB_2312_80StringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSGBK_95StringEncoding",
+	    (void*)NSGBK_95StringEncoding);
+	  NSMapInsert(charsets, (void*)@"NSGB_18030_2000StringEncoding",
+	    (void*)NSGB_18030_2000StringEncoding);
 #endif
 	}
       if (encodings == 0)
@@ -5372,6 +5737,18 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	    (void*)@"shift_JIS");
 	  NSMapInsert(encodings, (void*)NSUTF8StringEncoding,
 	    (void*)@"utf-8");
+	  NSMapInsert(encodings, (void*)NSUnicodeStringEncoding,
+	    (void*)@"utf-16");
+	  NSMapInsert(encodings, (void*)NSUTF16BigEndianStringEncoding,
+	    (void*)@"utf-16be");
+	  NSMapInsert(encodings, (void*)NSUTF16LittleEndianStringEncoding,
+	    (void*)@"utf-16le");
+	  NSMapInsert(encodings, (void*)NSUTF32StringEncoding,
+	    (void*)@"utf-32");
+	  NSMapInsert(encodings, (void*)NSUTF32BigEndianStringEncoding,
+	    (void*)@"utf-32be");
+	  NSMapInsert(encodings, (void*)NSUTF32LittleEndianStringEncoding,
+	    (void*)@"utf-32le");
 	  NSMapInsert(encodings, (void*)NSMacOSRomanStringEncoding,
 	    (void*)@"apple-roman");
 #if     !defined(NeXT_Foundation_LIBRARY)
@@ -5399,7 +5776,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	    (void*)@"iso-8859-14");
 	  NSMapInsert(encodings, (void*)NSISOLatin9StringEncoding,
 	    (void*)@"iso-8859-15");
-	  NSMapInsert(encodings, (void*)NSBIG5StringEncoding,
+	  NSMapInsert(encodings, (void*)NSBig5StringEncoding,
 	    (void*)@"big5");
 	  NSMapInsert(encodings, (void*)NSUTF7StringEncoding,
 	    (void*)@"utf-7");
@@ -5407,16 +5784,64 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	    (void*)@"gsm0338");
 	  NSMapInsert(encodings, (void*)NSKOI8RStringEncoding,
 	    (void*)@"koi8-r");
-	  NSMapInsert(encodings, (void*)NSGB2312StringEncoding,
+	  NSMapInsert(encodings, (void*)NSChineseEUCStringEncoding,
 	    (void*)@"gb2312.1980");
 	  NSMapInsert(encodings, (void*)NSKoreanEUCStringEncoding,
 	    (void*)@"ksc5601.1987");
+	  NSMapInsert(encodings, (void*)NSDOSLatinUSStringEncoding,
+	    (void*)@"cp437");
+	  NSMapInsert(encodings, (void*)NSDOSGreekStringEncoding,
+	    (void*)@"cp737");
+	  NSMapInsert(encodings, (void*)NSDOSBalticRimStringEncoding,
+	    (void*)@"cp775");
+	  NSMapInsert(encodings, (void*)NSDOSLatin1StringEncoding,
+	    (void*)@"cp850");
+	  NSMapInsert(encodings, (void*)NSDOSGreek1StringEncoding,
+	    (void*)@"cp851");
+	  NSMapInsert(encodings, (void*)NSDOSLatin2StringEncoding,
+	    (void*)@"cp852");
+	  NSMapInsert(encodings, (void*)NSDOSCyrillicStringEncoding,
+	    (void*)@"cp855");
+	  NSMapInsert(encodings, (void*)NSDOSTurkishStringEncoding,
+	    (void*)@"cp857");
+	  NSMapInsert(encodings, (void*)NSDOSIcelandicStringEncoding,
+	    (void*)@"cp861");
+	  NSMapInsert(encodings, (void*)NSDOSHebrewStringEncoding,
+	    (void*)@"cp862");
+	  NSMapInsert(encodings, (void*)NSDOSCanadianFrenchStringEncoding,
+	    (void*)@"cp863");
+	  NSMapInsert(encodings, (void*)NSDOSArabicStringEncoding,
+	    (void*)@"cp864");
+	  NSMapInsert(encodings, (void*)NSDOSNordicStringEncoding,
+	    (void*)@"cp865");
+	  NSMapInsert(encodings, (void*)NSDOSRussianStringEncoding,
+	    (void*)@"cp866");
+	  NSMapInsert(encodings, (void*)NSDOSGreek2StringEncoding,
+	    (void*)@"cp869");
+	  NSMapInsert(encodings, (void*)NSDOSThaiStringEncoding,
+	    (void*)@"cp874");
+	  NSMapInsert(encodings, (void*)NSDOSJapaneseStringEncoding,
+	    (void*)@"cp932");
+	  NSMapInsert(encodings, (void*)NSDOSChineseSimplifStringEncoding,
+	    (void*)@"cp936");
+	  NSMapInsert(encodings, (void*)NSDOSKoreanStringEncoding,
+	    (void*)@"cp949");
+	  NSMapInsert(encodings, (void*)NSDOSChineseTradStringEncoding,
+	    (void*)@"cp950");
+	  NSMapInsert(encodings, (void*)NSWindowsHebrewStringEncoding,
+	    (void*)@"windows-1255");
+	  NSMapInsert(encodings, (void*)NSWindowsArabicStringEncoding,
+	    (void*)@"windows-1256");
+	  NSMapInsert(encodings, (void*)NSWindowsBalticRimStringEncoding,
+	    (void*)@"windows-1257");
+	  NSMapInsert(encodings, (void*)NSWindowsVietnameseStringEncoding,
+	    (void*)@"windows-1258");
+	  NSMapInsert(encodings, (void*)NSWindowsKoreanJohabStringEncoding,
+	    (void*)@"windows-1361");
+	  NSMapInsert(encodings, (void*)NSGB_18030_2000StringEncoding,
+	    (void*)@"gb18030");
 #endif
 	}
-      if (headerClass == 0)
-        {
-          headerClass = [GSMimeHeader class];
-        }
     }
 }
 
@@ -5474,7 +5899,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
   if ([name isEqualToString: @"mime-version"] == YES
     || [name isEqualToString: @"content-disposition"] == YES
     || [name isEqualToString: @"content-transfer-encoding"] == YES
-    || [name isEqualToString: @"content-type"] == YES
+    || [name isEqualToString: CteContentType] == YES
     || [name isEqualToString: @"subject"] == YES)
     {
       NSUInteger	index = [self _indexOfHeaderNamed: name];
@@ -5498,7 +5923,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	    {
 	      index = tmp;
 	    }
-	  tmp = [self _indexOfHeaderNamed: @"content-type"];
+	  tmp = [self _indexOfHeaderNamed: CteContentType];
 	  if (tmp != NSNotFound && tmp < index)
 	    {
 	      index = tmp;
@@ -5527,7 +5952,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 {
   GSMimeHeader	*hdr;
 
-  hdr = [headerClass alloc];
+  hdr = [GSMimeHeader alloc];
   hdr = [hdr initWithName: name
                     value: value
                parameters: parameters];
@@ -5650,7 +6075,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	{
 	  GSMimeHeader	*hdr;
 
-	  hdr = [d headerNamed: @"content-type"];
+	  hdr = [d headerNamed: CteContentType];
 	  if ([[hdr parameterForKey: @"name"] isEqualToString: key] == YES)
 	    {
 	      return d;
@@ -5670,14 +6095,20 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
   return nil;
 }
 
-/**
- * Convenience method to fetch the content file name from the header.
+/** Convenience method to fetch the content file name from the content-type
+ * or content-disposition header.
  */
 - (NSString*) contentFile
 {
-  GSMimeHeader	*hdr = [self headerNamed: @"content-disposition"];
+  GSMimeHeader	*hdr = [self headerNamed: CteContentType];
+  NSString	*str = [hdr parameterForKey: @"name"];
 
-  return [hdr parameterForKey: @"filename"];
+  if (nil == str)
+    {
+      hdr = [self headerNamed: @"content-disposition"];
+      str = [hdr parameterForKey: @"filename"];
+    }
+  return str;
 }
 
 /**
@@ -5705,7 +6136,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
  */
 - (NSString*) contentName
 {
-  GSMimeHeader	*hdr = [self headerNamed: @"content-type"];
+  GSMimeHeader	*hdr = [self headerNamed: CteContentType];
 
   return [hdr parameterForKey: @"name"];
 }
@@ -5715,7 +6146,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
  */
 - (NSString*) contentSubtype
 {
-  GSMimeHeader	*hdr = [self headerNamed: @"content-type"];
+  GSMimeHeader	*hdr = [self headerNamed: CteContentType];
   NSString	*val = nil;
 
   if (hdr != nil)
@@ -5756,7 +6187,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
  */
 - (NSString*) contentType
 {
-  GSMimeHeader	*hdr = [self headerNamed: @"content-type"];
+  GSMimeHeader	*hdr = [self headerNamed: CteContentType];
   NSString	*val = nil;
 
   if (hdr != nil)
@@ -5804,7 +6235,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	  GSMimeHeader	*hdr;
 	  BOOL		match = YES;
 
-	  hdr = [d headerNamed: @"content-type"];
+	  hdr = [d headerNamed: CteContentType];
 	  if ([[hdr parameterForKey: @"name"] isEqualToString: key] == NO)
 	    {
 	      hdr = [d headerNamed: @"content-disposition"];
@@ -5858,7 +6289,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
         && ([CteBinary caseInsensitiveCompare: v] == NSOrderedSame
 	  || [Cte8bit caseInsensitiveCompare: v] == NSOrderedSame))
 	{
-          GSMimeHeader  *t = [self headerNamed: @"content-type"];
+          GSMimeHeader  *t = [self headerNamed: CteContentType];
           NSString	*charset = [t parameterForKey: @"charset"];
           BOOL          isText = (nil == charset) ? NO : YES;
 
@@ -5969,7 +6400,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
   if ([content isKindOfClass: NSStringClass] == YES)
     {
-      GSMimeHeader	*hdr = [self headerNamed: @"content-type"];
+      GSMimeHeader	*hdr = [self headerNamed: CteContentType];
       NSString		*charset = [hdr parameterForKey: @"charset"];
       NSString          *subtype;
       NSStringEncoding	enc;
@@ -6023,7 +6454,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
     }
   else if ([content isKindOfClass: NSDataClass] == YES)
     {
-      GSMimeHeader	*hdr = [self headerNamed: @"content-type"];
+      GSMimeHeader	*hdr = [self headerNamed: CteContentType];
       NSString		*charset = [hdr parameterForKey: @"charset"];
       NSString          *subtype = [self contentSubtype];
       NSStringEncoding	enc;
@@ -6049,7 +6480,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
         }
       s = [NSStringClass allocWithZone: NSDefaultMallocZone()];
       s = [s initWithData: content encoding: enc];
-      IF_NO_GC([s autorelease];)
+      IF_NO_ARC([s autorelease];)
     }
   return s;
 }
@@ -6131,12 +6562,12 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
   if (count > 0)
     {
-      IMP	imp1;
+      oaiIMP	imp1;
       boolIMP	imp2;
 
       name = [name lowercaseString];
 
-      imp1 = [headers methodForSelector: @selector(objectAtIndex:)];
+      imp1 = (oaiIMP)[headers methodForSelector: @selector(objectAtIndex:)];
       imp2 = (boolIMP)[name methodForSelector: @selector(isEqualToString:)];
       while (count-- > 0)
 	{
@@ -6215,14 +6646,14 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
 - (NSString*) description
 {
-  CREATE_AUTORELEASE_POOL(arp);
-  NSMutableString       *m;
   NSString              *s;
 
-  m = [NSMutableString stringWithCapacity: 1000];
+  ENTER_POOL
+  NSMutableString       *m = [NSMutableString stringWithCapacity: 1000];
   [self _descriptionTo: m level: 0];
   s = RETAIN(m);
-  RELEASE(arp);
+  LEAVE_POOL
+
   return AUTORELEASE(s);  
 }
 
@@ -6277,11 +6708,11 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
   if (count > 0)
     {
       NSUInteger	index;
-      IMP		imp1;
+      oaiIMP		imp1;
       boolIMP		imp2;
 
-      name = [headerClass makeToken: name preservingCase: NO];
-      imp1 = [headers methodForSelector: @selector(objectAtIndex:)];
+      name = [GSMimeHeader makeToken: name preservingCase: NO];
+      imp1 = (oaiIMP)[headers methodForSelector: @selector(objectAtIndex:)];
       imp2 = (boolIMP)[name methodForSelector: @selector(isEqualToString:)];
       for (index = 0; index < count; index++)
 	{
@@ -6305,16 +6736,16 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 {
   NSUInteger	count;
 
-  name = [headerClass makeToken: name preservingCase: NO];
+  name = [GSMimeHeader makeToken: name preservingCase: NO];
   count = [headers count];
   if (count > 0)
     {
       NSUInteger	index;
       NSMutableArray	*array;
-      IMP		imp1;
+      oaiIMP		imp1;
       boolIMP		imp2;
 
-      imp1 = [headers methodForSelector: @selector(objectAtIndex:)];
+      imp1 = (oaiIMP)[headers methodForSelector: @selector(objectAtIndex:)];
       imp2 = (boolIMP)[name methodForSelector: @selector(isEqualToString:)];
       array = [NSMutableArray array];
 
@@ -6436,9 +6867,9 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 {
   GSMimeHeader	*hdr;
 
-  hdr = [[headerClass alloc] initWithName: name
-				    value: value
-                               parameters: parameters];
+  hdr = [[GSMimeHeader alloc] initWithName: name
+				     value: value
+                                parameters: parameters];
   [self setHeader: hdr];
   RELEASE(hdr);
   return hdr;
@@ -6527,12 +6958,11 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
       /*
        * Ensure there is a mime version header.
        */
-      hdr = [self headerNamed: @"mime-version"];
-      if (hdr == nil)
+      if (nil == [self headerNamed: @"mime-version"])
 	{
-          hdr = [self setHeader: @"MIME-Version"
-                          value: @"1.0"
-                     parameters: nil];
+          [self setHeader: @"MIME-Version"
+		    value: @"1.0"
+	       parameters: nil];
 	}
     }
   else
@@ -6540,8 +6970,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
       /*
        * Inner documents should not contain the mime version header.
        */
-      hdr = [self headerNamed: @"mime-version"];
-      if (hdr != nil)
+      if (nil != (hdr = [self headerNamed: @"mime-version"]))
 	{
 	  [self deleteHeader: hdr];
 	}
@@ -6584,7 +7013,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	}
     }
 
-  type = [self headerNamed: @"content-type"];
+  type = [self headerNamed: CteContentType];
   if (type == nil)
     {
       /*
@@ -6614,7 +7043,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 		      format: @"[%@ -%@] with bad content",
 	    NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
 	}
-      type = [self headerNamed: @"content-type"];
+      type = [self headerNamed: CteContentType];
     }
 
   if (partData != nil)
@@ -6752,7 +7181,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	    {
 	      start = [self contentByID: v];
 	    }
-	  hdr = [start headerNamed: @"content-type"];
+	  hdr = [start headerNamed: CteContentType];
 	  v = [hdr value];
 	  /*
 	   * If there is no 'type' parameter, we can fill it in automatically.
@@ -6886,7 +7315,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
   enumerator = [headers objectEnumerator];
   while ((hdr = [enumerator nextObject]) != nil)
     {
-      [md appendData: [hdr rawMimeDataPreservingCase: NO foldedAt: fold]];
+      [hdr rawMimeDataPreservingCase: NO foldedAt: fold to: md];
     }
 
   if (partData != nil)
@@ -6968,7 +7397,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
         {
 	  NSString	*name;
 
-	  name = [[self headerNamed: @"content-type"] parameterForKey: @"name"];
+	  name = [[self headerNamed: CteContentType] parameterForKey: @"name"];
 	  if (name == nil)
 	    {
 	      name = @"untitled";
@@ -7101,9 +7530,9 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
       GSMimeParser	*p = AUTORELEASE([GSMimeParser new]);
       NSScanner		*scanner = [NSScanner scannerWithString: type];
 
-      hdr = [headerClass headerWithName: @"Content-Type"
-                                  value: nil
-                             parameters: nil];
+      hdr = [GSMimeHeader headerWithName: @"Content-Type"
+                                   value: nil
+                              parameters: nil];
       if ([p scanHeaderBody: scanner into: hdr] == NO)
 	{
 	  [NSException raise: NSInvalidArgumentException
@@ -7116,11 +7545,11 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
       NSString	*val;
 
       val = [NSStringClass stringWithFormat: @"%@/%@", type, subtype];
-      hdr = [headerClass alloc];
+      hdr = [GSMimeHeader alloc];
       hdr = [hdr initWithName: @"Content-Type" value: val parameters: nil];
       [hdr setObject: type forKey: @"Type"];
       [hdr setObject: subtype forKey: @"Subtype"];
-      IF_NO_GC([hdr autorelease];)
+      IF_NO_ARC([hdr autorelease];)
     }
   else
     {
@@ -7162,9 +7591,9 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
   p = AUTORELEASE([GSMimeParser new]);
   scanner = [NSScanner scannerWithString: newType];
-  hdr = [headerClass headerWithName: @"Content-Type"
-                              value: nil
-                         parameters: nil];
+  hdr = [GSMimeHeader headerWithName: @"Content-Type"
+                               value: nil
+                          parameters: nil];
   if ([p scanHeaderBody: scanner into: hdr] == NO)
     {
       [NSException raise: NSInvalidArgumentException
@@ -7197,7 +7626,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 {
   GSMimeHeader	*hdr;
 
-  hdr = [headerClass alloc];
+  hdr = [GSMimeHeader alloc];
   hdr = [hdr initWithName: name
                     value: value
                parameters: parameters];
@@ -7234,10 +7663,10 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
   if (count > 0)
     {
       NSUInteger	index;
-      IMP	        imp1;
+      oaiIMP	        imp1;
       boolIMP	        imp2;
 
-      imp1 = [headers methodForSelector: @selector(objectAtIndex:)];
+      imp1 = (oaiIMP)[headers methodForSelector: @selector(objectAtIndex:)];
       imp2 = (boolIMP)[name methodForSelector: @selector(isEqualToString:)];
       for (index = 0; index < count; index++)
 	{
@@ -7259,10 +7688,10 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
   if (count > 0)
     {
-      IMP	imp1;
+      oaiIMP	imp1;
       boolIMP	imp2;
 
-      imp1 = [headers methodForSelector: @selector(objectAtIndex:)];
+      imp1 = (oaiIMP)[headers methodForSelector: @selector(objectAtIndex:)];
       imp2 = (boolIMP)[name methodForSelector: @selector(isEqualToString:)];
       while (count-- > 0)
 	{
@@ -7328,24 +7757,20 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 {
   NSUInteger    size = [document estimatedSize];
   NSMutableData *md = [NSMutableData dataWithCapacity: size];
-  GSMimeHeader  *hdr = [document headerNamed: @"mime-version"];
 
-  if (nil == hdr)
+  if (nil == [document headerNamed: @"mime-version"])
     {
-      hdr = [document setHeader: @"MIME-Version"
-                          value: @"1.0"
-                     parameters: nil];
-    }
+      [document setHeader: @"MIME-Version" value: @"1.0" parameters: nil];
+}
   [self encodePart: document to: md];
   return md;
 }
 
 - (void) encodePart: (GSMimeDocument*)document to: (NSMutableData*)md
 {
-  CREATE_AUTORELEASE_POOL(arp);
+  ENTER_POOL
   NSData		*d = nil;
   NSEnumerator		*enumerator;
-  NSString              *type;
   NSString              *subtype;
   NSString              *charset;
   NSString              *enc;
@@ -7360,9 +7785,11 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
    */
   contentIsArray = [content isKindOfClass: NSArrayClass];
 
-  ct = [document headerNamed: @"content-type"];
+  ct = [document headerNamed: CteContentType];
   if (nil == ct)
     {
+      NSString	*type;
+
       /*
        * Attempt to infer the content type from the content.
        */
@@ -7409,7 +7836,6 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
     }
   else
     {
-      type = [ct objectForKey: @"Type"];
       subtype = [ct objectForKey: @"Subtype"];
       charset = [ct parameterForKey: @"charset"];
       if (nil == content)
@@ -7585,7 +8011,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	    {
 	      start = [document contentByID: v];
 	    }
-	  hdr = [start headerNamed: @"content-type"];
+	  hdr = [start headerNamed: CteContentType];
 	  v = [hdr value];
 	  /*
 	   * If there is no 'type' parameter, we can fill it in automatically.
@@ -7681,10 +8107,10 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
             }
           else
             {
-              cte = [document setHeader: @"Content-Transfer-Encoding"
-                                  value: enc
-                             parameters: nil];
-            }
+              [document setHeader: @"Content-Transfer-Encoding"
+			    value: enc
+		       parameters: nil];
+	    }
         }
     }
 
@@ -7765,7 +8191,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	  [md appendData: d];
 	}
     }
-  RELEASE(arp);
+  LEAVE_POOL
 }
 
 - (NSUInteger) foldAt
@@ -7780,15 +8206,17 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
       foldAt = 78;
       use8bit = NO;
 
+#if 0   // Which is best?
       /* The default content transfer encoding to make 8bit data into
        * 7bit-safe data is 'base64'
        */
       dataEncoding = CteBase64;
-
+#else
       /* The default content transfer encoding to make 8bit text into
        * 7bit-safe data is 'quoted-printable'
        */
       dataEncoding = CteQuotedPrintable;
+#endif
     }
   return self;
 }
@@ -7874,7 +8302,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 @end
 
 
-NSString* const GSMimeErrorDomain = @"GSMimeErrorDomain";
+GS_DECLARE NSString* const GSMimeErrorDomain = @"GSMimeErrorDomain";
 
 typedef	enum	{
   TP_IDLE,
@@ -7894,7 +8322,7 @@ typedef	enum	{
   SMTPE_DSN,		// delivery status notification extension
 } SMTPE;
 
-NSString *
+static NSString *
 eventText(NSStreamEvent e)
 {
   if (e == NSStreamEventNone)
@@ -7912,7 +8340,7 @@ eventText(NSStreamEvent e)
   return @"unknown event";
 }
 
-NSString *
+static NSString *
 statusText(NSStreamStatus s)
 {
   if (s == NSStreamStatusNotOpen) return @"NSStreamStatusNotOpen";
@@ -7995,7 +8423,7 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
 
 @implementation	GSMimeSMTPClient
 
-/* Shuts the connection down, fails any message in progress, anbd discards all
+/* Shuts the connection down, fails any message in progress, and discards all
  * queued messages as 'unsent'
  */
 - (void) abort
@@ -8038,7 +8466,7 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
 - (void) dealloc
 {
   [self abort];
-  if (internal != nil)
+  if (GS_EXISTS_INTERNAL)
     {
       DESTROY(internal->reply);
       DESTROY(internal->wdata);
@@ -8095,6 +8523,11 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
   return internal->lastError;
 }
 
+- (NSUInteger) queueSize
+{
+  return [internal->queue count];
+}
+
 - (void) send: (GSMimeDocument*)message
 {
   [self send: message envelopeID: nil];
@@ -8142,6 +8575,14 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
 - (void) setIdentity: (NSString*)s
 {
   ASSIGNCOPY(internal->identity, s);
+}
+
+- (NSUInteger) setMaximum: (NSUInteger)m
+{
+  NSUInteger	old = internal->maximum;
+
+  internal->maximum = m;
+  return old;
 }
 
 - (void) setOriginator: (NSString*)s
@@ -8890,9 +9331,28 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
 
   [internal->pending removeAllObjects];
   ASSIGN(internal->lastError, e);
-  if (internal->current != nil)
+  if (nil == internal->current)
     {
-      GSMimeDocument	*d = [internal->current retain];
+      while ([self queueSize] > internal->maximum)
+	{
+	  GSMimeDocument	*d = RETAIN([internal->queue objectAtIndex: 0]);
+
+	  [internal->queue removeObjectAtIndex: 0];
+	  if (nil == internal->delegate)
+	    {
+	      NSDebugMLLog(@"GSMime", @"-smtpClient:mimeUnsent: %@ %@",
+		self, d);
+	    }
+	  else
+	    {
+	      [internal->delegate smtpClient: self mimeUnsent: d];
+	    }
+	  RELEASE(d);
+	}
+    }
+  else
+    {
+      GSMimeDocument	*d = RETAIN(internal->current);
 
       [internal->queue removeObjectAtIndex: 0];
       internal->current = nil;
@@ -8904,7 +9364,7 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
 	{
           [internal->delegate smtpClient: self mimeFailed: d];
 	}
-      [d release];
+      RELEASE(d);
     }
   if ([internal->queue count] > 0)
     {

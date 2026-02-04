@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #ifndef __NSRunLoop_h_GNUSTEP_BASE_INCLUDE
@@ -34,13 +33,17 @@ extern "C" {
 
 @class NSTimer, NSDate, NSPort;
 
+typedef NSString* NSRunLoopMode;
+  
 /**
  * Run loop mode used to deal with input sources other than NSConnections or
  * dialog windows.  Most commonly used. Defined in
  * <code>Foundation/NSRunLoop.h</code>.
  */
-GS_EXPORT NSString * const NSDefaultRunLoopMode;
+GS_EXPORT NSRunLoopMode const NSDefaultRunLoopMode;
+GS_EXPORT NSRunLoopMode const NSRunLoopCommonModes;
 
+GS_EXPORT_CLASS
 @interface NSRunLoop : NSObject
 {
 #if	GS_EXPOSE(NSRunLoop)
@@ -124,7 +127,7 @@ GS_EXPORT NSString * const NSDefaultRunLoopMode;
  * run loop.
  */
 typedef	enum {
-#ifdef __MINGW__
+#ifdef _WIN32
     ET_HANDLE,	/* Watch for an I/O event on a handle.		*/
     ET_RPORT,	/* Watch for message arriving on port.		*/
     ET_WINMSG,	/* Watch for a message on a window handle.	*/
@@ -187,8 +190,9 @@ typedef	enum {
 /** Adds a watcher to the receiver ... the watcher is used to monitor events
  * of the specified type which are associted with the event handle data and
  * it operates in the specified run loop modes.<br />
- * The watcher remains in place until a corresponding call to
- * -removeEvent:type:forMode:all: is made.
+ * The watcher is not retained, but remains in place until a corresponding
+ * call to -removeEvent:type:forMode:all: is made.  If is the watchers
+ * responsibility to ensure that it is removed from the run loop safely.
  */
 - (void) addEvent: (void*)data
 	     type: (RunLoopEventType)type

@@ -14,18 +14,16 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */
 
 #import "common.h"
 #define	EXPOSE_NSPort_IVARS	1
 #define	EXPOSE_NSMessagePort_IVARS	1
-#import "GNUstepBase/GSLock.h"
 #import "Foundation/NSArray.h"
 #import "Foundation/NSAutoreleasePool.h"
 #import "Foundation/NSNotification.h"
@@ -56,10 +54,10 @@
 #include <arpa/inet.h>		/* for inet_ntoa() */
 #include <ctype.h>		/* for strchr() */
 
-#if	defined(HAVE_SYS_FCNTL_H)
-#  include	<sys/fcntl.h>
-#elif	defined(HAVE_FCNTL_H)
+#if	defined(HAVE_FCNTL_H)
 #  include	<fcntl.h>
+#elif	defined(HAVE_SYS_FCNTL_H)
+#  include	<sys/fcntl.h>
 #endif
 
 #include <sys/time.h>
@@ -102,11 +100,6 @@
 @interface NSProcessInfo (private)
 + (BOOL) _exists: (int)pid;
 @end
-
-/*
- * Largest chunk of data possible in DO
- */
-static uint32_t	maxDataLength = 32 * 1024 * 1024;
 
 #if 0
 #define	M_LOCK(X) {NSDebugMLLog(@"NSMessagePort",@"lock %@",X); [X lock];}
@@ -329,7 +322,7 @@ static Class	runLoopClass;
   handle = (GSMessageHandle*)NSAllocateObject(self, 0, NSDefaultMallocZone());
   handle->desc = d;
   handle->wMsgs = [NSMutableArray new];
-  handle->myLock = [GSLazyRecursiveLock new];
+  handle->myLock = [NSRecursiveLock new];
   handle->valid = YES;
   return AUTORELEASE(handle);
 }
@@ -343,6 +336,30 @@ static Class	runLoopClass;
       portMessageClass = [NSPortMessage class];
       runLoopClass = [NSRunLoop class];
     }
+}
+
+- (void) _add: (NSRunLoop*)l
+{
+  [l addEvent: (void*)(uintptr_t)desc
+	 type: ET_WDESC
+      watcher: self
+      forMode: NSConnectionReplyMode];
+  [l addEvent: (void*)(uintptr_t)desc
+	 type: ET_WDESC
+      watcher: self
+      forMode: NSDefaultRunLoopMode];
+}
+
+- (void) _rem: (NSRunLoop*)l
+{
+  [l removeEvent: (void*)(uintptr_t)desc
+	    type: ET_WDESC
+	 forMode: NSConnectionReplyMode
+	     all: NO];
+  [l removeEvent: (void*)(uintptr_t)desc
+	    type: ET_WDESC
+	 forMode: NSDefaultRunLoopMode
+	     all: NO];
 }
 
 - (BOOL) connectToPort: (NSMessagePort*)aPort beforeDate: (NSDate*)when
@@ -383,15 +400,16 @@ static Class	runLoopClass;
       return NO;	/* impossible.		*/
     }
 
-
   name = [aPort _name];
   memset(&sockAddr, '\0', sizeof(sockAddr));
   sockAddr.sun_family = AF_LOCAL;
-  strncpy(sockAddr.sun_path, (char*)name, sizeof(sockAddr.sun_path));
+  strncpy(sockAddr.sun_path, (char*)name, sizeof(sockAddr.sun_path) - 1);
 
   if (connect(desc, (struct sockaddr*)&sockAddr, SUN_LEN(&sockAddr)) < 0)
     {
-      if (!GSWOULDBLOCK)
+      long	eno = GSNETERROR;
+
+      if (!GSWOULDBLOCK(eno))
 	{
 	  NSLog(@"unable to make connection to %s - %@",
 	    sockAddr.sun_path, [NSError _last]);
@@ -402,14 +420,7 @@ static Class	runLoopClass;
 
   state = GS_H_TRYCON;
   l = [NSRunLoop currentRunLoop];
-  [l addEvent: (void*)(uintptr_t)desc
-	 type: ET_WDESC
-      watcher: self
-      forMode: NSConnectionReplyMode];
-  [l addEvent: (void*)(uintptr_t)desc
-	 type: ET_WDESC
-      watcher: self
-      forMode: NSDefaultRunLoopMode];
+  [self _add: l];
 
   while (valid == YES && state == GS_H_TRYCON
     && [when timeIntervalSinceNow] > 0)
@@ -417,14 +428,7 @@ static Class	runLoopClass;
       [l runMode: NSConnectionReplyMode beforeDate: when];
     }
 
-  [l removeEvent: (void*)(uintptr_t)desc
-	    type: ET_WDESC
-	 forMode: NSConnectionReplyMode
-	     all: NO];
-  [l removeEvent: (void*)(uintptr_t)desc
-	    type: ET_WDESC
-	 forMode: NSDefaultRunLoopMode
-	     all: NO];
+  [self _rem: l];
 
   if (state == GS_H_TRYCON)
     {
@@ -444,8 +448,11 @@ static Class	runLoopClass;
     {
       int	status = 1;
 
-      setsockopt(desc, SOL_SOCKET, SO_KEEPALIVE, (char*)&status,
-	sizeof(status));
+      if (setsockopt(desc, SOL_SOCKET, SO_KEEPALIVE, (char*)&status,
+	sizeof(status)) < 0)
+        {
+          NSLog(@"failed to turn on keepalive for connected socket %d", desc);
+        }
       addrNum = 0;
       caller = YES;
       [aPort addHandle: self forSend: YES];
@@ -568,15 +575,20 @@ static Class	runLoopClass;
       else
 	{
 	  want = [rData length];
-	  if (want < rWant)
+	  if (want < MAX(rWant, NETBLOCK))
 	    {
-	      want = rWant;
-	      [rData setLength: want];
-	    }
-	  if (want < NETBLOCK)
-	    {
-	      want = NETBLOCK;
-	      [rData setLength: want];
+	      want = MAX(rWant, NETBLOCK);
+	      NS_DURING
+		{
+		  [rData setLength: want];
+		}
+	      NS_HANDLER
+		{
+		  M_UNLOCK(myLock);
+		  [self invalidate];
+		  [localException raise];
+		}
+	      NS_ENDHANDLER
 	    }
 	}
 
@@ -670,14 +682,6 @@ static Class	runLoopClass;
 			}
 		      else
 			{
-			  if (l > maxDataLength)
-			    {
-			      NSLog(@"%@ - unreasonable length (%u) for data",
-				self, l);
-			      M_UNLOCK(myLock);
-			      [self invalidate];
-			      return;
-			    }
 			  /*
 			   * If not a port or zero length data,
 			   * we discard the data read so far and fill the
@@ -693,14 +697,6 @@ static Class	runLoopClass;
 		    }
 		  else if (rType == GSP_HEAD)
 		    {
-		      if (l > maxDataLength)
-			{
-			  NSLog(@"%@ - unreasonable length (%u) for data",
-			    self, l);
-			  M_UNLOCK(myLock);
-			  [self invalidate];
-			  return;
-			}
 		      /*
 		       * If not a port or zero length data,
 		       * we discard the data read so far and fill the
@@ -865,7 +861,7 @@ static Class	runLoopClass;
 	      DESTROY(rItems);
 	      NSDebugMLLog(@"NSMessagePort_details",
 		@"got message %@ on 0x%"PRIxPTR, pm, (NSUInteger)self);
-	      IF_NO_GC([rp retain];)
+	      IF_NO_ARC([rp retain];)
 	      M_UNLOCK(myLock);
 	      NS_DURING
 		{
@@ -1021,16 +1017,9 @@ static Class	runLoopClass;
 
   l = [runLoopClass currentRunLoop];
 
-  IF_NO_GC(RETAIN(self);)
+  IF_NO_ARC(RETAIN(self);)
 
-  [l addEvent: (void*)(uintptr_t)desc
-	 type: ET_WDESC
-      watcher: self
-      forMode: NSConnectionReplyMode];
-  [l addEvent: (void*)(uintptr_t)desc
-	 type: ET_WDESC
-      watcher: self
-      forMode: NSDefaultRunLoopMode];
+  [self _add: l];
 
   while (valid == YES
     && [wMsgs indexOfObjectIdenticalTo: components] != NSNotFound
@@ -1041,18 +1030,15 @@ static Class	runLoopClass;
       M_LOCK(myLock);
     }
 
-  [l removeEvent: (void*)(uintptr_t)desc
-	    type: ET_WDESC
-	 forMode: NSConnectionReplyMode
-	     all: NO];
-  [l removeEvent: (void*)(uintptr_t)desc
-	    type: ET_WDESC
-	 forMode: NSDefaultRunLoopMode
-	     all: NO];
+  [self _rem: l];
 
   if ([wMsgs indexOfObjectIdenticalTo: components] == NSNotFound)
     {
       sent = YES;
+    }
+  else
+    {
+      [wMsgs removeObjectIdenticalTo: components];
     }
   M_UNLOCK(myLock);
   NSDebugMLLog(@"NSMessagePort_details",
@@ -1151,7 +1137,7 @@ typedef	struct {
       messagePortMap = NSCreateMapTable(NSNonRetainedObjectMapKeyCallBacks,
 	NSNonOwnedPointerMapValueCallBacks, 0);
 
-      messagePortLock = [GSLazyRecursiveLock new];
+      messagePortLock = [NSRecursiveLock new];
 
       /* It's possible that an old process, with the same process ID as
        * this one, got forcibly killed or crashed so that clean_up_sockets
@@ -1263,7 +1249,7 @@ typedef	struct {
       ((internal*)(port->_internal))->_handles
 	= NSCreateMapTable(NSIntegerMapKeyCallBacks,
 	NSObjectMapValueCallBacks, 0);
-      ((internal*)(port->_internal))->_myLock = [GSLazyRecursiveLock new];
+      ((internal*)(port->_internal))->_myLock = [NSRecursiveLock new];
       port->_is_valid = YES;
 
       if (shouldListen == YES)
@@ -1283,7 +1269,7 @@ typedef	struct {
 	  memset(&sockAddr, '\0', sizeof(sockAddr));
 	  sockAddr.sun_family = AF_LOCAL;
 	  strncpy(sockAddr.sun_path, (char*)socketName,
-	    sizeof(sockAddr.sun_path));
+	    sizeof(sockAddr.sun_path) - 1);
 	  if ((desc = socket(PF_LOCAL, SOCK_STREAM, PF_UNSPEC)) < 0)
 	    {
 	      NSLog(@"unable to create socket - %@", [NSError _last]);
@@ -1366,10 +1352,10 @@ typedef	struct {
   else
     {
       RELEASE(theName);
-      IF_NO_GC([port retain];)
+      IF_NO_ARC([port retain];)
       NSDebugMLLog(@"NSMessagePort", @"Using pre-existing port: %@", port);
     }
-  IF_NO_GC(AUTORELEASE(port));
+  IF_NO_ARC(AUTORELEASE(port);)
 
   M_UNLOCK(messagePortLock);
   return port;
@@ -1410,7 +1396,7 @@ typedef	struct {
 
   desc = [NSString stringWithFormat:
     @"<%s %p file name %s>",
-    GSClassNameFromObject(self), self, [name bytes]];
+    GSClassNameFromObject(self), self, (char*)[name bytes]];
   return desc;
 }
 
@@ -1492,7 +1478,7 @@ typedef	struct {
     {
       if ((NSPort*) [handle recvPort] == recvPort)
 	{
-	  IF_NO_GC([handle retain];)
+	  IF_NO_ARC([handle retain];)
 	  NSEndMapTableEnumeration(&me);
 	  M_UNLOCK(myLock);
 	  return AUTORELEASE(handle);
@@ -1595,7 +1581,7 @@ typedef	struct {
 {
   if ([self isValid] == YES)
     {
-      IF_NO_GC(RETAIN(self);)
+      IF_NO_ARC(RETAIN(self);)
       M_LOCK(myLock);
 
       if ([self isValid] == YES)
@@ -1669,8 +1655,12 @@ typedef	struct {
 	{
 	  int	status = 1;
 
-	  setsockopt(desc, SOL_SOCKET, SO_KEEPALIVE, (char*)&status,
-	    sizeof(status));
+	  if (setsockopt(desc, SOL_SOCKET, SO_KEEPALIVE, (char*)&status,
+	    sizeof(status)) < 0)
+            {
+              NSLog(@"failed to turn on keepalive for accepted socket %d",
+                desc);
+            }
 	  /*
 	   * Create a handle for the socket and set it up so we are its
 	   * receiving port, and it's waiting to get the port name from
@@ -1687,7 +1677,7 @@ typedef	struct {
     {
       M_LOCK(myLock);
       handle = (GSMessageHandle*)NSMapGet(handles, (void*)(uintptr_t)desc);
-      IF_NO_GC(AUTORELEASE(RETAIN(handle)));
+      IF_NO_ARC(AUTORELEASE(RETAIN(handle));)
       M_UNLOCK(myLock);
       if (handle == nil)
 	{
@@ -1698,10 +1688,6 @@ typedef	struct {
 	  else if (type == ET_RPORT) t = "rport";
 	  else t = "unknown";
 	  NSLog(@"No handle for event %s on descriptor %d", t, desc);
-	  [[runLoopClass currentRunLoop] removeEvent: extra
-						type: type
-					     forMode: mode
-						 all: YES];
 	}
       else
 	{
@@ -1713,24 +1699,17 @@ typedef	struct {
 - (oneway void) release
 {
   M_LOCK(messagePortLock);
-  if (NSDecrementExtraRefCountWasZero(self))
+  if (_internal != 0 && 1 == [self retainCount])
     {
-      if (_internal != 0)
-        {
-          NSMapRemove(messagePortMap, (void*)name);
-	}
-      M_UNLOCK(messagePortLock);
-      [self dealloc];
+      NSMapRemove(messagePortMap, (void*)name);
     }
-  else
-    {
-      M_UNLOCK(messagePortLock);
-    }
+  M_UNLOCK(messagePortLock);
+  [super release];
 }
 
 - (void) removeHandle: (GSMessageHandle*)handle
 {
-  IF_NO_GC(RETAIN(self);)
+  IF_NO_ARC(RETAIN(self);)
   M_LOCK(myLock);
   if ([handle sendPort] == self)
     {
@@ -1743,7 +1722,7 @@ typedef	struct {
 	   * been retained - we must therefore release this port since the
 	   * handle no longer uses it.
 	   */
-	  IF_NO_GC([self autorelease];)
+	  IF_NO_ARC([self autorelease];)
 	}
       handle->sendPort = nil;
     }

@@ -16,7 +16,7 @@
    You should have received a copy of the GNU General Public
    License along with this program; see the file COPYINGv3.
    If not, write to the Free Software Foundation,
-   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+   31 Milk Street #960789 Boston, MA 02196 USA.
 
    */
 
@@ -1057,7 +1057,7 @@ build_relocation_table_for_directory (NSString *dir)
       NSMutableDictionary *relocationTable;
       
       relocationTable = [NSMutableDictionary new];
-      IF_NO_GC ([relocationTable autorelease];)
+      IF_NO_ARC ([relocationTable autorelease];)
 
       e = [HTMLDirectoryEnumerator alloc];
       e = [[e initWithBasePath: dir] autorelease];

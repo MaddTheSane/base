@@ -1,7 +1,7 @@
 /** GSValue - Object encapsulation for C types.
    Copyright (C) 1993,1994,1995,1999 Free Software Foundation, Inc.
 
-   Written by:  Adam Fedor <fedor@boulder.colorado.edu>
+   Written by:  Adam Fedor <fedor@gnu.org>
    Date: Mar 1995
 
    This file is part of the GNUstep Base Library.
@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #import "common.h"
@@ -41,7 +40,7 @@
 
 @implementation GSValue
 
-static inline int
+static inline unsigned
 typeSize(const char* type)
 {
   switch (*type)
@@ -61,7 +60,7 @@ typeSize(const char* type)
       case _C_ULNG_LNG:	return sizeof(unsigned long long);
       case _C_FLT:	return sizeof(float);
       case _C_DBL:	return sizeof(double);
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       case _C_BOOL:	return sizeof(_Bool);
 #endif
       case _C_PTR:	return sizeof(void*);
@@ -73,11 +72,11 @@ typeSize(const char* type)
 	{
 	  NSUInteger	size;
 
-	  NSGetSizeAndAlignment(type, &size, 0);
+	  NSGetSizeAndAlignment(type, &size, NULL);
 	  return (int)size;
 	}
       case _C_VOID:	return 0;
-      default:		return -1;
+      default:		return 0;
     }
 }
 
@@ -96,22 +95,22 @@ typeSize(const char* type)
   self = [super init];
   if (self != nil)
     {
-      int	size = typeSize(type);
+      unsigned	size = typeSize(type);
 
-      if (size < 0)
-	{
-	  NSLog(@"Tried to create NSValue with invalid Objective-C type");
-	  DESTROY(self);
-	  return nil;
-	}
       if (size > 0)
 	{
 	  data = (void *)NSZoneMalloc([self zone], size);
 	  memcpy(data, value, size);
 	}
+      else
+        {
+	  NSLog(@"Tried to create NSValue with invalid Objective-C type");
+	  DESTROY(self);
+	  return nil;
+        }
       size = strlen(type);
       objctype = (char *)NSZoneMalloc([self zone], size + 1);
-      strncpy(objctype, type, size);
+      memcpy(objctype, type, size);
       objctype[size] = '\0';
     }
   return self;
@@ -131,7 +130,7 @@ typeSize(const char* type)
 {
   unsigned	size;
 
-  size = (unsigned)typeSize(objctype);
+  size = typeSize(objctype);
   if (size > 0)
     {
       if (value == 0)
@@ -188,7 +187,7 @@ typeSize(const char* type)
 
 - (id) nonretainedObjectValue
 {
-  unsigned	size = (unsigned)typeSize(objctype);
+  unsigned	size = typeSize(objctype);
 
   if (size != sizeof(void*))
     {
@@ -200,7 +199,7 @@ typeSize(const char* type)
 
 - (NSPoint) pointValue
 {
-  unsigned	size = (unsigned)typeSize(objctype);
+  unsigned	size = typeSize(objctype);
 
   if (size != sizeof(NSPoint))
     {
@@ -212,7 +211,7 @@ typeSize(const char* type)
 
 - (void *) pointerValue
 {
-  unsigned	size = (unsigned)typeSize(objctype);
+  unsigned	size = typeSize(objctype);
 
   if (size != sizeof(void*))
     {
@@ -236,7 +235,7 @@ typeSize(const char* type)
 
 - (NSSize) sizeValue
 {
-  unsigned	size = (unsigned)typeSize(objctype);
+  unsigned	size = typeSize(objctype);
 
   if (size != sizeof(NSSize))
     {
@@ -251,7 +250,7 @@ typeSize(const char* type)
   unsigned	size;
   NSData	*rep;
 
-  size = (unsigned)typeSize(objctype);
+  size = typeSize(objctype);
   rep = [NSData dataWithBytes: data length: size];
   return [NSString stringWithFormat: @"(%s) %@", objctype, [rep description]];
 }
@@ -265,7 +264,7 @@ typeSize(const char* type)
   size = strlen(objctype)+1;
   [coder encodeValueOfObjCType: @encode(unsigned) at: &size];
   [coder encodeArrayOfObjCType: @encode(signed char) count: size at: objctype];
-  NSGetSizeAndAlignment(objctype, 0, &tsize);
+  NSGetSizeAndAlignment(objctype, &tsize, NULL);
   size = tsize;
   d = [NSMutableData new];
   [d serializeDataAt: data ofObjCType: objctype context: nil];

@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #import "common.h"
@@ -321,7 +320,7 @@ NSString * const GSTelnetTextKey = @"GSTelnetTextKey";
 			  len -= 3;
 			  if (len - i > 0)
 			    {
-			      memcpy(ptr, &ptr[3], len - i);
+			      memmove(ptr, &ptr[3], len - i);
 			    }
 			  i--;			// Try again.
 			}
@@ -336,7 +335,7 @@ NSString * const GSTelnetTextKey = @"GSTelnetTextKey";
 		      len--;
 		      if (len - i > 0)
 			{
-			  memcpy(ptr, &ptr[1], len - i);
+			  memmove(ptr, &ptr[1], len - i);
 			}
 		    }
 		  else
@@ -348,7 +347,7 @@ NSString * const GSTelnetTextKey = @"GSTelnetTextKey";
 		      len -= 2;
 		      if (len - i > 0)
 			{
-			  memcpy(ptr, &ptr[2], len - i);
+			  memmove(ptr, &ptr[2], len - i);
 			}
 		      i--;	// Try again from here.
 		    }
@@ -418,7 +417,7 @@ NSString * const GSTelnetTextKey = @"GSTelnetTextKey";
 	      pos -= s;
 	      if (len > 0)
 		{
-		  memcpy(ptr, &ptr[s], len);
+		  memmove(ptr, &ptr[s], len);
 		}
 	    }
 	  [ibuf setLength: len];
@@ -528,7 +527,7 @@ static NSLock			*urlLock = nil;
 // NSLog(@"Lookup for handle for '%@'", page);
       [urlLock lock];
       obj = [urlCache objectForKey: page];
-      IF_NO_GC([[obj retain] autorelease];)
+      IF_NO_ARC([[obj retain] autorelease];)
       [urlLock unlock];
 // NSLog(@"Found handle %@", obj);
     }
@@ -763,7 +762,7 @@ static NSLock			*urlLock = nil;
 		  dHandle = [NSFileHandle
 		    fileHandleAsClientInBackgroundAtAddress: h service: p
 		    protocol: @"tcp"];
-      		  IF_NO_GC([dHandle retain];)
+      		  IF_NO_ARC([dHandle retain];)
 		  nc = [NSNotificationCenter defaultCenter];
 		  [nc addObserver: self
 			 selector: @selector(_data:)

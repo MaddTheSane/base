@@ -2,7 +2,7 @@
    Copyright (C) 1995, 1996 Free Software Foundation, Inc.
 
    Written by:  Andrew Kachites McCallum <mccallum@gnu.ai.mit.edu>
-   From skeleton by:  Adam Fedor <fedor@boulder.colorado.edu>
+   From skeleton by:  Adam Fedor <fedor@gnu.org>
    Date: Mar 1995
 
    This file is part of the GNUstep Base Library.
@@ -15,12 +15,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSCoder class reference</title>
    $Date$ $Revision$
@@ -35,6 +34,7 @@
 #define	EXPOSE_NSCoder_IVARS	1
 #import "Foundation/NSData.h"
 #import "Foundation/NSCoder.h"
+#import "Foundation/NSSet.h"
 #import "Foundation/NSSerialization.h"
 #import "Foundation/NSUserDefaults.h"
 
@@ -100,7 +100,7 @@ static unsigned	systemVersion = MAX_SUPPORTED_SYSTEM_VERSION;
 - (NSInteger) versionForClassName: (NSString*)className
 {
   [self subclassResponsibility: _cmd];
-  return (NSInteger)NSNotFound;
+  return NSNotFound;
 }
 
 // Encoding Data
@@ -331,6 +331,17 @@ static unsigned	systemVersion = MAX_SUPPORTED_SYSTEM_VERSION;
 
 // Keyed archiving extensions
 
+- (BOOL) requiresSecureCoding
+{
+  [self subclassResponsibility: _cmd];
+  return NO;
+}
+
+- (void) setRequiresSecureCoding: (BOOL)secure
+{
+  [self subclassResponsibility: _cmd];
+}
+
 - (BOOL) allowsKeyedCoding
 {
   return NO;
@@ -392,6 +403,18 @@ static unsigned	systemVersion = MAX_SUPPORTED_SYSTEM_VERSION;
 }
 
 - (id) decodeObjectForKey: (NSString*)aKey
+{
+  [self subclassResponsibility: _cmd];
+  return nil;
+}
+
+- (id) decodeObjectOfClass: (Class)cls forKey: (NSString *)aKey
+{
+  return [self decodeObjectOfClasses: [NSSet setWithObject:(id)cls]
+			      forKey: aKey];
+}
+
+- (id) decodeObjectOfClasses: (NSSet *)classes forKey: (NSString *)aKey
 {
   [self subclassResponsibility: _cmd];
   return nil;

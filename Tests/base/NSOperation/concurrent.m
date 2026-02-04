@@ -39,10 +39,9 @@
 - (void) main
 {
   NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-    
-  [self willChangeValueForKey:@"isExecuting"];
-  executing = YES;
-  [self didChangeValueForKey:@"isExecuting"];
+
+  [self beginOperation];
+
   // Do the main work of the operation here.
   calculation = 2 * calculation;
     
@@ -71,6 +70,20 @@
   [pool release];
 }
 
+- (void) beginOperation
+{
+  // Also trigger KVO notification for isFinished to ensure its handled
+  // correctly if operation is not yet finished
+  [self willChangeValueForKey: @"isFinished"];
+  [self willChangeValueForKey: @"isExecuting"];
+  
+  executing = YES;
+  finished = NO;
+  
+  [self didChangeValueForKey: @"isExecuting"];
+  [self didChangeValueForKey: @"isFinished"];
+}
+
 - (void) completeOperation
 {
   [self willChangeValueForKey: @"isFinished"];
@@ -92,37 +105,60 @@ int main()
   NSOperationQueue      *q;
   int                   i;
   NSMutableArray        *a;
+  NSTimeInterval	s;
+  NSTimeInterval	f;
+  NSUInteger		ran;
+  NSUInteger		want;
+# if __has_feature(blocks)
+  __block BOOL blockDidRun = NO;
+#endif
 
   START_SET("concurrent operations")
 
   // single concurrent operation
   obj = [[MyOperation alloc] initWithValue: 1];
+# if __has_feature(blocks)
+  [obj setCompletionBlock: ^(void){blockDidRun = YES;}];
+# endif
   q = [NSOperationQueue new];
   [q addOperation: obj];
   [q waitUntilAllOperationsAreFinished];
   PASS(([obj isFinished] == YES), "operation ran");
   PASS(([obj isExecuting] == NO), "operation is not executing");
+# if __has_feature(blocks)
+  PASS(blockDidRun == YES, "completion block is executed");
+# endif
   PASS(([obj getCalculation] == 2), "operation was performed");
   [obj release];
 
   // multiple concurrent operations
+  s = [NSDate timeIntervalSinceReferenceDate];
   [q setMaxConcurrentOperationCount: 10];
   a = [NSMutableArray array];
-  for (i = 0; i < 5; ++i)
+  want = 200;
+  ran = 0;
+  for (i = 0; i < want; ++i)
     {
       obj = [[MyOperation alloc] initWithValue: i];
       [a addObject: obj];
+      RELEASE(obj);
       [q addOperation: obj];
     }
   [q waitUntilAllOperationsAreFinished];
+  f = [NSDate timeIntervalSinceReferenceDate];
   PASS(([obj isFinished] == YES), "operation ran");
   PASS(([obj isExecuting] == NO), "operation is not executing");
 
-  for (i = 0; i < 5; ++i)
+  for (i = 0; i < want; ++i)
     {
       obj = [a objectAtIndex: i];
-      PASS(([obj getCalculation] == (2*i)), "operation was performed");
+      if ([obj getCalculation] == (2*i))
+	{
+	  ran++;
+	}
     }
+  PASS((ran == want), "many operations, all were performed")
+  NSLog(@"Duration for %d concurrent operations %g seconds.", want, (f - s));
 
   // multiple concurrent operations
   [q setMaxConcurrentOperationCount: 5];
@@ -143,6 +179,7 @@ int main()
       PASS(([obj getCalculation] == (2*i)), "operation was performed");
     }
 
+  RELEASE(q);
   END_SET("concurrent operations")
   return 0;
 }

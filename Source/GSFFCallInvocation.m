@@ -14,18 +14,18 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
    */
 #import "common.h"
 #import "Foundation/NSException.h"
 #import "Foundation/NSCoder.h"
 #import "Foundation/NSDistantObject.h"
 #import "GSInvocation.h"
+#import "GSPThread.h"
 #import <avcall.h>
 #import <callback.h>
 #import "callframe.h"
@@ -33,10 +33,6 @@
 #if !defined (__GNU_LIBOBJC__)
 #  include <objc/encoding.h>
 #endif
-
-#include <pthread.h>
-
-#import "GSInvocation.h"
 
 #ifndef GS_STATIC_INLINE
 #define GS_STATIC_INLINE static inline
@@ -140,7 +136,7 @@ static GSIMapTable_t ff_callback_map;
 
 /* Lock that protects the ff_callback_map */
 
-static pthread_mutex_t ff_callback_map_lock = PTHREAD_MUTEX_INITIALIZER;
+static gs_mutex_t ff_callback_map_lock = GS_MUTEX_INIT_STATIC;
 
 /* Static pre-computed return type info */
 
@@ -425,7 +421,7 @@ gs_sel_type_to_callback_type (const char *sel_type,
       case _C_DBL:
 	vatype->type = __VAdouble;
 	break;
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       case _C_BOOL:
 	vatype->type = __VAuchar;
 	break;
@@ -486,7 +482,7 @@ static IMP gs_objc_msg_forward (SEL sel)
       GSIMapNode node;
 
       // Lock
-      pthread_mutex_lock (&ff_callback_map_lock);
+      GS_MUTEX_LOCK(ff_callback_map_lock);
 
       node = GSIMapNodeForKey (&ff_callback_map,
 	(GSIMapKey) ((void *) &returnInfo));
@@ -512,7 +508,7 @@ static IMP gs_objc_msg_forward (SEL sel)
 	    (GSIMapVal) forwarding_callback);
 	}
       // Unlock
-      pthread_mutex_unlock (&ff_callback_map_lock);
+      GS_MUTEX_UNLOCK(ff_callback_map_lock);
     }
   return forwarding_callback;
 }
@@ -614,7 +610,7 @@ GSFFCallInvokeWithTargetAndImp(NSInvocation *_inv, id anObject, IMP imp)
       CASE_TYPE(_C_ULNG_LNG, unsigned long long, av_start_ulonglong)
       CASE_TYPE(_C_FLT,  float, av_start_float)
       CASE_TYPE(_C_DBL,  double, av_start_double)
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       CASE_TYPE(_C_BOOL, _Bool, av_start_uchar)
 #endif
 
@@ -719,7 +715,7 @@ GSFFCallInvokeWithTargetAndImp(NSInvocation *_inv, id anObject, IMP imp)
           CASE_TYPE(_C_ULNG_LNG, unsigned long long, av_ulonglong)
           CASE_TYPE(_C_FLT,  float, av_float)
           CASE_TYPE(_C_DBL,  double, av_double)
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
           CASE_TYPE(_C_BOOL, _Bool, av_uchar)
 #endif
 	
@@ -1057,7 +1053,7 @@ GSInvocationCallback (void *callback_data, va_alist args)
 	  CASE_TYPE(_C_ULNG_LNG, unsigned long long, va_arg_ulonglong)
 	  CASE_TYPE(_C_FLT,  float, va_arg_float)
 	  CASE_TYPE(_C_DBL,  double, va_arg_double)
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
 	  CASE_TYPE(_C_BOOL,  _Bool, va_arg_uchar)
 #endif
 	
@@ -1120,7 +1116,7 @@ GSInvocationCallback (void *callback_data, va_alist args)
       CASE_TYPE(_C_ULNG_LNG, unsigned long long, va_return_ulonglong)
       CASE_TYPE(_C_FLT,  float, va_return_float)
       CASE_TYPE(_C_DBL,  double, va_return_double)
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       CASE_TYPE(_C_BOOL, _Bool, va_return_uchar)
 #endif
 

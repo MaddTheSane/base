@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #import	<GNUstepBase/GSVersionMacros.h>
@@ -38,9 +37,6 @@
 #import "Foundation/NSString.h"
 #import "Foundation/NSTimeZone.h"
 
-NSString * const NSUserNotificationDefaultSoundName
-  = @"NSUserNotificationDefaultSoundName";
-
 @interface NSUserNotification ()
 @property (readwrite) NSDate *actualDeliveryDate;
 @property (readwrite, getter=isPresented) BOOL presented;
@@ -55,7 +51,7 @@ NSString * const NSUserNotificationDefaultSoundName
 {
   if (nil != (self = [super init]))
     {
-      self.hasActionButton = YES;
+      [self setHasActionButton: YES];
     }
   return self;
 }
@@ -71,20 +67,21 @@ NSString * const NSUserNotificationDefaultSoundName
   return NSCopyObject(self, 0, zone);
 }
 
-- (NSString *)description
+- (NSString *) description
 {
   NSMutableString *d = [NSMutableString stringWithCapacity:80];
-  [d appendFormat:@"<%s:%p< {", object_getClassName(self), self];
-  [d appendFormat:@" title: \"%@\"", self.title];
-  [d appendFormat:@" informativeText: \"%@\"", self.informativeText];
-  [d appendFormat:@" actionButtonTitle: \"%@\"", self.actionButtonTitle];
-  if (self.actualDeliveryDate)
-  {
-    [d appendFormat:@" actualDeliveryDate: %@", self.actualDeliveryDate];
-    [d appendFormat:@" presented: %s", self.presented ? "YES" : "NO"];
-  }
-  [d appendFormat:@" next delivery date: %@", self.deliveryDate];
-  [d appendString:@" }"];
+
+  [d appendFormat: @"<%s:%p< {", object_getClassName(self), self];
+  [d appendFormat: @" title: \"%@\"", [self title]];
+  [d appendFormat: @" informativeText: \"%@\"", [self informativeText]];
+  [d appendFormat: @" actionButtonTitle: \"%@\"", [self actionButtonTitle]];
+  if ([self actualDeliveryDate])
+    {
+      [d appendFormat: @" actualDeliveryDate: %@", [self actualDeliveryDate]];
+      [d appendFormat: @" presented: %s", [self isPresented] ? "YES" : "NO"];
+    }
+  [d appendFormat: @" next delivery date: %@", [self deliveryDate]];
+  [d appendString: @" }"];
   return d;
 }
 
@@ -170,13 +167,15 @@ static NSUserNotificationCenter *defaultUserNotificationCenter = nil;
 
 - (void) scheduleNotification: (NSUserNotification *)un
 {
-  if (!un.deliveryDate)
+  NSTimeInterval	delay;
+
+  if (![un deliveryDate])
     {
       [self deliverNotification: un];
       return;
     }
   [_scheduledNotifications addObject: un];
-  NSTimeInterval delay = [un.deliveryDate timeIntervalSinceNow];
+  delay = [[un deliveryDate] timeIntervalSinceNow];
   [self performSelector: @selector(deliverNotification:)
              withObject: un
              afterDelay: delay];
@@ -192,17 +191,21 @@ static NSUserNotificationCenter *defaultUserNotificationCenter = nil;
 
 - (void) _deliverNotification: (NSUserNotification *)un
 {
-  un.presented = YES;
+  [un setPresented: YES];
   NSLog(@"NOTE: %@", un);
 }
 
 - (NSDate *) nextDeliveryDateForNotification: (NSUserNotification *)un
 {
-  NSDateComponents *repeatInterval = un.deliveryRepeatInterval;
+  NSDateComponents	*repeatInterval;
+  NSDate 		*nextDeliveryDate;
+  NSCalendar		*cal;
+
+  repeatInterval = [un deliveryRepeatInterval];
   if (!repeatInterval)
     return nil;
 
-  NSCalendar *cal = [[repeatInterval calendar] copy];
+  cal = [[repeatInterval calendar] copy];
   if (!cal)
     cal = [[NSCalendar currentCalendar] copy];
   if ([repeatInterval timeZone])
@@ -210,31 +213,34 @@ static NSUserNotificationCenter *defaultUserNotificationCenter = nil;
   if (![cal timeZone])
     [cal setTimeZone:[NSTimeZone localTimeZone]];
 
-  NSDate *nextDeliveryDate = [cal dateByAddingComponents: repeatInterval
-                                                  toDate: un.actualDeliveryDate
-                                                 options: 0];
+  nextDeliveryDate
+    = [cal dateByAddingComponents: repeatInterval
+                           toDate: [un actualDeliveryDate]
+                          options: 0];
   RELEASE(cal);
   return nextDeliveryDate;
 }
 
 - (void) deliverNotification: (NSUserNotification *)un
 {
+  NSDate	*actualDeliveryDate;
+
   [self removeScheduledNotification: un];
   [self _deliverNotification: un];
 
-  NSDate *actualDeliveryDate = un.deliveryDate;
+  actualDeliveryDate = [un deliveryDate];
   if (!actualDeliveryDate)
     actualDeliveryDate = [NSDate date];
-  un.actualDeliveryDate = actualDeliveryDate;
+  [un setActualDeliveryDate: actualDeliveryDate];
   [_deliveredNotifications addObject: un];
-  un.deliveryDate = [self nextDeliveryDateForNotification: un];
-  if (un.deliveryDate)
+  [un setDeliveryDate: [self nextDeliveryDateForNotification: un]];
+  if ([un deliveryDate])
     [self scheduleNotification: un];
 
-  if (self.delegate && [self.delegate respondsToSelector:
+  if ([self delegate] && [[self delegate] respondsToSelector:
     @selector(userNotificationCenter:didDeliverNotification:)])
     {
-      [self.delegate userNotificationCenter: self didDeliverNotification: un];
+      [[self delegate] userNotificationCenter: self didDeliverNotification: un];
     }
 }
 

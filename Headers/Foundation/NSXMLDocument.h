@@ -1,4 +1,4 @@
-/* Interface for NSXMLDocument for GNUStep
+/**Interface for NSXMLDocument for GNUStep
    Copyright (C) 2008 Free Software Foundation, Inc.
 
    Written by:  Richard Frith-Macdonald <rfm@gnu.org>
@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #ifndef __NSXMLDocument_h_GNUSTEP_BASE_INCLUDE
@@ -72,6 +71,7 @@ typedef NSUInteger NSXMLDocumentContentKind;
  * An XMLDocument encapsulates an entire document.
  * This must contain a single element node.
  */
+GS_EXPORT_CLASS
 @interface NSXMLDocument : NSXMLNode
 {
 #if     GS_NONFRAGILE

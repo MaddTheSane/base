@@ -2,7 +2,7 @@
 /* GSConcreteValueTemplate - Object encapsulation for C types.
    Copyright (C) 1993,1994 Free Software Foundation, Inc.
 
-   Written by:  Adam Fedor <fedor@boulder.colorado.edu>
+   Written by:  Adam Fedor <fedor@gnu.org>
    Date: Mar 1995
 
    This file is part of the GNUstep Base Library.
@@ -15,12 +15,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 
@@ -80,6 +79,15 @@
 #  define GSTemplateValue	GSSizeValue
 #  define TYPE_METHOD	sizeValue
 #  define TYPE_NAME	NSSize
+#elif TYPE_ORDER == 6
+@interface GSEdgeInsetsValue : NSValue
+{
+  NSEdgeInsets data;
+}
+@end
+#  define GSTemplateValue	GSEdgeInsetsValue
+#  define TYPE_METHOD	edgeInsetsValue
+#  define TYPE_NAME	NSEdgeInsets
 #endif
 
 @implementation GSTemplateValue
@@ -113,7 +121,7 @@
 		  format: @"Cannot copy value into NULL buffer"];
 	/* NOT REACHED */
     }
-  NSGetSizeAndAlignment([self objCType], 0, &size);
+  NSGetSizeAndAlignment([self objCType], &size, NULL);
   memcpy(value, &data, size);
 }
 
@@ -162,6 +170,11 @@
 	return NO;
 #elif TYPE_ORDER == 5
       if (data.width == val.width && data.height == val.height)
+	return YES;
+      else
+	return NO;
+#elif TYPE_ORDER == 6
+      if (data.top == val.top && data.left == val.left && data.bottom == val.bottom && data.right == val.right)
 	return YES;
       else
 	return NO;
@@ -214,6 +227,18 @@
   for (i = 0; i < sizeof(double); i++)
     hash += val.c[i];
   return hash;
+#elif TYPE_ORDER == 6
+  union {
+    double d;
+    unsigned char c[sizeof(double)];
+  } val;
+  NSUInteger	hash = 0;
+  unsigned int	i;
+
+  val.d = data.top + data.left + data.bottom + data.right;
+  for (i = 0; i < sizeof(double); i++)
+    hash += val.c[i];
+  return hash;
 #endif
 }
 
@@ -242,8 +267,23 @@
   return NSStringFromRect(data);
 #elif TYPE_ORDER == 5
   return NSStringFromSize(data);
+#elif TYPE_ORDER == 6
+  return [NSString stringWithFormat:@"{top = %.2f, left = %.2f, bottom = %.2f, right = %.2f}",
+		   data.top, data.left, data.bottom, data.right];
 #endif
 }
+
+#if TYPE_ORDER == 1
+- (NSSize)sizeValue
+{
+  return NSMakeSize(data.x, data.y);
+}
+#elif TYPE_ORDER == 5
+- (NSPoint)pointValue
+{
+  return NSMakePoint(data.width, data.height);
+}
+#endif
 
 // NSCoding
 - (void) encodeWithCoder: (NSCoder*)coder

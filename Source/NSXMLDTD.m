@@ -14,19 +14,17 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #import "common.h"
 
 #if defined(HAVE_LIBXML)
 
-#define	GS_XMLNODETYPE	xmlDtd
 #define GSInternal	NSXMLDTDInternal
 
 #import "NSXMLPrivate.h"
@@ -57,7 +55,7 @@ GS_PRIVATE_INTERNAL(NSXMLDTD)
 - (NSXMLDTDNode*) attributeDeclarationForName: (NSString*)name
                                   elementName: (NSString*)elementName
 {
-  xmlDtdPtr theNode = internal->node;
+  xmlDtdPtr theNode = internal->node.dtd;
   xmlNodePtr children = NULL;
   const xmlChar *xmlName = XMLSTRING(name);
   const xmlChar *xmlElementName = XMLSTRING(elementName);
@@ -87,7 +85,7 @@ GS_PRIVATE_INTERNAL(NSXMLDTD)
 
 - (NSXMLDTDNode*) elementDeclarationForName: (NSString*)name
 {
-  xmlDtdPtr theNode = internal->node;
+  xmlDtdPtr theNode = internal->node.dtd;
   xmlNodePtr children = NULL;
   const xmlChar *xmlName = XMLSTRING(name);
 
@@ -116,7 +114,7 @@ GS_PRIVATE_INTERNAL(NSXMLDTD)
 - (NSXMLDTDNode*) entityDeclarationForName: (NSString*)name
 {
   //xmlGetEntityFromDtd 
-  xmlDtdPtr theNode = internal->node;
+  xmlDtdPtr theNode = internal->node.dtd;
   xmlNodePtr children = NULL;
   const xmlChar *xmlName = XMLSTRING(name);
 
@@ -241,7 +239,7 @@ GS_PRIVATE_INTERNAL(NSXMLDTD)
 
 - (NSXMLDTDNode*) notationDeclarationForName: (NSString*)name
 {
-  xmlDtdPtr theNode = internal->node;
+  xmlDtdPtr theNode = internal->node.dtd;
   xmlNodePtr children = NULL;
   const xmlChar *xmlName = XMLSTRING(name);
 
@@ -267,7 +265,7 @@ GS_PRIVATE_INTERNAL(NSXMLDTD)
 
 - (NSString*) publicID
 {
-  xmlDtd *theNode = internal->node;
+  xmlDtd *theNode = internal->node.dtd;
 
   return StringFromXMLStringPtr(theNode->ExternalID); 
 }
@@ -306,21 +304,21 @@ GS_PRIVATE_INTERNAL(NSXMLDTD)
 
 - (void) setPublicID: (NSString*)publicID
 {
-  xmlDtd *theNode = internal->node;
+  xmlDtd *theNode = internal->node.dtd;
 
   theNode->ExternalID = XMLStringCopy(publicID); 
 }
 
 - (void) setSystemID: (NSString*)systemID
 {
-  xmlDtd *theNode = internal->node;
+  xmlDtd *theNode = internal->node.dtd;
 
   theNode->SystemID = XMLStringCopy(systemID); 
 }
 
 - (NSString*) systemID
 {
-  xmlDtd *theNode = internal->node;
+  xmlDtd *theNode = internal->node.dtd;
 
   return StringFromXMLStringPtr(theNode->SystemID); 
 }

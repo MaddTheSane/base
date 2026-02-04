@@ -22,12 +22,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSPortCoder class reference</title>
    $Date$ $Revision$
@@ -122,7 +121,7 @@ typeToName1(char type)
       case _C_CHARPTR:	return "cstring";
       case _C_ARY_B:	return "array";
       case _C_STRUCT_B:	return "struct";
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       case _C_BOOL:	return "_Bool";
 #endif
       default:
@@ -215,7 +214,7 @@ static char	type_map[32] = {
 #endif
   _C_FLT,
   _C_DBL,
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
   _C_BOOL,
 #else
   0,
@@ -388,7 +387,7 @@ static unsigned	encodingVersion;
 
   coder = [self allocWithZone: NSDefaultMallocZone()];
   coder = [coder initWithReceivePort: recv sendPort: send components: comp];
-  IF_NO_GC(AUTORELEASE(coder);)
+  IF_NO_ARC(AUTORELEASE(coder);)
   return coder;
 }
 
@@ -508,7 +507,7 @@ static unsigned	encodingVersion;
 #endif
       case _C_FLT:	info = _GSC_FLT; break;
       case _C_DBL:	info = _GSC_DBL; break;
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       case _C_BOOL:	info = _GSC_BOOL; break;
 #endif
       default:		info = _GSC_NONE; break;
@@ -529,12 +528,9 @@ static unsigned	encodingVersion;
       (*_dTagImp)(_src, dTagSel, &ainfo, 0, &_cursor);
       if (info != (ainfo & _GSC_MASK))
         {
-	  if (info != _GSC_ID || (ainfo & _GSC_MASK) != _GSC_CID)
-	    {
-	      [NSException raise: NSInternalInconsistencyException
-			  format: @"expected %s and got %s",
-			    typeToName2(info), typeToName2(ainfo)];
-	    }
+          [NSException raise: NSInternalInconsistencyException
+                      format: @"expected %s and got %s",
+                        typeToName2(info), typeToName2(ainfo)];
         }
 
       for (i = 0; i < count; i++)
@@ -636,7 +632,7 @@ scalarSize(char type)
 		   *	order to give the appearance that it's actually a
 		   *	new object.
 		   */
-		  IF_NO_GC(RETAIN(obj));
+		  IF_NO_ARC(RETAIN(obj);)
 		}
 	      else
 		{
@@ -663,17 +659,16 @@ scalarSize(char type)
 		  rep = [obj initWithCoder: self];
 		  if (rep != obj)
 		    {
-		      obj = rep;
-		      GSIArraySetItemAtIndex(_objAry, (GSIArrayItem)obj, xref);
+		      GSIArraySetItemAtIndex(_objAry, (GSIArrayItem)rep, xref);
 		    }
+	          obj = rep;
 
 		  rep = [obj awakeAfterUsingCoder: self];
 		  if (rep != obj)
 		    {
-		      obj = rep;
-		      GSIArraySetItemAtIndex(_objAry, (GSIArrayItem)obj, xref);
+		      GSIArraySetItemAtIndex(_objAry, (GSIArrayItem)rep, xref);
 		    }
-		  GS_CONSUMED(rep)
+	          obj = rep;
 		}
 	    }
 	  *(id*)address = obj;
@@ -708,7 +703,7 @@ scalarSize(char type)
 		   *	order to give the appearance that it's actually a
 		   *	new object.
 		   */
-		  IF_NO_GC(RETAIN(obj));
+		  IF_NO_ARC(RETAIN(obj);)
 		}
 	      else
 		{
@@ -1129,32 +1124,23 @@ scalarSize(char type)
         {
           case 1:
             *(int8_t*)address = (int8_t)big;
-            if (big & ~0xff)
+            if (big > 127 || big < -128)
               {
-                if ((int8_t)big >= 0 || (big & ~0xff) != ~0xff)
-                  {
-                    NSLog(@"Loss of information converting decoded value to int8_t");
-                  }
+                NSLog(@"Lost information converting decoded value to int8_t");
               }
             return;
           case 2:
             *(int16_t*)address = (int16_t)big;
-            if (big & ~0xffff)
+            if (big > 32767 || big < -32768)
               {
-                if ((int16_t)big >= 0 || (big & ~0xffff) != ~0xffff)
-                  {
-                    NSLog(@"Loss of information converting decoded value to int16_t");
-                  }
+                NSLog(@"Lost information converting decoded value to int16_t");
               }
             return;
           case 4:
             *(int32_t*)address = (int32_t)big;
-            if (big & ~0xffffffff)
+            if (big > 2147483647 || big < -2147483648LL)
               {
-                if ((int32_t)big >= 0 || (big & ~0xffffffff) != ~0xffffffff)
-                  {
-                    NSLog(@"Loss of information converting decoded value to int32_t");
-                  }
+                NSLog(@"Lost information converting decoded value to int32_t");
               }
             return;
           case 8:
@@ -1208,23 +1194,23 @@ scalarSize(char type)
       switch (size)
         {
           case 1:
-            if (big & ~0xff)
+            if (big & ~0xffLL)
               {
-                NSLog(@"Loss of information converting decoded value to uint8_t");
+                NSLog(@"Lost information converting decoded value to uint8_t");
               }
             *(uint8_t*)address = (uint8_t)big;
             return;
           case 2:
-            if (big & ~0xffff)
+            if (big & ~0xffffLL)
               {
-                NSLog(@"Loss of information converting decoded value to uint16_t");
+                NSLog(@"Lost information converting decoded value to uint16_t");
               }
             *(uint16_t*)address = (uint16_t)big;
             return;
           case 4:
-            if (big & ~0xffffffff)
+            if (big & ~0xffffffffLL)
               {
-                NSLog(@"Loss of information converting decoded value to uint32_t");
+                NSLog(@"Lost information converting decoded value to uint32_t");
               }
             *(uint32_t*)address = (uint32_t)big;
             return;
@@ -1308,7 +1294,7 @@ scalarSize(char type)
       case _C_ULNG_LNG:	info = _GSC_ULNG_LNG | _GSC_S_LNG_LNG;	break;
       case _C_FLT:	info = _GSC_FLT;	break;
       case _C_DBL:	info = _GSC_DBL;	break;
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       case _C_BOOL:	info = _GSC_BOOL;	break;
 #endif
       default:		info = _GSC_NONE;	break;
@@ -1909,7 +1895,7 @@ scalarSize(char type)
 	(*_eSerImp)(_dst, eSerSel, (void*)buf, @encode(double), nil);
 	return;
 
-#if __GNUC__ > 2 && defined(_C_BOOL)
+#if defined(_C_BOOL) && (!defined(__GNUC__) || __GNUC__ > 2)
       case _C_BOOL:
 	(*_eTagImp)(_dst, eTagSel, _GSC_BOOL);
 	(*_eSerImp)(_dst, eSerSel, (void*)buf, @encode(_Bool), nil);
@@ -1936,6 +1922,10 @@ scalarSize(char type)
 						   sendPort: send]);
   if (_comp == nil)
     {
+      if (nil == (self = [super init]))
+	{
+	  return nil;
+	}
       firstTime = YES;
       _version = [super systemVersion];
       _zone = NSDefaultMallocZone();

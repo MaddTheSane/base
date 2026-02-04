@@ -1,7 +1,7 @@
 /** NSException - Object encapsulation of a general exception handler
    Copyright (C) 1993-2013 Free Software Foundation, Inc.
 
-   Written by:  Adam Fedor <fedor@boulder.colorado.edu>
+   Written by:  Adam Fedor <fedor@gnu.org>
    Date: Mar 1995
 
    This file is part of the GNUstep Base Library.
@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    $Date$ $Revision$
 */
@@ -32,6 +31,7 @@
 #import "Foundation/NSException.h"
 #import "Foundation/NSArray.h"
 #import "Foundation/NSCoder.h"
+#import "Foundation/NSData.h"
 #import "Foundation/NSLock.h"
 #import "Foundation/NSNull.h"
 #import "Foundation/NSThread.h"
@@ -40,6 +40,7 @@
 #import "Foundation/NSValue.h"
 #import "GNUstepBase/NSString+GNUstepBase.h"
 
+#import "GSPThread.h"
 
 #ifdef __GNUSTEP_RUNTIME__
 #include <objc/hooks.h>
@@ -107,22 +108,14 @@ static  NSUncaughtExceptionHandler *_NSUncaughtExceptionHandler = 0;
 #define _e_info (((id*)_reserved)[0])
 #define _e_stack (((id*)_reserved)[1])
 
-/* This is the GNU name for the CTOR list */
-
-@interface GSStackTrace : NSObject
-{
-  NSArray	*symbols;
-  NSArray	*addresses;
-}
-- (NSArray*) addresses;
-- (NSArray*) symbols;
-
-@end
 
 @interface NSException (GSPrivate)
 - (GSStackTrace*) _callStack;
 @end
 
+#if	defined(_WIN32) || defined(USE_BFD)
+static	gs_mutex_t	traceLock;
+#endif
 
 #if	defined(_WIN32)
 #if	defined(USE_BFD)
@@ -385,17 +378,17 @@ GSPrivateBaseAddress(void *addr, void **base)
       DESTROY(self);
       return nil;
     }
-  _symbols = malloc (neededSpace);
+  _symbols = (asymbol**)malloc(neededSpace);
   if (!_symbols)
     {
-      //NSLog (@"GSBinaryFileInfo: Can't allocate buffer");
+      //NSLog(@"GSBinaryFileInfo: Can't allocate buffer");
       DESTROY(self);
       return nil;
     }
-  _symbolCount = bfd_canonicalize_symtab (_abfd, _symbols);
+  _symbolCount = bfd_canonicalize_symtab(_abfd, _symbols);
   if (_symbolCount < 0)
     {
-      //NSLog (@"GSBinaryFileInfo: BFD error while reading symbols");
+      //NSLog(@"GSBinaryFileInfo: BFD error while reading symbols");
       DESTROY(self);
       return nil;
     }
@@ -411,7 +404,7 @@ struct SearchAddressStruct
   GSFunctionInfo	*theInfo;
 };
 
-static void find_address (bfd *abfd, asection *section,
+static void find_address(bfd *abfd, asection *section,
   struct SearchAddressStruct *info)
 {
   bfd_vma	address;
@@ -425,25 +418,33 @@ static void find_address (bfd *abfd, asection *section,
     {
       return;
     }
-  if (!(bfd_get_section_flags (abfd, section) & SEC_ALLOC))
+  address = (bfd_vma) (uintptr_t)info->theAddress;
+
+  /* bfd_get_section_vma() was changed to bfd_section_vma() together with
+   * changes to a couple of other inline functions.
+   */
+#if     defined(HAVE_BFD_SECTION_VMA)
+  if (!(bfd_section_flags(section) & SEC_ALLOC))
     {
       return;	// Only debug in this section
     }
-  if (bfd_get_section_flags (abfd, section) & SEC_DATA)
+  if (bfd_section_flags(section) & SEC_DATA)
     {
       return;	// Only data in this section
     }
-
-  address = (bfd_vma) (uintptr_t)info->theAddress;
-
-  vma = bfd_get_section_vma (abfd, section);
-
-#if     defined(bfd_get_section_size_before_reloc)
-  size = bfd_get_section_size_before_reloc (section);        // recent
-#elif     defined(bfd_get_section_size)
-  size = bfd_get_section_size (section);        // less recent
+  vma = bfd_section_vma(section);
+  size = bfd_section_size(section);
 #else                                
-  size = bfd_section_size (abfd, section);      // older version
+  if (!(bfd_get_section_flags(abfd, section) & SEC_ALLOC))
+    {
+      return;	// Only debug in this section
+    }
+  if (bfd_get_section_flags(abfd, section) & SEC_DATA)
+    {
+      return;	// Only data in this section
+    }
+  vma = bfd_get_section_vma(abfd, section);
+  size = bfd_section_size(abfd, section);
 #endif                               
 
   if (address < vma || address >= vma + size)
@@ -452,7 +453,7 @@ static void find_address (bfd *abfd, asection *section,
     }
 
 
-  if (bfd_find_nearest_line (abfd, section, info->symbols,
+  if (bfd_find_nearest_line(abfd, section, info->symbols,
     address - vma, &fileName, &functionName, &line))
     {
       GSFunctionInfo	*fi;
@@ -485,14 +486,16 @@ static void find_address (bfd *abfd, asection *section,
   struct SearchAddressStruct searchInfo =
     { address, self, _symbols, nil };
 
-  bfd_map_over_sections (_abfd,
+  GS_MUTEX_LOCK(traceLock);
+  bfd_map_over_sections(_abfd,
     (void (*) (bfd *, asection *, void *)) find_address, &searchInfo);
+  GS_MUTEX_UNLOCK(traceLock);
   return searchInfo.theInfo;
 }
 
 @end
 
-static NSRecursiveLock		*modLock = nil;
+static gs_mutex_t	  modLock;
 static NSMutableDictionary	*stackModules = nil;
 
 // initialize stack trace info
@@ -501,7 +504,7 @@ GSLoadModule(NSString *fileName)
 {
   GSBinaryFileInfo	*module = nil;
 
-  [modLock lock];
+  GS_MUTEX_LOCK(modLock);
 
   if (stackModules == nil)
     {
@@ -550,7 +553,7 @@ GSLoadModule(NSString *fileName)
 	    }
 	}
     }
-  [modLock unlock];
+  GS_MUTEX_UNLOCK(modLock);
 
   if (module == (id)[NSNull null])
     {
@@ -565,18 +568,50 @@ GSListModules()
   NSArray	*result;
 
   GSLoadModule(nil);	// initialise
-  [modLock lock];
+  GS_MUTEX_LOCK(modLock);
   result = [stackModules allValues];
-  [modLock unlock];
+  GS_MUTEX_UNLOCK(modLock);
   return result;
 }
 
 #endif	/* USE_BFD */
 
 
-@implementation GSStackTrace : NSObject
+#if defined(WITH_UNWIND) && !defined(HAVE_BACKTRACE)
 
-static	NSRecursiveLock	*traceLock = nil;
+#include <unwind.h>
+#if	!defined(_WIN32)
+#include <dlfcn.h>
+#endif
+
+struct GSBacktraceState
+{
+  void **current;
+  void **end;
+};
+
+static _Unwind_Reason_Code
+GSUnwindCallback(struct _Unwind_Context* context, void* arg)
+{
+  struct GSBacktraceState	*state = (struct GSBacktraceState*)arg;
+  uintptr_t 			pc = _Unwind_GetIP(context);
+
+  if (pc)
+    {
+      if (state->current == state->end)
+	{
+	  return _URC_END_OF_STACK;
+	}
+      else
+	{
+	  *state->current++ = (void*)pc;
+	}
+    }
+  return 0; //_URC_OK/_URC_NO_REASON
+}
+
+#endif	/* WITH_UNWIND && !HAVE_BACKTRACE */
+
 
 #if	defined(_WIN32) && !defined(USE_BFD)
 typedef USHORT (WINAPI *CaptureStackBackTraceType)(ULONG,ULONG,PVOID*,PULONG);
@@ -590,19 +625,524 @@ static SymSetOptionsType optSym = 0;
 static SymFromAddrType fromSym = 0;
 static HANDLE	hProcess = 0;
 #define	MAXFRAMES 62	/* Limitation of windows-xp */
+#else
+#define MAXFRAMES 128   /* 1KB buffer on 64bit machine */
 #endif
 
+#if	!defined(HAVE_BUILTIN_EXTRACT_RETURN_ADDRESS)
+# define	__builtin_extract_return_address(X)	X
+#endif
+
+#define _NS_FRAME_HACK(a) \
+case a: env->addr = __builtin_frame_address(a + 1); break;
+#define _NS_RETURN_HACK(a) \
+case a: env->addr = (__builtin_frame_address(a + 1) ? \
+__builtin_extract_return_address(__builtin_return_address(a + 1)) : 0); break;
+
+/*
+ * The following horrible signal handling code is a workaround for the fact
+ * that the __builtin_frame_address() and __builtin_return_address()
+ * functions are not reliable (at least not on my EM64T based system) and
+ * will sometimes walk off the stack and access illegal memory locations.
+ * In order to prevent such an occurrance from crashing the application,
+ * we use sigsetjmp() and siglongjmp() to ensure that we can recover, and
+ * we keep the jump buffer in thread-local memory to avoid possible thread
+ * safety issues.
+ * Of course this will fail horribly if an exception occurs in one of the
+ * few methods we use to manage the per-thread jump buffer.
+ */
+#if	defined(HAVE_SIGNAL_H)
+#  include	<signal.h>
+#elif	defined(HAVE_SYS_SIGNAL_H)
+#  include	<sys/signal.h>
+#endif
+
+#if	defined(_WIN32)
+#ifndef SIGBUS
+#define SIGBUS  SIGILL
+#endif
+#endif
+
+/* sigsetjmp may be a function or a macro.  The test for the function is
+ * done at configure time so we can tell here if either is available.
+ */
+#if	!defined(HAVE_SIGSETJMP) && !defined(sigsetjmp)
+#define	siglongjmp(A,B)	longjmp(A,B)
+#define	sigsetjmp(A,B)	setjmp(A)
+#define	sigjmp_buf	jmp_buf
+#endif
+
+typedef struct {
+  sigjmp_buf    buf;
+  void          *addr;
+  void          (*bus)(int);
+  void          (*segv)(int);
+} jbuf_type;
+
+static jbuf_type *
+jbuf()
+{
+  NSMutableData	*d;
+  NSMutableDictionary	*dict;
+
+  dict = [[NSThread currentThread] threadDictionary];
+  d = [dict objectForKey: @"GSjbuf"];
+  if (d == nil)
+    {
+      d = [[NSMutableData alloc] initWithLength: sizeof(jbuf_type)];
+      [dict setObject: d forKey: @"GSjbuf"];
+      RELEASE(d);
+    }
+  return (jbuf_type*)[d mutableBytes];
+}
+
+static void
+recover(int sig)
+{
+  siglongjmp(jbuf()->buf, 1);
+}
+
+#ifdef	__clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wframe-address"
+#else
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wframe-address"
+#endif
+
+void *
+NSFrameAddress(NSUInteger offset)
+{
+  jbuf_type     *env;
+
+  env = jbuf();
+  if (sigsetjmp(env->buf, 1) == 0)
+    {
+      env->segv = signal(SIGSEGV, recover);
+      env->bus = signal(SIGBUS, recover);
+      switch (offset)
+	{
+	  _NS_FRAME_HACK(0); _NS_FRAME_HACK(1); _NS_FRAME_HACK(2);
+	  _NS_FRAME_HACK(3); _NS_FRAME_HACK(4); _NS_FRAME_HACK(5);
+	  _NS_FRAME_HACK(6); _NS_FRAME_HACK(7); _NS_FRAME_HACK(8);
+	  _NS_FRAME_HACK(9); _NS_FRAME_HACK(10); _NS_FRAME_HACK(11);
+	  _NS_FRAME_HACK(12); _NS_FRAME_HACK(13); _NS_FRAME_HACK(14);
+	  _NS_FRAME_HACK(15); _NS_FRAME_HACK(16); _NS_FRAME_HACK(17);
+	  _NS_FRAME_HACK(18); _NS_FRAME_HACK(19); _NS_FRAME_HACK(20);
+	  _NS_FRAME_HACK(21); _NS_FRAME_HACK(22); _NS_FRAME_HACK(23);
+	  _NS_FRAME_HACK(24); _NS_FRAME_HACK(25); _NS_FRAME_HACK(26);
+	  _NS_FRAME_HACK(27); _NS_FRAME_HACK(28); _NS_FRAME_HACK(29);
+	  _NS_FRAME_HACK(30); _NS_FRAME_HACK(31); _NS_FRAME_HACK(32);
+	  _NS_FRAME_HACK(33); _NS_FRAME_HACK(34); _NS_FRAME_HACK(35);
+	  _NS_FRAME_HACK(36); _NS_FRAME_HACK(37); _NS_FRAME_HACK(38);
+	  _NS_FRAME_HACK(39); _NS_FRAME_HACK(40); _NS_FRAME_HACK(41);
+	  _NS_FRAME_HACK(42); _NS_FRAME_HACK(43); _NS_FRAME_HACK(44);
+	  _NS_FRAME_HACK(45); _NS_FRAME_HACK(46); _NS_FRAME_HACK(47);
+	  _NS_FRAME_HACK(48); _NS_FRAME_HACK(49); _NS_FRAME_HACK(50);
+	  _NS_FRAME_HACK(51); _NS_FRAME_HACK(52); _NS_FRAME_HACK(53);
+	  _NS_FRAME_HACK(54); _NS_FRAME_HACK(55); _NS_FRAME_HACK(56);
+	  _NS_FRAME_HACK(57); _NS_FRAME_HACK(58); _NS_FRAME_HACK(59);
+	  _NS_FRAME_HACK(60); _NS_FRAME_HACK(61); _NS_FRAME_HACK(62);
+	  _NS_FRAME_HACK(63); _NS_FRAME_HACK(64); _NS_FRAME_HACK(65);
+	  _NS_FRAME_HACK(66); _NS_FRAME_HACK(67); _NS_FRAME_HACK(68);
+	  _NS_FRAME_HACK(69); _NS_FRAME_HACK(70); _NS_FRAME_HACK(71);
+	  _NS_FRAME_HACK(72); _NS_FRAME_HACK(73); _NS_FRAME_HACK(74);
+	  _NS_FRAME_HACK(75); _NS_FRAME_HACK(76); _NS_FRAME_HACK(77);
+	  _NS_FRAME_HACK(78); _NS_FRAME_HACK(79); _NS_FRAME_HACK(80);
+	  _NS_FRAME_HACK(81); _NS_FRAME_HACK(82); _NS_FRAME_HACK(83);
+	  _NS_FRAME_HACK(84); _NS_FRAME_HACK(85); _NS_FRAME_HACK(86);
+	  _NS_FRAME_HACK(87); _NS_FRAME_HACK(88); _NS_FRAME_HACK(89);
+	  _NS_FRAME_HACK(90); _NS_FRAME_HACK(91); _NS_FRAME_HACK(92);
+	  _NS_FRAME_HACK(93); _NS_FRAME_HACK(94); _NS_FRAME_HACK(95);
+	  _NS_FRAME_HACK(96); _NS_FRAME_HACK(97); _NS_FRAME_HACK(98);
+	  _NS_FRAME_HACK(99);
+	  default: env->addr = NULL; break;
+	}
+      signal(SIGSEGV, env->segv);
+      signal(SIGBUS, env->bus);
+    }
+  else
+    {
+      env = jbuf();
+      signal(SIGSEGV, env->segv);
+      signal(SIGBUS, env->bus);
+      env->addr = NULL;
+    }
+  return env->addr;
+}
+
+NSUInteger NSCountFrames(void)
+{
+  jbuf_type	*env;
+
+  env = jbuf();
+  if (sigsetjmp(env->buf, 1) == 0)
+    {
+      env->segv = signal(SIGSEGV, recover);
+      env->bus = signal(SIGBUS, recover);
+      env->addr = 0;
+
+#define _NS_COUNT_HACK(X) if (__builtin_frame_address(X + 1) == 0) \
+        goto done; else env->addr = (void*)(X + 1);
+
+      _NS_COUNT_HACK(0); _NS_COUNT_HACK(1); _NS_COUNT_HACK(2);
+      _NS_COUNT_HACK(3); _NS_COUNT_HACK(4); _NS_COUNT_HACK(5);
+      _NS_COUNT_HACK(6); _NS_COUNT_HACK(7); _NS_COUNT_HACK(8);
+      _NS_COUNT_HACK(9); _NS_COUNT_HACK(10); _NS_COUNT_HACK(11);
+      _NS_COUNT_HACK(12); _NS_COUNT_HACK(13); _NS_COUNT_HACK(14);
+      _NS_COUNT_HACK(15); _NS_COUNT_HACK(16); _NS_COUNT_HACK(17);
+      _NS_COUNT_HACK(18); _NS_COUNT_HACK(19); _NS_COUNT_HACK(20);
+      _NS_COUNT_HACK(21); _NS_COUNT_HACK(22); _NS_COUNT_HACK(23);
+      _NS_COUNT_HACK(24); _NS_COUNT_HACK(25); _NS_COUNT_HACK(26);
+      _NS_COUNT_HACK(27); _NS_COUNT_HACK(28); _NS_COUNT_HACK(29);
+      _NS_COUNT_HACK(30); _NS_COUNT_HACK(31); _NS_COUNT_HACK(32);
+      _NS_COUNT_HACK(33); _NS_COUNT_HACK(34); _NS_COUNT_HACK(35);
+      _NS_COUNT_HACK(36); _NS_COUNT_HACK(37); _NS_COUNT_HACK(38);
+      _NS_COUNT_HACK(39); _NS_COUNT_HACK(40); _NS_COUNT_HACK(41);
+      _NS_COUNT_HACK(42); _NS_COUNT_HACK(43); _NS_COUNT_HACK(44);
+      _NS_COUNT_HACK(45); _NS_COUNT_HACK(46); _NS_COUNT_HACK(47);
+      _NS_COUNT_HACK(48); _NS_COUNT_HACK(49); _NS_COUNT_HACK(50);
+      _NS_COUNT_HACK(51); _NS_COUNT_HACK(52); _NS_COUNT_HACK(53);
+      _NS_COUNT_HACK(54); _NS_COUNT_HACK(55); _NS_COUNT_HACK(56);
+      _NS_COUNT_HACK(57); _NS_COUNT_HACK(58); _NS_COUNT_HACK(59);
+      _NS_COUNT_HACK(60); _NS_COUNT_HACK(61); _NS_COUNT_HACK(62);
+      _NS_COUNT_HACK(63); _NS_COUNT_HACK(64); _NS_COUNT_HACK(65);
+      _NS_COUNT_HACK(66); _NS_COUNT_HACK(67); _NS_COUNT_HACK(68);
+      _NS_COUNT_HACK(69); _NS_COUNT_HACK(70); _NS_COUNT_HACK(71);
+      _NS_COUNT_HACK(72); _NS_COUNT_HACK(73); _NS_COUNT_HACK(74);
+      _NS_COUNT_HACK(75); _NS_COUNT_HACK(76); _NS_COUNT_HACK(77);
+      _NS_COUNT_HACK(78); _NS_COUNT_HACK(79); _NS_COUNT_HACK(80);
+      _NS_COUNT_HACK(81); _NS_COUNT_HACK(82); _NS_COUNT_HACK(83);
+      _NS_COUNT_HACK(84); _NS_COUNT_HACK(85); _NS_COUNT_HACK(86);
+      _NS_COUNT_HACK(87); _NS_COUNT_HACK(88); _NS_COUNT_HACK(89);
+      _NS_COUNT_HACK(90); _NS_COUNT_HACK(91); _NS_COUNT_HACK(92);
+      _NS_COUNT_HACK(93); _NS_COUNT_HACK(94); _NS_COUNT_HACK(95);
+      _NS_COUNT_HACK(96); _NS_COUNT_HACK(97); _NS_COUNT_HACK(98);
+      _NS_COUNT_HACK(99);
+
+done:
+      signal(SIGSEGV, env->segv);
+      signal(SIGBUS, env->bus);
+    }
+  else
+    {
+      env = jbuf();
+      signal(SIGSEGV, env->segv);
+      signal(SIGBUS, env->bus);
+    }
+
+  return (uintptr_t)env->addr;
+}
+
+void *
+NSReturnAddress(NSUInteger offset)
+{
+  jbuf_type	*env;
+
+  env = jbuf();
+  if (sigsetjmp(env->buf, 1) == 0)
+    {
+      env->segv = signal(SIGSEGV, recover);
+      env->bus = signal(SIGBUS, recover);
+      switch (offset)
+	{
+	  _NS_RETURN_HACK(0); _NS_RETURN_HACK(1); _NS_RETURN_HACK(2);
+	  _NS_RETURN_HACK(3); _NS_RETURN_HACK(4); _NS_RETURN_HACK(5);
+	  _NS_RETURN_HACK(6); _NS_RETURN_HACK(7); _NS_RETURN_HACK(8);
+	  _NS_RETURN_HACK(9); _NS_RETURN_HACK(10); _NS_RETURN_HACK(11);
+	  _NS_RETURN_HACK(12); _NS_RETURN_HACK(13); _NS_RETURN_HACK(14);
+	  _NS_RETURN_HACK(15); _NS_RETURN_HACK(16); _NS_RETURN_HACK(17);
+	  _NS_RETURN_HACK(18); _NS_RETURN_HACK(19); _NS_RETURN_HACK(20);
+	  _NS_RETURN_HACK(21); _NS_RETURN_HACK(22); _NS_RETURN_HACK(23);
+	  _NS_RETURN_HACK(24); _NS_RETURN_HACK(25); _NS_RETURN_HACK(26);
+	  _NS_RETURN_HACK(27); _NS_RETURN_HACK(28); _NS_RETURN_HACK(29);
+	  _NS_RETURN_HACK(30); _NS_RETURN_HACK(31); _NS_RETURN_HACK(32);
+	  _NS_RETURN_HACK(33); _NS_RETURN_HACK(34); _NS_RETURN_HACK(35);
+	  _NS_RETURN_HACK(36); _NS_RETURN_HACK(37); _NS_RETURN_HACK(38);
+	  _NS_RETURN_HACK(39); _NS_RETURN_HACK(40); _NS_RETURN_HACK(41);
+	  _NS_RETURN_HACK(42); _NS_RETURN_HACK(43); _NS_RETURN_HACK(44);
+	  _NS_RETURN_HACK(45); _NS_RETURN_HACK(46); _NS_RETURN_HACK(47);
+	  _NS_RETURN_HACK(48); _NS_RETURN_HACK(49); _NS_RETURN_HACK(50);
+	  _NS_RETURN_HACK(51); _NS_RETURN_HACK(52); _NS_RETURN_HACK(53);
+	  _NS_RETURN_HACK(54); _NS_RETURN_HACK(55); _NS_RETURN_HACK(56);
+	  _NS_RETURN_HACK(57); _NS_RETURN_HACK(58); _NS_RETURN_HACK(59);
+	  _NS_RETURN_HACK(60); _NS_RETURN_HACK(61); _NS_RETURN_HACK(62);
+	  _NS_RETURN_HACK(63); _NS_RETURN_HACK(64); _NS_RETURN_HACK(65);
+	  _NS_RETURN_HACK(66); _NS_RETURN_HACK(67); _NS_RETURN_HACK(68);
+	  _NS_RETURN_HACK(69); _NS_RETURN_HACK(70); _NS_RETURN_HACK(71);
+	  _NS_RETURN_HACK(72); _NS_RETURN_HACK(73); _NS_RETURN_HACK(74);
+	  _NS_RETURN_HACK(75); _NS_RETURN_HACK(76); _NS_RETURN_HACK(77);
+	  _NS_RETURN_HACK(78); _NS_RETURN_HACK(79); _NS_RETURN_HACK(80);
+	  _NS_RETURN_HACK(81); _NS_RETURN_HACK(82); _NS_RETURN_HACK(83);
+	  _NS_RETURN_HACK(84); _NS_RETURN_HACK(85); _NS_RETURN_HACK(86);
+	  _NS_RETURN_HACK(87); _NS_RETURN_HACK(88); _NS_RETURN_HACK(89);
+	  _NS_RETURN_HACK(90); _NS_RETURN_HACK(91); _NS_RETURN_HACK(92);
+	  _NS_RETURN_HACK(93); _NS_RETURN_HACK(94); _NS_RETURN_HACK(95);
+	  _NS_RETURN_HACK(96); _NS_RETURN_HACK(97); _NS_RETURN_HACK(98);
+	  _NS_RETURN_HACK(99);
+	  default: env->addr = NULL; break;
+	}
+      signal(SIGSEGV, env->segv);
+      signal(SIGBUS, env->bus);
+    }
+  else
+    {
+      env = jbuf();
+      signal(SIGSEGV, env->segv);
+      signal(SIGBUS, env->bus);
+      env->addr = NULL;
+    }
+
+  return env->addr;
+}
+
+#ifdef	__clang__
+#pragma clang diagnostic pop
+#else
+#pragma GCC diagnostic pop
+#endif
+
+unsigned
+GSPrivateReturnAddresses(NSUInteger **returns)
+{
+  unsigned      numReturns;
+#if	defined(_WIN32) && !defined(USE_BFD)
+  NSUInteger	addr[MAXFRAMES];
+
+  GS_MUTEX_LOCK(traceLock);
+  if (0 == hProcess)
+    {
+      hProcess = GetCurrentProcess();
+
+      if (0 == capture)
+	{
+	  HANDLE	hModule;
+
+	  hModule = LoadLibrary("kernel32.dll");
+	  if (0 == hModule)
+	    {
+	      fprintf(stderr, "Failed to load kernel32.dll with error: %d\n",
+		(int)GetLastError());
+	      GS_MUTEX_UNLOCK(traceLock);
+	      return 0;
+	    }
+	  capture = (CaptureStackBackTraceType)GetProcAddress(
+	    hModule, "RtlCaptureStackBackTrace");
+	  if (0 == capture)
+	    {
+	      fprintf(stderr, "Failed to find RtlCaptureStackBackTrace: %d\n",
+		(int)GetLastError());
+	      GS_MUTEX_UNLOCK(traceLock);
+	      return 0;
+	    }
+	  hModule = LoadLibrary("dbghelp.dll");
+	  if (0 == hModule)
+	    {
+	      fprintf(stderr, "Failed to load dbghelp.dll with error: %d\n",
+		(int)GetLastError());
+	      GS_MUTEX_UNLOCK(traceLock);
+	      return 0;
+	    }
+	  optSym = (SymSetOptionsType)GetProcAddress(
+	    hModule, "SymSetOptions");
+	  if (0 == optSym)
+	    {
+	      fprintf(stderr, "Failed to find SymSetOptions: %d\n",
+		(int)GetLastError());
+	      GS_MUTEX_UNLOCK(traceLock);
+	      return 0;
+	    }
+	  initSym = (SymInitializeType)GetProcAddress(
+	    hModule, "SymInitialize");
+	  if (0 == initSym)
+	    {
+	      fprintf(stderr, "Failed to find SymInitialize: %d\n",
+		(int)GetLastError());
+	      GS_MUTEX_UNLOCK(traceLock);
+	      return 0;
+	    }
+	  fromSym = (SymFromAddrType)GetProcAddress(
+	    hModule, "SymFromAddr");
+	  if (0 == fromSym)
+	    {
+	      fprintf(stderr, "Failed to find SymFromAddr: %d\n",
+		(int)GetLastError());
+	      GS_MUTEX_UNLOCK(traceLock);
+	      return 0;
+	    }
+	}
+
+      (optSym)(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
+
+      if (!(initSym)(hProcess, NULL, TRUE))
+	{
+	  fprintf(stderr, "SymInitialize failed with error: %d\n",
+	    (int)GetLastError());
+	  fromSym = 0;
+	  GS_MUTEX_UNLOCK(traceLock);
+	  return 0;
+	}
+    }
+  if (0 == capture)
+    {
+      GS_MUTEX_UNLOCK(traceLock);
+      return 0;
+    }
+
+  numReturns = (capture)(0, MAXFRAMES, (void**)addr, NULL);
+  if (numReturns > 0)
+    {
+      *returns = (NSUInteger*)malloc(numReturns * sizeof(NSUInteger));
+      memcpy(*returns, addr, numReturns * sizeof(NSUInteger));
+    }
+  
+  GS_MUTEX_UNLOCK(traceLock);
+
+#elif	defined(HAVE_BACKTRACE)
+  void          *addr[MAXFRAMES];
+
+  numReturns = backtrace(addr, MAXFRAMES);
+  if (numReturns > 0)
+    {
+      *returns = (NSUInteger*)malloc(numReturns * sizeof(NSUInteger));
+      memcpy(*returns, addr, numReturns * sizeof(NSUInteger));
+    }
+#elif defined(WITH_UNWIND)
+  void          *addr[MAXFRAMES];
+  
+  struct GSBacktraceState state = {addr, addr + MAXFRAMES};
+  _Unwind_Backtrace(GSUnwindCallback, &state);
+
+  numReturns = state.current - addr;
+  if (numReturns > 0)
+    {
+      *returns = (NSUInteger*)malloc(numReturns * sizeof(NSUInteger));
+      memcpy(*returns, addr, numReturns * sizeof(NSUInteger));
+    }
+#else
+  int   n;
+
+  n = NSCountFrames();
+  /* There should be more frame addresses than return addresses.
+   */
+  if (n > 0)
+    {
+      n--;
+    }
+  if (n > 0)
+    {
+      n--;
+    }
+
+  if ((numReturns = n) > 0)
+    {
+      jbuf_type *env;
+
+      *returns = (NSUInteger*)malloc(numReturns * sizeof(NSUInteger));
+
+      env = jbuf();
+      if (sigsetjmp(env->buf, 1) == 0)
+        {
+          unsigned      i;
+
+          env->segv = signal(SIGSEGV, recover);
+          env->bus = signal(SIGBUS, recover);
+
+          for (i = 0; i < n; i++)
+            {
+              switch (i)
+                {
+                  _NS_RETURN_HACK(0); _NS_RETURN_HACK(1); _NS_RETURN_HACK(2);
+                  _NS_RETURN_HACK(3); _NS_RETURN_HACK(4); _NS_RETURN_HACK(5);
+                  _NS_RETURN_HACK(6); _NS_RETURN_HACK(7); _NS_RETURN_HACK(8);
+                  _NS_RETURN_HACK(9); _NS_RETURN_HACK(10); _NS_RETURN_HACK(11);
+                  _NS_RETURN_HACK(12); _NS_RETURN_HACK(13); _NS_RETURN_HACK(14);
+                  _NS_RETURN_HACK(15); _NS_RETURN_HACK(16); _NS_RETURN_HACK(17);
+                  _NS_RETURN_HACK(18); _NS_RETURN_HACK(19); _NS_RETURN_HACK(20);
+                  _NS_RETURN_HACK(21); _NS_RETURN_HACK(22); _NS_RETURN_HACK(23);
+                  _NS_RETURN_HACK(24); _NS_RETURN_HACK(25); _NS_RETURN_HACK(26);
+                  _NS_RETURN_HACK(27); _NS_RETURN_HACK(28); _NS_RETURN_HACK(29);
+                  _NS_RETURN_HACK(30); _NS_RETURN_HACK(31); _NS_RETURN_HACK(32);
+                  _NS_RETURN_HACK(33); _NS_RETURN_HACK(34); _NS_RETURN_HACK(35);
+                  _NS_RETURN_HACK(36); _NS_RETURN_HACK(37); _NS_RETURN_HACK(38);
+                  _NS_RETURN_HACK(39); _NS_RETURN_HACK(40); _NS_RETURN_HACK(41);
+                  _NS_RETURN_HACK(42); _NS_RETURN_HACK(43); _NS_RETURN_HACK(44);
+                  _NS_RETURN_HACK(45); _NS_RETURN_HACK(46); _NS_RETURN_HACK(47);
+                  _NS_RETURN_HACK(48); _NS_RETURN_HACK(49); _NS_RETURN_HACK(50);
+                  _NS_RETURN_HACK(51); _NS_RETURN_HACK(52); _NS_RETURN_HACK(53);
+                  _NS_RETURN_HACK(54); _NS_RETURN_HACK(55); _NS_RETURN_HACK(56);
+                  _NS_RETURN_HACK(57); _NS_RETURN_HACK(58); _NS_RETURN_HACK(59);
+                  _NS_RETURN_HACK(60); _NS_RETURN_HACK(61); _NS_RETURN_HACK(62);
+                  _NS_RETURN_HACK(63); _NS_RETURN_HACK(64); _NS_RETURN_HACK(65);
+                  _NS_RETURN_HACK(66); _NS_RETURN_HACK(67); _NS_RETURN_HACK(68);
+                  _NS_RETURN_HACK(69); _NS_RETURN_HACK(70); _NS_RETURN_HACK(71);
+                  _NS_RETURN_HACK(72); _NS_RETURN_HACK(73); _NS_RETURN_HACK(74);
+                  _NS_RETURN_HACK(75); _NS_RETURN_HACK(76); _NS_RETURN_HACK(77);
+                  _NS_RETURN_HACK(78); _NS_RETURN_HACK(79); _NS_RETURN_HACK(80);
+                  _NS_RETURN_HACK(81); _NS_RETURN_HACK(82); _NS_RETURN_HACK(83);
+                  _NS_RETURN_HACK(84); _NS_RETURN_HACK(85); _NS_RETURN_HACK(86);
+                  _NS_RETURN_HACK(87); _NS_RETURN_HACK(88); _NS_RETURN_HACK(89);
+                  _NS_RETURN_HACK(90); _NS_RETURN_HACK(91); _NS_RETURN_HACK(92);
+                  _NS_RETURN_HACK(93); _NS_RETURN_HACK(94); _NS_RETURN_HACK(95);
+                  _NS_RETURN_HACK(96); _NS_RETURN_HACK(97); _NS_RETURN_HACK(98);
+                  _NS_RETURN_HACK(99);
+                  default: env->addr = 0; break;
+                }
+              if (env->addr == 0)
+                {
+                  break;
+                }
+              memcpy(&(*returns)[i], env->addr, sizeof(NSUInteger));
+            }
+          signal(SIGSEGV, env->segv);
+          signal(SIGBUS, env->bus);
+        }
+      else
+        {
+          env = jbuf();
+          signal(SIGSEGV, env->segv);
+          signal(SIGBUS, env->bus);
+        }
+    }
+#endif
+  return numReturns;
+}
+
+
+@implementation GSStackTrace : NSObject
+
+/** Offset from the top of the stack (when we generate a trace) to the
+ * first frame likely to be of interest for debugging.
+ */
+#define FrameOffset     4
 
 + (void) initialize
 {
-  if (nil == traceLock)
-    {
-      traceLock = [NSRecursiveLock new];
-    }
+#if	defined(_WIN32) || defined(USE_BFD)
+  GS_MUTEX_INIT_RECURSIVE(traceLock);
+#endif
+#if     defined(USE_BFD)
+  GS_MUTEX_INIT_RECURSIVE(modLock);
+#endif
 }
 
 - (NSArray*) addresses
 {
+  if (nil == addresses && numReturns > FrameOffset)
+    {
+      ENTER_POOL
+      NSInteger         count = numReturns - FrameOffset;
+      NSValue           *objects[count];
+      NSUInteger        index;
+      void              **ptrs = (void **)returns;
+
+      for (index = 0; index < count; index++)
+        {
+          objects[index] = [NSValue valueWithPointer: ptrs[FrameOffset+index]];
+        }
+      addresses = [[NSArray alloc] initWithObjects: objects count: count];
+      LEAVE_POOL
+    }
   return addresses;
 }
 
@@ -610,6 +1150,11 @@ static HANDLE	hProcess = 0;
 {
   DESTROY(addresses);
   DESTROY(symbols);
+  if (returns != NULL)
+    {
+      free(returns);
+      returns = NULL;
+    }
   [super dealloc];
 }
 
@@ -632,290 +1177,211 @@ static HANDLE	hProcess = 0;
   return result;
 }
 
-// grab the current stack 
 - (id) init
 {
-#if	defined(USE_BFD)
-  addresses = [GSPrivateStackAddresses() copy];
-#elif	defined(_WIN32)
-  uint16_t	frames;
-  NSUInteger	addr[MAXFRAMES];
-  NSNumber	*vals[MAXFRAMES];
-  NSUInteger 	i;
-
-  [traceLock lock];
-  if (0 == hProcess)
-    {
-      hProcess = GetCurrentProcess();
-
-      if (0 == capture)
-	{
-	  HANDLE	hModule;
-
-	  hModule = LoadLibrary("kernel32.dll");
-	  if (0 == hModule)
-	    {
-	      fprintf(stderr, "Failed to load kernel32.dll with error: %d\n",
-		(int)GetLastError());
-	      [traceLock unlock];
-	      return self;
-	    }
-	  capture = (CaptureStackBackTraceType)GetProcAddress(
-	    hModule, "RtlCaptureStackBackTrace");
-	  if (0 == capture)
-	    {
-	      fprintf(stderr, "Failed to find RtlCaptureStackBackTrace: %d\n",
-		(int)GetLastError());
-	      [traceLock unlock];
-	      return self;
-	    }
-	  hModule = LoadLibrary("dbghelp.dll");
-	  if (0 == hModule)
-	    {
-	      fprintf(stderr, "Failed to load dbghelp.dll with error: %d\n",
-		(int)GetLastError());
-	      [traceLock unlock];
-	      return self;
-	    }
-	  optSym = (SymSetOptionsType)GetProcAddress(
-	    hModule, "SymSetOptions");
-	  if (0 == optSym)
-	    {
-	      fprintf(stderr, "Failed to find SymSetOptions: %d\n",
-		(int)GetLastError());
-	      [traceLock unlock];
-	      return self;
-	    }
-	  initSym = (SymInitializeType)GetProcAddress(
-	    hModule, "SymInitialize");
-	  if (0 == initSym)
-	    {
-	      fprintf(stderr, "Failed to find SymInitialize: %d\n",
-		(int)GetLastError());
-	      [traceLock unlock];
-	      return self;
-	    }
-	  fromSym = (SymFromAddrType)GetProcAddress(
-	    hModule, "SymFromAddr");
-	  if (0 == fromSym)
-	    {
-	      fprintf(stderr, "Failed to find SymFromAddr: %d\n",
-		(int)GetLastError());
-	      [traceLock unlock];
-	      return self;
-	    }
-	}
-
-      (optSym)(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
-
-      if (!(initSym)(hProcess, NULL, TRUE))
-	{
-	  fprintf(stderr, "SymInitialize failed with error: %d\n",
-	    (int)GetLastError());
-	  fromSym = 0;
-	  [traceLock unlock];
-	  return self;
-	}
-    }
-  if (0 == capture)
-    {
-      [traceLock unlock];
-      return self;
-    }
-
-  frames = (capture)(0, MAXFRAMES, (void**)addr, NULL);
-  for (i = 0; i < frames; i++)
-    {
-      vals[i] = [NSNumber numberWithUnsignedInteger: addr[i]];
-    }
-  [traceLock unlock];
-
-  addresses = [[NSArray alloc] initWithObjects: vals count: frames];
-
-#elif	defined(HAVE_BACKTRACE)
-  void		**addr;
-  id		*vals;
-  int		count;
-  int		i;
-
-  addr = calloc(sizeof(void*),1024);
-  count = backtrace(addr, 1024);
-  addr = realloc(addr, count * sizeof(void*));
-  vals = alloca(count * sizeof(id));
-  for (i = 0; i < count; i++)
-    {
-      vals[i] = [NSNumber numberWithUnsignedInteger:
-	(NSUInteger)addr[i]];
-    }
-  addresses = [[NSArray alloc] initWithObjects: vals count: count];
-  free(addr);
-#else
-  addresses = [GSPrivateStackAddresses() copy];
-#endif
   return self;
 }
 
 - (NSArray*) symbols
 {
-  if (nil == symbols) 
+  if (nil == symbols && numReturns > FrameOffset)
     {
-      NSUInteger	count = [addresses count];
+      NSInteger	        count = numReturns - FrameOffset;
+      NSUInteger        i;
 
-      if (count > 0)
-	{
 #if	defined(USE_BFD)
-	  NSMutableArray	*a;
-	  NSUInteger 		i;
+      void              **ptrs = (void**)&returns[FrameOffset];
+      NSMutableArray	*a;
 
-	  a = [[NSMutableArray alloc] initWithCapacity: count];
+      a = [[NSMutableArray alloc] initWithCapacity: count];
 
-	  for (i = 0; i < count; i++)
-	    {
-	      GSFunctionInfo	*aFrame = nil;
-	      void		*address;
-	      void		*base;
-	      NSString		*modulePath;
-	      GSBinaryFileInfo	*bfi;
+      for (i = 0; i < count; i++)
+        {
+          GSFunctionInfo	*aFrame = nil;
+          void		        *address = (void*)*ptrs++;
+          void		        *base;
+          NSString		*modulePath;
+          GSBinaryFileInfo	*bfi;
 
-	      address = (void*)[[addresses objectAtIndex: i] pointerValue];
-	      modulePath = GSPrivateBaseAddress(address, &base);
-	      if (modulePath != nil && (bfi = GSLoadModule(modulePath)) != nil)
-		{
-		  aFrame = [bfi functionForAddress: (void*)(address - base)];
-		  if (aFrame == nil)
-		    {
-		      /* We know we have the right module but function lookup
-		       * failed ... perhaps we need to use the absolute
-		       * address rather than offest by 'base' in this case.
-		       */
-		      aFrame = [bfi functionForAddress: address];
-		    }
-		}
-	      else
-		{
-		  NSArray	*modules;
-		  int		j;
-		  int		m;
+          modulePath = GSPrivateBaseAddress(address, &base);
+          if (modulePath != nil && (bfi = GSLoadModule(modulePath)) != nil)
+            {
+              aFrame = [bfi functionForAddress: (void*)(address - base)];
+              if (aFrame == nil)
+                {
+                  /* We know we have the right module but function lookup
+                   * failed ... perhaps we need to use the absolute
+                   * address rather than offest by 'base' in this case.
+                   */
+                  aFrame = [bfi functionForAddress: address];
+                }
+            }
+          else
+            {
+              NSArray	*modules;
+              int	j;
+              int	m;
 
-		  modules = GSListModules();
-		  m = [modules count];
-		  for (j = 0; j < m; j++)
-		    {
-		      bfi = [modules objectAtIndex: j];
+              modules = GSListModules();
+              m = [modules count];
+              for (j = 0; j < m; j++)
+                {
+                  bfi = [modules objectAtIndex: j];
 
-		      if ((id)bfi != (id)[NSNull null])
-			{
-			  aFrame = [bfi functionForAddress: address];
-			  if (aFrame != nil)
-			    {
-			      break;
-			    }
-			}
-		    }
-		}
+                  if ((id)bfi != (id)[NSNull null])
+                    {
+                      aFrame = [bfi functionForAddress: address];
+                      if (aFrame != nil)
+                        {
+                          break;
+                        }
+                    }
+                }
+            }
 
-	      // not found (?!), add an 'unknown' function
-	      if (aFrame == nil)
-		{
-		  aFrame = [GSFunctionInfo alloc];
-		  [aFrame initWithModule: nil
-				 address: address 
-				    file: nil
-				function: nil
-				    line: 0];
-		  [aFrame autorelease];
-		}
-	      [a addObject: [aFrame description]];
-	    }
-	  symbols = [a copy];
-	  [a release];
+          // not found (?!), add an 'unknown' function
+          if (aFrame == nil)
+            {
+              aFrame = [GSFunctionInfo alloc];
+              [aFrame initWithModule: nil
+                             address: address 
+                                file: nil
+                            function: nil
+                                line: 0];
+              [aFrame autorelease];
+            }
+          [a addObject: [aFrame description]];
+        }
+      symbols = [a copy];
+      [a release];
 #elif	defined(_WIN32)
-	  SYMBOL_INFO	*symbol;
-	  NSString	*syms[MAXFRAMES];
-	  NSUInteger	i;
+      void              **ptrs = (void**)&returns[FrameOffset];
+      SYMBOL_INFO	*symbol;
+      NSString	        *syms[MAXFRAMES];
 
-	  symbol = (SYMBOL_INFO *)calloc(sizeof(SYMBOL_INFO)
-	    + 1024 * sizeof(char), 1);
-	  symbol->MaxNameLen = 1024;
-	  symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+      symbol = (SYMBOL_INFO *)calloc(sizeof(SYMBOL_INFO)
+        + 1024 * sizeof(char), 1);
+      symbol->MaxNameLen = 1024;
+      symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
 
-	  [traceLock lock];
-	  for (i = 0; i < count; i++)
-	    {
-	      NSUInteger	addr; 
+      GS_MUTEX_LOCK(traceLock);
+      for (i = 0; i < count; i++)
+        {
+          NSUInteger	addr = (NSUInteger)*ptrs++; 
 
-	      addr = (NSUInteger)[[addresses objectAtIndex: i] integerValue];
-	      if ((fromSym)(hProcess, (DWORD64)addr, 0, symbol))
-		{
-		  syms[i] = [NSString stringWithFormat:
-		    @"%s - %p", symbol->Name, addr];
-		}
-	      else
-		{
-		  syms[i] = [NSString stringWithFormat:
-		    @"unknown - %p", symbol->Name, addr];
-		}
-	    }
-	  [traceLock unlock];
-	  free(symbol);
+          if ((fromSym)(hProcess, (DWORD64)addr, 0, symbol))
+            {
+              syms[i] = [NSString stringWithFormat:
+                @"%s - %lx", symbol->Name, (unsigned long)addr];
+            }
+          else
+            {
+              syms[i] = [NSString stringWithFormat:
+                @"unknown - %lx", (unsigned long)addr];
+            }
+        }
+      GS_MUTEX_UNLOCK(traceLock);
+      free(symbol);
 
-	  symbols = [[NSArray alloc] initWithObjects: syms count: count];
+      symbols = [[NSArray alloc] initWithObjects: syms count: count];
 #elif	defined(HAVE_BACKTRACE)
-	  char		**strs;
-	  void		**addr;
-	  NSString	**symbolArray;
-	  NSUInteger 	i;
+      void              **ptrs = (void**)&returns[FrameOffset];
+      char		**strs;
+      NSString	        **symbolArray;
 
-	  addr = alloca(count * sizeof(void*));
-	  for (i = 0; i < count; i++)
-	    {
-	      addr[i] = (void*)[[addresses objectAtIndex: i]
-		unsignedIntegerValue];
-	    }
+      strs = backtrace_symbols(ptrs, count);
+      symbolArray = alloca(count * sizeof(NSString*));
+      for (i = 0; i < count; i++)
+        {
+          symbolArray[i] = [NSString stringWithUTF8String: strs[i]];
+        }
+      symbols = [[NSArray alloc] initWithObjects: symbolArray count: count];
+      free(strs);
+#elif defined(WITH_UNWIND)
+      void              **ptrs = (void**)&returns[FrameOffset];
+      NSString	        **symbolArray;
 
-	  strs = backtrace_symbols(addr, count);
-	  symbolArray = alloca(count * sizeof(NSString*));
-	  for (i = 0; i < count; i++)
-	    {
-	      symbolArray[i] = [NSString stringWithUTF8String: strs[i]];
-	    }
-	  symbols = [[NSArray alloc] initWithObjects: symbolArray count: count];
-	  free(strs);
+      symbolArray = alloca(count * sizeof(NSString*));
+      for (i = 0; i < count; i++)
+        {
+          const void *addr = ptrs[i];
+          Dl_info info;
+          if (dladdr(addr, &info)) {
+            const char *libname = "unknown";
+            if (info.dli_fname) {
+              // strip library path
+              char *delim = strrchr(info.dli_fname, '/');
+              libname = delim ? delim + 1 : info.dli_fname;
+            }
+            if (info.dli_sname) {
+              symbolArray[i] = [NSString stringWithFormat:
+                @"%lu: %p %s %s + %d", (unsigned long)i, addr, libname,
+                info.dli_sname, (int)(addr - info.dli_saddr)];
+            } else {
+              symbolArray[i] = [NSString stringWithFormat:
+                @"%lu: %p %s unknown", (unsigned long)i, addr, libname];
+            }
+          } else {
+            symbolArray[i] = [NSString stringWithFormat:
+              @"%lu: %p unknown", (unsigned long)i, addr];
+          }
+        }
+      symbols = [[NSArray alloc] initWithObjects: symbolArray count: count];
+#else
+      NSMutableArray	*a;
+
+      symbols = a = [[self addresses] mutableCopy];
+      for (i = 0; i < count; i++)
+        {
+          NSString      *s;
+
+          s = [[NSString alloc] initWithFormat: @"%p: symbol not available",
+            [[a objectAtIndex: i] pointerValue]];
+          [a replaceObjectAtIndex: i withObject: s];
+          RELEASE(s);
+        }
 #endif
-	}
-      else
-	{
-	  symbols = [NSArray new];
-	}
     }
   return symbols;
+}
+
+- (void) trace
+{
+  DESTROY(addresses);
+  DESTROY(symbols);
+  if (returns != NULL)
+    {
+      free(returns);
+      returns = NULL;
+    }
+  numReturns = GSPrivateReturnAddresses(&returns);
 }
 
 @end
 
 
-NSString* const NSCharacterConversionException
+GS_DECLARE NSString* const NSCharacterConversionException
   = @"NSCharacterConversionException";
 
-NSString* const NSGenericException
+GS_DECLARE NSString* const NSGenericException
   = @"NSGenericException";
 
-NSString* const NSInternalInconsistencyException
+GS_DECLARE NSString* const NSInternalInconsistencyException
   = @"NSInternalInconsistencyException";
 
-NSString* const NSInvalidArgumentException
+GS_DECLARE NSString* const NSInvalidArgumentException
   = @"NSInvalidArgumentException";
 
-NSString* const NSMallocException
+GS_DECLARE NSString* const NSMallocException
   = @"NSMallocException";
 
-NSString* const NSOldStyleException
+GS_DECLARE NSString* const NSOldStyleException
   = @"NSOldStyleException";
 
-NSString* const NSParseErrorException
+GS_DECLARE NSString* const NSParseErrorException
   = @"NSParseErrorException";
 
-NSString* const NSRangeException
+GS_DECLARE NSString* const NSRangeException
  = @"NSRangeException";
 
 static void _terminate()
@@ -947,7 +1413,8 @@ _NSFoundationUncaughtExceptionHandler (NSException *exception)
     GSPrivateArgZero(),
     [[exception name] lossyCString], [[exception reason] lossyCString]);
   fflush(stderr);	/* NEEDED UNDER MINGW */
-  if (GSPrivateEnvironmentFlag("GNUSTEP_STACK_TRACE", NO) == YES)
+  if (GSPrivateEnvironmentFlag("GNUSTEP_STACK_TRACE", NO) == YES
+    || GSPrivateDefaultsFlag(GSExceptionStackTrace) == YES)
     {
       fprintf(stderr, "Stack\n%s\n",
 	[[[exception _callStack] description] lossyCString]);
@@ -981,22 +1448,18 @@ callUncaughtHandler(id value)
 
 + (void) initialize
 {
-#if	defined(USE_BFD)
-  if (modLock == nil)
+  if (self == [NSException class])
     {
-      modLock = [NSRecursiveLock new];
-    }
-#endif	/* USE_BFD */
 #if defined(_NATIVE_OBJC_EXCEPTIONS)
 #  ifdef HAVE_SET_UNCAUGHT_EXCEPTION_HANDLER
-  objc_setUncaughtExceptionHandler(callUncaughtHandler);
-#  elif defined(HAVE_UNEXPECTED)
-  _objc_unexpected_exception = callUncaughtHandler;
+      objc_setUncaughtExceptionHandler(callUncaughtHandler);
 #  elif defined(HAVE_SET_UNEXPECTED)
-  objc_set_unexpected(callUncaughtHandler);
+      objc_set_unexpected(callUncaughtHandler);
+#  elif defined(HAVE_UNEXPECTED)
+      _objc_unexpected_exception = callUncaughtHandler;
 #  endif
 #endif
-  return;
+    }
 }
 
 + (NSException*) exceptionWithName: (NSString*)name
@@ -1016,6 +1479,7 @@ callUncaughtHandler(id value)
   [self raise: name format: format arguments: args];
   // This probably doesn't matter, but va_end won't get called
   va_end(args);
+  while (1);    // does not return
 }
 
 + (void) raise: (NSString*)name
@@ -1028,6 +1492,7 @@ callUncaughtHandler(id value)
   reason = [NSString stringWithFormat: format arguments: argList];
   except = [self exceptionWithName: name reason: reason userInfo: nil];
   [except raise];
+  while (1);    // does not return
 }
 
 /* For OSX compatibility -init returns nil.
@@ -1100,7 +1565,8 @@ callUncaughtHandler(id value)
   if (_reserved != 0)
     {
       if (_e_stack != nil
-        && GSPrivateEnvironmentFlag("GNUSTEP_STACK_TRACE", NO) == YES)
+        && (GSPrivateEnvironmentFlag("GNUSTEP_STACK_TRACE", NO) == YES
+          || GSPrivateDefaultsFlag(GSExceptionStackTrace) == YES))
         {
           if (_e_info != nil)
             {
@@ -1142,6 +1608,7 @@ callUncaughtHandler(id value)
     {
       // Only set the stack when first raised
       _e_stack = [GSStackTrace new];
+      [_e_stack trace];
     }
 
 #if     defined(_NATIVE_OBJC_EXCEPTIONS)
@@ -1184,6 +1651,7 @@ callUncaughtHandler(id value)
     }
 }
 #endif
+  while (1);    // does not return
 }
 
 - (NSString*) name
@@ -1289,9 +1757,9 @@ callUncaughtHandler(id value)
 
 + (NSArray *) callStackSymbols
 {
-  GSStackTrace *stackTrace = [[[GSStackTrace alloc] init] autorelease];
-  NSArray *symbols = [stackTrace symbols];
-  return symbols;
+  GSStackTrace *stackTrace = AUTORELEASE([GSStackTrace new]);
+  [stackTrace trace];
+  return [stackTrace symbols];
 }
 
 @end

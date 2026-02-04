@@ -17,12 +17,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
 
 <chapter>
@@ -175,7 +174,7 @@
 #if OS_API_VERSION(GS_API_MACOSX, GS_API_LATEST)
 #import	<Foundation/NSDictionary.h>
 #import	<Foundation/NSEnumerator.h>
-
+#import <Foundation/NSPathUtilities.h>
 #if	defined(__cplusplus)
 extern "C" {
 #endif
@@ -191,6 +190,8 @@ extern "C" {
 @class NSError;
 @class NSURL;
 
+@protocol NSFileManagerDelegate;
+
 /* MacOS-X defines OSType as a 32bit unsigned integer.
  */
 #ifndef OSTYPE_DECLARED
@@ -198,6 +199,8 @@ typedef	uint32_t	OSType;
 #define OSTYPE_DECLARED
 #endif
 
+DEFINE_BLOCK_TYPE(GSDirEnumErrorHandler, BOOL, NSURL*, NSError*);
+  
 enum _NSDirectoryEnumerationOptions
   {
     NSDirectoryEnumerationSkipsSubdirectoryDescendants = 1L << 0,
@@ -206,11 +209,12 @@ enum _NSDirectoryEnumerationOptions
   };
 typedef NSUInteger NSDirectoryEnumerationOptions; 
   
+GS_EXPORT_CLASS
 @interface NSFileManager : NSObject
 {
 #if	GS_EXPOSE(NSFileManager)
 @private
-  NSString	*_lastError;
+  id<NSFileManagerDelegate> _delegate;
 #endif
 #if     GS_NONFRAGILE
 #else
@@ -228,6 +232,15 @@ typedef NSUInteger NSDirectoryEnumerationOptions;
  * application.
  */
 + (NSFileManager*) defaultManager;
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_5, GS_API_LATEST)
+#if GS_HAS_DECLARED_PROPERTIES
+@property (assign) id<NSFileManagerDelegate> delegate;
+#else
+- (id<NSFileManagerDelegate>) delegate;
+- (void) setDelegate: (id<NSFileManagerDelegate>)delegate;
+#endif
+#endif
 
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_5, GS_API_LATEST)
 - (NSDictionary *) attributesOfItemAtPath: (NSString*)path
@@ -290,6 +303,16 @@ typedef NSUInteger NSDirectoryEnumerationOptions;
  */
 - (BOOL) removeItemAtURL: (NSURL*)url
                    error: (NSError**)error;
+/**
+ * Creates a symbolic link at the path
+ * that point to the destination path.<br />
+ * Returns YES on success, otherwise NO.
+ */
+- (BOOL) createSymbolicLinkAtPath: (NSString*)path
+              withDestinationPath: (NSString*)destPath
+                            error: (NSError**)error;
+
+- (BOOL) setAttributes:(NSDictionary *)attributes ofItemAtPath:(NSString *)path error:(NSError **)error;
 #endif
 
 /**
@@ -309,18 +332,51 @@ typedef NSUInteger NSDirectoryEnumerationOptions;
 
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
 /**
- * Returns an array of NSURL of the contents of the specified directory. <br>
+ * Returns an array of NSURL of the contents of the specified directory. <br />
  * The listing is shallow and does not recurse into subdirectories.
  * The special files '.' and '..' are excluded but it can return
- * hidden files.<br>
+ * hidden files.<br />
  * The only mask option supported is
- * NSDirectoryEnumerationSkipsHiddenFiles.<br>
+ * NSDirectoryEnumerationSkipsHiddenFiles.<br />
  * The current implementation handles only files and property keys are ignored.
  */
 - (NSArray*) contentsOfDirectoryAtURL: (NSURL*)url
            includingPropertiesForKeys: (NSArray*)keys
                               options: (NSDirectoryEnumerationOptions)mask
                                 error: (NSError **)error;
+
+/**
+ * Locates and, optionally, creates the specified common directory in
+ * domain
+ */
+- (NSURL *)URLForDirectory: (NSSearchPathDirectory)directory 
+                  inDomain: (NSSearchPathDomainMask)domain 
+         appropriateForURL: (NSURL *)url 
+                    create: (BOOL)shouldCreate 
+                     error: (NSError **)error;
+
+/**
+ * Returns an array of search paths to look at for resources.<br />
+ * The paths are returned in domain order:
+ * USER, LOCAL, NETWORK then SYSTEM.<br />
+ * The presence of a path in this list does <em>not</em> mean that the
+ * path actually exists in the filesystem.<br />
+ * If you are wanting to locate an existing resource, you should normally
+ * call this method with NSAllDomainsMask, but if you wish to find the
+ * path in which you should create a new file, you would generally
+ * specify a particular domain, and then create the path in the file
+ * system if it does not already exist.
+ */
+- (GS_GENERIC_CLASS(NSArray, NSURL *) *)URLsForDirectory: (NSSearchPathDirectory)directory
+                                               inDomains: (NSSearchPathDomainMask)domain;
+
+/**
+ * Enumerate over the contents of a directory.
+ */
+- (NSDirectoryEnumerator *)enumeratorAtURL: (NSURL *)url
+                includingPropertiesForKeys: (NSArray *)keys 
+                                   options: (NSDirectoryEnumerationOptions)mask 
+                              errorHandler: (GSDirEnumErrorHandler)handler;
 #endif
   
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_5, GS_API_LATEST)
@@ -333,6 +389,9 @@ typedef NSUInteger NSDirectoryEnumerationOptions;
  * it can't be read for some reason).
  */
 - (NSArray*) contentsOfDirectoryAtPath: (NSString*)path error: (NSError**)error;
+
+- (NSDictionary*) attributesOfFileSystemForPath: (NSString*)path
+                                          error: (NSError**)error;
 #endif
 
 - (BOOL) copyPath: (NSString*)source
@@ -368,6 +427,11 @@ typedef NSUInteger NSDirectoryEnumerationOptions;
  * </p>
  */
 - (NSDirectoryEnumerator*) enumeratorAtPath: (NSString*)path;
+
+/** Returns the attributes dictionary for the file at the specified path.
+ * If that file is a symbolic link, the flag determines whether the attributes
+ * returned are those of the link or those of the destination file.
+ */
 - (NSDictionary*) fileAttributesAtPath: (NSString*)path
 			  traverseLink: (BOOL)flag;
 
@@ -444,6 +508,7 @@ typedef NSUInteger NSDirectoryEnumerationOptions;
  * if they wish to deal with copy and move operations performed
  * by NSFileManager.
  */
+
 @interface NSObject (NSFileManagerHandler)
 /**
  * <p>When an error occurs during a copy or move operation, the file manager
@@ -495,7 +560,6 @@ typedef NSUInteger NSDirectoryEnumerationOptions;
      willProcessPath: (NSString*)path;
 @end
 
-
 /**
  *  <p>This is a subclass of <code>NSEnumerator</code> which provides a full
  *  listing of all the files beneath a directory and its subdirectories.
@@ -509,6 +573,7 @@ typedef NSUInteger NSDirectoryEnumerationOptions;
  *  and in the current implementation the natural order of the underlying
  *  filesystem is used.</p>
  */
+GS_EXPORT_CLASS
 @interface NSDirectoryEnumerator : NSEnumerator
 {
 #if	GS_EXPOSE(NSDirectoryEnumerator)
@@ -517,11 +582,13 @@ typedef NSUInteger NSDirectoryEnumerationOptions;
   NSString *_topPath;
   NSString *_currentFilePath;
   NSFileManager *_mgr;
+  GSDirEnumErrorHandler _errorHandler; 
   struct _NSDirectoryEnumeratorFlags      // tag for objc++ w/gcc 4.6 
   {
     BOOL isRecursive: 1;
     BOOL isFollowing: 1;
     BOOL justContents: 1;
+    BOOL skipHidden: 1;
   } _flags;
 #endif
 #if     GS_NONFRAGILE
@@ -658,6 +725,77 @@ GS_EXPORT NSString* const NSFileSystemFreeNodes;
 - (NSUInteger) fileSystemNumber;
 - (NSUInteger) fileSystemFileNumber;
 @end
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_5,GS_API_LATEST)
+
+@protocol NSFileManagerDelegate <NSObject>
+#if GS_PROTOCOLS_HAVE_OPTIONAL
+@optional
+#else
+@end
+@interface NSObject (NSFileManagerDelegate)
+#endif
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldCopyItemAtPath: (NSString *)srcPath
+                toPath: (NSString *)dstPath;
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldCopyItemAtURL: (NSURL *)srcURL
+                toURL: (NSURL *)dstURL;
+
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldProceedAfterError: (NSError *)error
+        copyingItemAtPath: (NSString *)srcPath
+                   toPath: (NSString *)dstPath;
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldProceedAfterError: (NSError *)error
+         copyingItemAtURL: (NSURL *)srcURL
+                    toURL: (NSURL *)dstURL;
+
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldMoveItemAtPath: (NSString *)srcPath
+                toPath: (NSString *)dstPath;
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldMoveItemAtURL: (NSURL *)srcURL
+                toURL: (NSURL *)dstURL;
+
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldProceedAfterError: (NSError *)error
+         movingItemAtPath: (NSString *)srcPath
+                   toPath: (NSString *)dstPath;
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldProceedAfterError: (NSError *)error
+          movingItemAtURL: (NSURL *)srcURL
+                    toURL: (NSURL *)dstURL;
+
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldLinkItemAtPath: (NSString *)srcPath
+                toPath: (NSString *)dstPath;
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldLinkItemAtURL: (NSURL *)srcURL
+                toURL: (NSURL *)dstURL;
+
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldProceedAfterError: (NSError *)error
+        linkingItemAtPath: (NSString *)srcPath
+                   toPath: (NSString *)dstPath;
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldProceedAfterError: (NSError *)error
+         linkingItemAtURL: (NSURL *)srcURL
+                    toURL: (NSURL *)dstURL;
+
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldRemoveItemAtPath: (NSString *)path;
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldRemoveItemAtURL: (NSURL *)URL;
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldProceedAfterError: (NSError *)error
+       removingItemAtPath: (NSString *)path;
+- (BOOL)fileManager: (NSFileManager *)fileManager
+  shouldProceedAfterError: (NSError *)error
+        removingItemAtURL: (NSURL *)URL;
+@end
+
+#endif
 
 #if	defined(__cplusplus)
 }

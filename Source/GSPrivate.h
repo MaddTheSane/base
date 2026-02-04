@@ -13,12 +13,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-   MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */ 
 
 #ifndef _GSPrivate_h_
@@ -33,6 +32,8 @@
 @class	_GSMutableInsensitiveDictionary;
 
 @class	NSNotification;
+@class	NSPointerArray;
+@class	NSRecursiveLock;
 
 #if ( (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 3) ) && HAVE_VISIBILITY_ATTRIBUTE )
 #define GS_ATTRIB_PRIVATE __attribute__ ((visibility("internal")))
@@ -54,9 +55,9 @@
 
 NSTimeInterval   GSPrivateTimeNow() GS_ATTRIB_PRIVATE;
 
-#include "GNUstepBase/GSObjCRuntime.h"
+#import "GNUstepBase/GSObjCRuntime.h"
 
-#include "Foundation/NSArray.h"
+#import "Foundation/NSArray.h"
 
 #ifdef __GNUSTEP_RUNTIME__
 struct objc_category;
@@ -87,7 +88,7 @@ typedef struct objc_category* Category;
 }
 @end
 
-#include "Foundation/NSString.h"
+#import "Foundation/NSString.h"
 
 /**
  * Macro to manage memory for chunks of code that need to work with
@@ -185,8 +186,16 @@ __attribute__((unused)) static void GSFreeTempBuffer(void **b)
  * Yet the optimization of the stored hash value is currently deemed
  * more important.
  */
+#ifndef GNUSTEP_NEW_STRING_ABI
 #define GS_REPLACE_CONSTANT_STRING(ID) [(ID = [NSObject \
   leak: [[NSString alloc] initWithUTF8String: [ID UTF8String]]]) release]
+#else
+/**
+ * In the new constant string ABI, the hash can be stored in the constant
+ * string object, so this is not a problem.
+ */
+#define GS_REPLACE_CONSTANT_STRING(ID)
+#endif
 /* Using cString here is OK here
    because NXConstantString returns a pointer
    to it's internal pointer.  */
@@ -245,6 +254,11 @@ typedef union {
 
 typedef	GSMutableString *GSStr;
 
+/** Method to get a strings mappings (key/value pairs of strings) from file.
+ */
+id
+GSPropertyListFromStringsFormat(NSData *data) GS_ATTRIB_PRIVATE;;
+
 /*
  * Enumeration for MacOS-X compatibility user defaults settings.
  * For efficiency, we save defaults information which is used by the
@@ -257,6 +271,7 @@ typedef enum {
   GSLogThread,				// Include thread name in log message.
   GSLogOffset,			        // Include time zone offset in message.
   NSWriteOldStylePropertyLists,		// Control PList output.
+  GSExceptionStackTrace,                // Add trace to exception description.
   GSUserDefaultMaxFlag			// End marker.
 } GSUserDefaultFlagType;
 
@@ -270,6 +285,7 @@ typedef enum {
 + (NSString*) _gnustep_target_dir;
 + (NSString*) _gnustep_target_os;
 + (NSString*) _library_combo;
++ (NSString*) _versionForLibrary: (NSString**)path;
 @end
 
 /**
@@ -298,6 +314,7 @@ typedef enum {
 @interface	NSError (GNUstepBase)
 + (NSError*) _last;
 + (NSError*) _systemError: (long)number;
+- (void) _setObject: (NSObject*)anObject forKey: (NSString*)aKey;
 @end
 
 @class  NSRunLoop;
@@ -351,11 +368,6 @@ GSPrivateArgZero() GS_ATTRIB_PRIVATE;
 NSStringEncoding *
 GSPrivateAvailableEncodings() GS_ATTRIB_PRIVATE;
 
-/* Initialise constant strings
- */
-void
-GSPrivateBuildStrings(void) GS_ATTRIB_PRIVATE;
-
 /* Used to check for termination of background tasks.
  */
 BOOL
@@ -372,9 +384,10 @@ GSPrivateDefaultCStringEncoding() GS_ATTRIB_PRIVATE;
 NSDictionary *
 GSPrivateDefaultLocale() GS_ATTRIB_PRIVATE;
 
-/* Get one of several standard values.
+/* Get one of several standard values.  An integer value which is normally
+ * a flag (where a value of zero is false, anything else is true).
  */
-BOOL
+int
 GSPrivateDefaultsFlag(GSUserDefaultFlagType type) GS_ATTRIB_PRIVATE;
 
 /* get the name of a string encoding as an NSString.
@@ -416,6 +429,13 @@ GSPrivateLoadModule(NSString *filename, FILE *errorStream,
   void (*loadCallback)(Class, struct objc_category *),
   void **header, NSString *debugFilename) GS_ATTRIB_PRIVATE;
 
+/* Return a private global recursive lock for protecting internal
+ * data structures before aother locks have been initialised.
+ * Implemented in NSLock.m
+ */
+NSRecursiveLock *
+GSPrivateGlobalLock() GS_ATTRIB_PRIVATE;
+
 /* Get the native C-string encoding as used by locale specific code in the
  * operating system.  This may differ from the default C-string encoding
  * if the latter has been set via an environment variable.
@@ -450,15 +470,25 @@ typedef NSRange (*GSRSFunc)(id, id, unsigned, NSRange);
 GSRSFunc
 GSPrivateRangeOfString(NSString *receiver, NSString *target) GS_ATTRIB_PRIVATE;
 
-/* Function to return the current stack return addresses.
- */
-NSMutableArray *
-GSPrivateStackAddresses(void) GS_ATTRIB_PRIVATE;
-
 /* Function to return the hash value for a small integer (used by NSNumber).
  */
 unsigned
 GSPrivateSmallHash(int n) GS_ATTRIB_PRIVATE;
+
+/* Function to return the info dictionary of the bundle at the sepecified
+ * path (the bundle of the current program if the path is nil) without
+ * involving initialisation of NSBundle or NSUserDefaults.
+ */
+NSDictionary*
+GSPrivateInfoDictionary(NSString *bundlePath) GS_ATTRIB_PRIVATE;
+
+/* Function to return resources of the running program without involving
+ * initialisation of NSBundle or (if localization is an empty string)
+ * NSUserDefaults.
+ */
+NSString* 
+GSPrivateResourcePath(NSString *name, NSString *extension, NSString *rootPath,
+  NSString *subPath, NSString *localization) GS_ATTRIB_PRIVATE;
 
 /* Function to append data to an GSStr
  */
@@ -495,18 +525,15 @@ GSPrivateStrExternalize(GSStr s) GS_ATTRIB_PRIVATE;
  * module.  So it returns the full filesystem path for shared libraries
  * and bundles (which is very nice), but unfortunately it returns 
  * argv[0] (which might be something as horrible as './obj/test')
- * for classes in the main executable.
- *
- * If theCategory argument is not NULL, GSPrivateSymbolPath() will return
- * the filesystem path to the module from which the category theCategory
- * of the class theClass was loaded.
+ * for classes in the main executable.  In this case we return the
+ * full path to the executable rather than the value from the linker.
  *
  * Currently, the function will return nil if any of the following
  * conditions is satisfied:
  *  - the required functionality is not available on the platform we are
  *    running on;
  *  - memory allocation fails;
- *  - the symbol for that class/category could not be found.
+ *  - the symbol for that class could not be found.
  *
  * In general, if the function returns nil, it means something serious
  * went wrong in the system preventing it from getting the symbol path.
@@ -517,7 +544,7 @@ GSPrivateStrExternalize(GSStr s) GS_ATTRIB_PRIVATE;
  * runtime ... as far as I know.
  */
 NSString *
-GSPrivateSymbolPath (Class theClass, Category *theCategory) GS_ATTRIB_PRIVATE;
+GSPrivateSymbolPath(Class theClass) GS_ATTRIB_PRIVATE;
 
 /* Combining class for composite unichars
  */
@@ -535,17 +562,27 @@ GSPrivateUnloadModule(FILE *errorStream,
  */
 @interface      GSCodeBuffer : NSObject
 {
-  unsigned      size;
-  void          *buffer;
-  void		*executable;
-  id            frame;
+  unsigned      	size;
+  void          	*buffer;
+  void			*executable;
+  id            	frame;
+  NSPointerArray	*extra;
 }
 + (GSCodeBuffer*) memoryWithSize: (NSUInteger)_size;
 - (void*) buffer;
 - (void*) executable;
 - (id) initWithSize: (NSUInteger)_size;
 - (void) protect;
-- (void) setFrame: (id)aFrame;
+- (void) setFrame: (id)aFrame extra: (NSPointerArray*)pa;
+@end
+
+/* For tuning socket connections
+ */
+@interface      GSTcpTune : NSObject
++ (int) delay;
++ (int) recvSize;
++ (int) sendSize: (int)bytesToSend;
++ (void) tune: (void*)handle with: (id)opts;
 @end
 
 BOOL
@@ -606,6 +643,15 @@ void
 GSPrivateEncodeBase64(const uint8_t *src, NSUInteger length, uint8_t *dst)
   GS_ATTRIB_PRIVATE;
 
+#ifndef OBJC_CAP_ARC
+/* When we don't have a runtime with ARC to support weak references, we
+ * use our own version.
+ */
+BOOL GSPrivateMarkedAssociations(id obj, BOOL mark) GS_ATTRIB_PRIVATE;
+BOOL GSPrivateMarkedWeak(id obj, BOOL mark) GS_ATTRIB_PRIVATE;
+void GSWeakInit() GS_ATTRIB_PRIVATE;
+BOOL objc_delete_weak_refs(id obj);
+#endif
 
 #endif /* _GSPrivate_h_ */
 

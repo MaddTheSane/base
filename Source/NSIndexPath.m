@@ -14,12 +14,11 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    */ 
 
@@ -32,9 +31,8 @@
 #import	"Foundation/NSIndexPath.h"
 #import	"Foundation/NSKeyedArchiver.h"
 #import	"Foundation/NSLock.h"
-#import	"GNUstepBase/GSLock.h"
 
-static	GSLazyRecursiveLock	*lock = nil;
+static	NSRecursiveLock	*lock = nil;
 static	NSHashTable	*shared = 0;
 static	Class		myClass = 0;
 static	NSIndexPath	*empty = nil;
@@ -64,6 +62,26 @@ static	NSIndexPath	*dummy = nil;
   return AUTORELEASE(o);
 }
 
++ (instancetype) indexPathForItem: (NSInteger)item inSection: (NSInteger)section
+{
+  NSUInteger idxs[2];
+
+  idxs[0] = (NSUInteger)section;
+  idxs[1] = (NSUInteger)item;
+  
+  return [self indexPathWithIndexes: idxs length: 2];
+}
+
++ (instancetype) indexPathForRow: (NSInteger)row inSection: (NSInteger)section
+{
+  NSUInteger idxs[2];
+
+  idxs[0] = (NSUInteger)section;
+  idxs[1] = (NSUInteger)row;
+  
+  return [self indexPathWithIndexes: idxs length: 2];
+}
+
 + (void) initialize
 {
   if (empty == nil)
@@ -76,7 +94,7 @@ static	NSIndexPath	*dummy = nil;
       shared = NSCreateHashTable(NSNonRetainedObjectHashCallBacks, 1024);
       [[NSObject leakAt: &shared] release];
       NSHashInsert(shared, empty);
-      lock = [GSLazyRecursiveLock new];
+      lock = [NSRecursiveLock new];
       [[NSObject leakAt: &lock] release];
     }
 }
@@ -196,6 +214,21 @@ static	NSIndexPath	*dummy = nil;
 				     at: _indexes];
 	}
     }
+}
+
+- (NSInteger) row
+{
+  return (NSInteger)[self indexAtPosition: 1];
+}
+
+- (NSInteger) item
+{
+  return (NSInteger)[self indexAtPosition: 1];
+}
+
+- (NSInteger) section
+{
+  return (NSInteger)[self indexAtPosition: 0];
 }
 
 - (void) getIndexes: (NSUInteger*)aBuffer

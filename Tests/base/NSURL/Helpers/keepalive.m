@@ -36,7 +36,7 @@
   NSRunLoop      *runLoop = [NSRunLoop currentRunLoop];
   NSString       *file,
                  *lengthHeader;
-  NSHost         *host = [NSHost hostWithAddress: @"127.0.0.1"];
+  NSHost         *host = [NSHost hostWithName: @"localhost"];
   NSStream       *serverStream;
   int            port = [[defs stringForKey: @"Port"] intValue];
   int            lifetime = [[defs stringForKey: @"Lifetime"] intValue];
@@ -65,8 +65,8 @@
     }
   else
     {
-      lengthHeader = [NSString stringWithFormat: @"Content-Length: %d\r\n",
-	[bodyData length]];
+      lengthHeader = [NSString stringWithFormat: @"Content-Length: %u\r\n",
+	(unsigned)[bodyData length]];
       headers = [[NSArray alloc] initWithObjects: @"HTTP/1.1 200 OK\r\n",
 	@"Content-type: text/plain\r\n", lengthHeader, nil];
     }
@@ -80,6 +80,11 @@
   [serverStream setDelegate: self];
   [serverStream scheduleInRunLoop: runLoop forMode: NSDefaultRunLoopMode];
   [serverStream open];
+
+  /* Tell main test program we are ready to handle a request
+   */
+  [[NSFileHandle fileHandleWithStandardOutput] writeData:
+    [@"Ready" dataUsingEncoding: NSASCIIStringEncoding]];
 
   // only run for a fixed time anyway
   [runLoop runUntilDate: [NSDate dateWithTimeIntervalSinceNow: lifetime]];
@@ -220,8 +225,9 @@
 
     case NSStreamEventErrorOccurred:
       {
-	int code = [[theStream streamError] code];
-	NSLog(@"Received error %d on stream %p", code, theStream);
+	NSError *err = [theStream streamError];
+	int code = [err code];
+	NSLog(@"Received error %@ (%d) on stream %p", err, code, theStream);
 	[theStream close];
 	[theStream removeFromRunLoop: runLoop forMode: NSDefaultRunLoopMode];
 	if (theStream == inStream) inStream = nil;
@@ -232,7 +238,7 @@
     case NSStreamEventOpenCompleted:
       break;
     default:
-      NSLog(@"Unknown event %d on stream %p", streamEvent, theStream);
+      NSLog(@"Unknown event %u on stream %p", (unsigned)streamEvent, theStream);
       break;
     }
 }

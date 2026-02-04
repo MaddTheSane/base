@@ -1,5 +1,5 @@
 /** Control of executable units within a shared virtual memory space
-   Copyright (C) 1996-2000 Free Software Foundation, Inc.
+   Copyright (C) 1996-2018 Free Software Foundation, Inc.
 
    Original Author:  Scott Christley <scottc@net-community.com>
    Rewritten by: Andrew Kachites McCallum <mccallum@gnu.ai.mit.edu>
@@ -20,19 +20,89 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 
    <title>NSThread class reference</title>
-   $Date$ $Revision$
 */
 
 #import "common.h"
+
+#import "GSPThread.h"
+
+#ifdef _WIN32
+#import <processthreadsapi.h>
+#endif
+
+// Dummy implementatation
+// cleaner than IFDEF'ing the code everywhere
+#ifndef HAVE_PTHREAD_SPIN_LOCK
+typedef volatile int pthread_spinlock_t;
+int pthread_spin_init(pthread_spinlock_t *lock, int pshared)
+{
+#if DEBUG && !__has_builtin(__sync_bool_compare_and_swap)
+  fprintf(stderr,"NSThread.m: Warning this platform does not support spin locks - init.\n");
+#endif
+  return 0;
+}
+int pthread_spin_lock(pthread_spinlock_t *lock)
+{
+#if __has_builtin(__sync_bool_compare_and_swap)
+  int count = 0;
+  // Set the spin lock value to 1 if it is 0.
+  while(!__sync_bool_compare_and_swap(lock, 0, 1))
+  {
+    count++;
+    if (0 == count % 10)
+    {
+      // If it is already 1, let another thread play with the CPU for a
+      // bit then try again.
+#if defined(_WIN32)
+      Sleep(0);
+#else
+      sleep(0);
+#endif
+    }
+  }
+#else
+  #warning no spin_locks, using dummy versions
+#endif
+  return 0;
+}
+int pthread_spin_unlock(pthread_spinlock_t *lock)
+{
+#if __has_builtin(__sync_bool_compare_and_swap)
+  __sync_synchronize();
+  *lock = 0;
+#endif
+  return 0;
+}
+int pthread_spin_destroy(pthread_spinlock_t *lock)
+{
+  return 0;
+}
+#endif /* HAVE_PTHREAD_SPIN_LOCK */
+
+/** Structure for holding lock information for a thread.
+ */
+typedef struct {
+  pthread_spinlock_t    spin;   /* protect access to struct members */
+  NSHashTable           *held;  /* all locks/conditions held by thread */
+  id                    wait;   /* the lock/condition we are waiting for */
+} GSLockInfo;
+
 #define	EXPOSE_NSThread_IVARS	1
+#define	GS_NSThread_IVARS \
+  id                    _stringCollatorCache; \
+  BOOL                  _targetIsBlock; \
+  gs_thread_id_t        _pthreadID; \
+  NSUInteger            _threadID; \
+  GSLockInfo            _lockInfo
+
+
 #ifdef HAVE_NANOSLEEP
 #  include <time.h>
 #endif
@@ -42,18 +112,20 @@
 #ifdef HAVE_SYS_RESOURCE_H
 #  include <sys/resource.h>
 #endif
-#ifdef HAVE_PTHREAD_H
-#  include <pthread.h>
-#endif
 
 #if	defined(HAVE_SYS_FILE_H)
 #  include <sys/file.h>
 #endif
 
-#if	defined(HAVE_SYS_FCNTL_H)
-#  include <sys/fcntl.h>
-#elif	defined(HAVE_FCNTL_H)
+#if defined(__ANDROID__)
+#  include <string.h>       // For strerror
+#  include <sys/resource.h> // For getpriority and setpriority
+#endif
+
+#if	defined(HAVE_FCNTL_H)
 #  include <fcntl.h>
+#elif	defined(HAVE_SYS_FCNTL_H)
+#  include <sys/fcntl.h>
 #endif
 
 #if defined(__POSIX_SOURCE)\
@@ -65,8 +137,10 @@
 #endif
 
 #import "Foundation/NSException.h"
+#import "Foundation/NSHashTable.h"
 #import "Foundation/NSThread.h"
 #import "Foundation/NSLock.h"
+#import "Foundation/NSMapTable.h"
 #import "Foundation/NSNotification.h"
 #import "Foundation/NSNotificationQueue.h"
 #import "Foundation/NSRunLoop.h"
@@ -87,6 +161,17 @@
 #  include <sys/syscall.h>
 #  include <sys/types.h>
 #endif
+
+#define GSInternal      NSThreadInternal
+#include        "GSInternal.h"
+GS_PRIVATE_INTERNAL(NSThread)
+
+#define pthreadID (internal->_pthreadID)
+#define threadID (internal->_threadID)
+#define lockInfo (internal->_lockInfo)
+#define targetIsBlock (internal->_targetIsBlock)
+#define stringCollatorCache (internal->_stringCollatorCache)
+
 
 #if defined(HAVE_PTHREAD_MAIN_NP)
 #  define IS_MAIN_PTHREAD (pthread_main_np() == 1)
@@ -118,75 +203,26 @@ GSPrivateThreadID()
 #endif
 }
 
-#if 0
-/*
- * NSThread setName: method for windows.
- * FIXME ... This is code for the microsoft compiler;
- * how do we make it work for gcc/clang?
- */
-#if defined(_WIN32) && defined(HAVE_WINDOWS_H)
-// Usage: SetThreadName (-1, "MainThread");
-#include <windows.h>
-const DWORD MS_VC_EXCEPTION=0x406D1388;
-
-#pragma pack(push,8)
-typedef struct tagTHREADNAME_INFO
-{
-  DWORD dwType; // Must be 0x1000.
-  LPCSTR szName; // Pointer to name (in user addr space).
-  DWORD dwThreadID; // Thread ID (-1=caller thread).
-  DWORD dwFlags; // Reserved for future use, must be zero.
-} THREADNAME_INFO;
-#pragma pack(pop)
-
-static int SetThreadName(DWORD dwThreadID, const char *threadName)
-{
-  THREADNAME_INFO info;
-  int result;
-
-  info.dwType = 0x1000;
-  info.szName = threadName;
-  info.dwThreadID = dwThreadID;
-  info.dwFlags = 0;
-
-  __try
-  {
-    RaiseException(MS_VC_EXCEPTION, 0,
-      sizeof(info)/sizeof(ULONG_PTR), (ULONG_PTR*)&info);
-    result = 0;
-  }
-  __except(EXCEPTION_EXECUTE_HANDLER)
-  {
-    result = -1;
-  }
-}
-
-#define PTHREAD_SETNAME(a)  SetThreadName(-1, a)
-
-#endif
-#endif
-
 #ifndef PTHREAD_SETNAME
 #define PTHREAD_SETNAME(a) -1
 #endif
 
-
-// Some older BSD systems used a non-standard range of thread priorities.
-// Use these if they exist, otherwise define standard ones.
-#ifndef PTHREAD_MAX_PRIORITY
-#define PTHREAD_MAX_PRIORITY 31
-#endif
-#ifndef PTHREAD_MIN_PRIORITY
-#define PTHREAD_MIN_PRIORITY 0
+#ifndef PTHREAD_GETNAME
+#define PTHREAD_GETNAME(a, b) -1
 #endif
 
+
+@interface NSThread (Activation)
+- (void) _makeThreadCurrent;
+@end
 
 @interface NSAutoreleasePool (NSThread)
 + (void) _endThread: (NSThread*)thread;
 @end
 
-static Class threadClass = Nil;
-static NSNotificationCenter *nc = nil;
+static Class                    threadClass = Nil;
+static NSNotificationCenter     *nc = nil;
+static BOOL                     disableTraceLocks = NO;
 
 /**
  * This class performs a dual function ...
@@ -251,7 +287,7 @@ GSSleepUntilIntervalSinceReferenceDate(NSTimeInterval when)
       /* We don't need to wait, but since we are willing to wait at this
        * point, we should let other threads have preference over this one.
        */
-      sched_yield();
+      GS_YIELD();
       return;
     }
 
@@ -350,11 +386,12 @@ GSSleepUntilIntervalSinceReferenceDate(NSTimeInterval when)
 static NSArray *
 commonModes(void)
 {
+  static gs_mutex_t     modesLock = GS_MUTEX_INIT_STATIC;
   static NSArray	*modes = nil;
 
   if (modes == nil)
     {
-      [gnustep_global_lock lock];
+      GS_MUTEX_LOCK(modesLock);
       if (modes == nil)
 	{
 	  Class	c = NSClassFromString(@"NSApplication");
@@ -370,7 +407,7 @@ commonModes(void)
 		NSDefaultRunLoopMode, NSConnectionReplyMode, nil];
 	    }
 	}
-      [gnustep_global_lock unlock];
+      GS_MUTEX_UNLOCK(modesLock);
     }
   return modes;
 }
@@ -382,8 +419,13 @@ static BOOL	entered_multi_threaded_state = NO;
 
 static NSThread *defaultThread;
 
-static pthread_key_t thread_object_key;
+static BOOL             keyInitialized = NO;
+static gs_thread_key_t  thread_object_key;
 
+
+static NSHashTable *_activeBlocked = nil;
+static NSHashTable *_activeThreads = nil;
+static gs_mutex_t _activeLock = GS_MUTEX_INIT_STATIC;
 
 /**
  * pthread_t is an opaque type. It might be a scalar type or
@@ -393,10 +435,10 @@ static pthread_key_t thread_object_key;
  * This follows the CoreFoundation 'create rule' and returns an object with
  * a reference count of 1.
  */
-static inline NSValue* NSValueCreateFromPthread(pthread_t thread)
+static inline NSValue* NSValueCreateFromPthread(gs_thread_id_t thread)
 {
   return [[NSValue alloc] initWithBytes: &thread
-                               objCType: @encode(pthread_t)];
+                               objCType: @encode(gs_thread_id_t)];
 }
 
 /**
@@ -404,14 +446,14 @@ static inline NSValue* NSValueCreateFromPthread(pthread_t thread)
  * from an NSValue.
  */
 static inline void
-_getPthreadFromNSValue(const void *value, pthread_t *thread_ptr)
+_getPthreadFromNSValue(const void *value, gs_thread_id_t *thread_ptr)
 {
   const char    *enc;
 
   NSCAssert(thread_ptr, @"No storage for thread reference");
 # ifndef NS_BLOCK_ASSERTIONS
   enc = [(NSValue*)value objCType];
-  NSCAssert(enc != NULL && (0 == strcmp(@encode(pthread_t),enc)),
+  NSCAssert(enc != NULL && (0 == strcmp(@encode(gs_thread_id_t),enc)),
     @"Invalid NSValue container for thread reference");
 # endif
   [(NSValue*)value getValue: (void*)thread_ptr];
@@ -426,12 +468,17 @@ _boxedPthreadIsEqual(NSMapTable *t,
   const void *boxed,
   const void *boxedOther)
 {
-  pthread_t thread;
-  pthread_t otherThread;
+  gs_thread_id_t thread;
+  gs_thread_id_t otherThread;
 
   _getPthreadFromNSValue(boxed, &thread);
   _getPthreadFromNSValue(boxedOther, &otherThread);
+
+#if GS_USE_WIN32_THREADS_AND_LOCKS
+  return thread == otherThread;
+#else
   return pthread_equal(thread, otherThread);
+#endif
 }
 
 /**
@@ -496,7 +543,8 @@ static const NSMapTableKeyCallBacks _boxedPthreadKeyCallBacks =
  * thred if called from within the late-cleanup function.
  */
 static NSMapTable *_exitingThreads = nil;
-static NSLock *_exitingThreadsLock;
+static gs_mutex_t _exitingThreadsLock = GS_MUTEX_INIT_STATIC;
+
 
 /**
  * Called before late cleanup is run and inserts the NSThread object into the
@@ -507,9 +555,9 @@ static NSLock *_exitingThreadsLock;
 static inline void _willLateUnregisterThread(NSValue *boxedThread,
   NSThread *specific)
 {
-  [_exitingThreadsLock lock];
+  GS_MUTEX_LOCK(_exitingThreadsLock);
   /* The map table is created lazily/late so that the NSThread
-   * +initilize method can be called without causing other
+   * +initialize method can be called without causing other
    * classes to be initialized.
    * NB this locked section cannot be protected by an exception handler
    * because the exception handler stores information in the current
@@ -522,7 +570,7 @@ static inline void _willLateUnregisterThread(NSValue *boxedThread,
     }
   NSMapInsert(_exitingThreads, (const void*)boxedThread,
     (const void*)specific);
-  [_exitingThreadsLock unlock];
+  GS_MUTEX_UNLOCK(_exitingThreadsLock);
 }
 
 /**
@@ -536,12 +584,12 @@ static inline void _didLateUnregisterCurrentThread(NSValue *boxedThread)
    * because the exception handler stores information in the current
    * thread variables ... which causes recursion.
    */
-  [_exitingThreadsLock lock];
+  GS_MUTEX_LOCK(_exitingThreadsLock);
   if (nil != _exitingThreads)
     {
       NSMapRemove(_exitingThreads, (const void*)boxedThread);
     }
-  [_exitingThreadsLock unlock];
+  GS_MUTEX_UNLOCK(_exitingThreadsLock);
 }
 
 /*
@@ -562,7 +610,8 @@ unregisterActiveThread(NSThread *thread);
  * we must not call into NSAutoreleasePool unless the NSThread object can still
  * be found using GSCurrentThread()
  */
-static void exitedThread(void *thread)
+static void GS_WINAPI
+exitedThread(void *thread)
 {
   if (thread != defaultThread)
     {
@@ -571,16 +620,16 @@ static void exitedThread(void *thread)
       if (0 == thread)
 	{
 	  /* On some systems this is called with a null thread pointer,
-	   * so try to ger the NSThread object for the current thread.
+	   * so try to get the NSThread object for the current thread.
 	   */
-	  thread = pthread_getspecific(thread_object_key);
+	  thread = GS_THREAD_KEY_GET(thread_object_key);
 	  if (0 == thread)
 	    {
 	      return;	// no thread info
 	    }
 	}
       RETAIN((NSThread*)thread);
-      ref = NSValueCreateFromPthread(pthread_self());
+      ref = NSValueCreateFromPthread(GS_THREAD_ID_SELF());
       _willLateUnregisterThread(ref, (NSThread*)thread);
 
       {
@@ -616,11 +665,21 @@ static void exitedThread(void *thread)
 inline NSThread*
 GSCurrentThread(void)
 {
-  NSThread *thr = pthread_getspecific(thread_object_key);
+  NSThread *thr;
 
+  if (NO == keyInitialized)
+    {
+      if (!GS_THREAD_KEY_INIT(thread_object_key, exitedThread))
+        {
+          [NSException raise: NSInternalInconsistencyException
+                      format: @"Unable to create thread key!"];
+        }
+      keyInitialized = YES;
+    }
+  thr = GS_THREAD_KEY_GET(thread_object_key);
   if (nil == thr)
     {
-      NSValue *selfThread = NSValueCreateFromPthread(pthread_self());
+      NSValue *selfThread = NSValueCreateFromPthread(GS_THREAD_ID_SELF());
 
       /* NB this locked section cannot be protected by an exception handler
        * because the exception handler stores information in the current
@@ -628,22 +687,22 @@ GSCurrentThread(void)
        */
       if (nil != _exitingThreads)
         {
-          [_exitingThreadsLock lock];
+          GS_MUTEX_LOCK(_exitingThreadsLock);
           thr = NSMapGet(_exitingThreads, (const void*)selfThread);
-          [_exitingThreadsLock unlock];
+          GS_MUTEX_UNLOCK(_exitingThreadsLock);
         }
       DESTROY(selfThread);
-    }
-  if (nil == thr)
-    {
-      GSRegisterCurrentThread();
-      thr = pthread_getspecific(thread_object_key);
-      if ((nil == defaultThread) && IS_MAIN_PTHREAD)
+      if (nil == thr)
         {
-          defaultThread = RETAIN(thr);
+          GSRegisterCurrentThread();
+          thr = GS_THREAD_KEY_GET(thread_object_key);
+          if ((nil == defaultThread) && IS_MAIN_PTHREAD)
+            {
+              defaultThread = RETAIN(thr);
+            }
         }
+      assert(nil != thr && "No main thread");
     }
-  assert(nil != thr && "No main thread");
   return thr;
 }
 
@@ -672,6 +731,7 @@ GSCurrentThreadDictionary(void)
 static void
 gnustep_base_thread_callback(void)
 {
+  static gs_mutex_t  threadLock = GS_MUTEX_INIT_STATIC;
   /*
    * Protect this function with locking ... to avoid any possibility
    * of multiple threads registering with the system simultaneously,
@@ -680,7 +740,7 @@ gnustep_base_thread_callback(void)
    */
   if (entered_multi_threaded_state == NO)
     {
-      [gnustep_global_lock lock];
+      GS_MUTEX_LOCK(threadLock);
       if (entered_multi_threaded_state == NO)
 	{
 	  /*
@@ -690,6 +750,12 @@ gnustep_base_thread_callback(void)
 	   * threaded BEFORE sending the notifications.
 	   */
 	  entered_multi_threaded_state = YES;
+	  /*
+	   * Enter pool after setting flag, because -[NSAutoreleasePool
+	   * allocWithZone:] calls GSCurrentThread(), which may end up
+	   * calling this function, which would cause a deadlock.
+	   */
+	  ENTER_POOL
 	  NS_DURING
 	    {
 	      [GSPerformHolder class];	// Force initialization
@@ -723,17 +789,45 @@ gnustep_base_thread_callback(void)
 	      fflush(stderr);
 	    }
 	  NS_ENDHANDLER
+	  LEAVE_POOL
 	}
-      [gnustep_global_lock unlock];
+      GS_MUTEX_UNLOCK(threadLock);
     }
 }
+
+@implementation NSThread (Activation)
+- (void) _makeThreadCurrent
+{
+  /* NB. We must set up the pointer to the new NSThread instance from
+   * pthread specific memory before we do anything which might need to
+   * check what the current thread is (like getting the ID)!
+   */
+  GS_THREAD_KEY_SET(thread_object_key, self);
+  threadID = GSPrivateThreadID();
+  GS_MUTEX_LOCK(_activeLock);
+  /* The hash table is created lazily/late so that the NSThread
+   * +initialize method can be called without causing other
+   * classes to be initialized.
+   * NB this locked section cannot be protected by an exception handler
+   * because the exception handler stores information in the current
+   * thread variables ... which causes recursion.
+   */
+  if (nil == _activeThreads)
+    {
+      _activeThreads = NSCreateHashTable(
+	NSNonRetainedObjectHashCallBacks, 100);
+    }
+  NSHashInsert(_activeThreads, (const void*)self);
+  GS_MUTEX_UNLOCK(_activeLock);
+}
+@end
 
 @implementation NSThread
 
 static void
 setThreadForCurrentThread(NSThread *t)
 {
-  pthread_setspecific(thread_object_key, t);
+  [t _makeThreadCurrent];
   gnustep_base_thread_callback();
 }
 
@@ -742,15 +836,9 @@ unregisterActiveThread(NSThread *thread)
 {
   if (thread->_active == YES)
     {
-      /*
-       * Set the thread to be inactive to avoid any possibility of recursion.
+      /* Let observers know this thread is exiting.
        */
-      thread->_active = NO;
-      thread->_finished = YES;
-
-      /*
-       * Let observers know this thread is exiting.
-       */
+      ENTER_POOL
       if (nc == nil)
 	{
 	  nc = RETAIN([NSNotificationCenter defaultCenter]);
@@ -759,29 +847,47 @@ unregisterActiveThread(NSThread *thread)
 			object: thread
 		      userInfo: nil];
 
-      [(GSRunLoopThreadInfo*)thread->_runLoopInfo invalidate];
-      RELEASE(thread);
+      /* Set the thread to be finished *after* notification it will exit.
+       * This is the order OSX 10.15.4 does it (May 2020).
+       */
+      thread->_active = NO;
+      thread->_finished = YES;
 
-      pthread_setspecific(thread_object_key, nil);
+      [(GSRunLoopThreadInfo*)thread->_runLoopInfo invalidate];
+      LEAVE_POOL
+      RELEASE(thread);
+      GS_THREAD_KEY_SET(thread_object_key, nil);
     }
 }
 
 + (NSArray*) callStackReturnAddresses
 {
-  NSMutableArray        *stack = GSPrivateStackAddresses();
+  GSStackTrace          *stack;
+  NSArray               *addrs;
 
-  return stack;
+  stack = [GSStackTrace new];
+  [stack trace];
+  addrs = RETAIN([stack addresses]);
+  RELEASE(stack);
+  return AUTORELEASE(addrs);
 }
 
 + (BOOL) _createThreadForCurrentPthread
 {
-  NSThread	*t = pthread_getspecific(thread_object_key);
+  NSThread	*t = GS_THREAD_KEY_GET(thread_object_key);
 
   if (t == nil)
     {
+      /* We suppress the static analyser warning which occurs because it
+       * doesn't understand the mechanism to release the NSThread when
+       * the POSIX thread exists.
+       */
+#ifdef  __clang_analyzer__
+          [[clang::suppress]]
+#endif
       t = [self new];
       t->_active = YES;
-      pthread_setspecific(thread_object_key, t);
+      [t _makeThreadCurrent];
       GS_CONSUMED(t);
       if (defaultThread != nil && t != defaultThread)
         {
@@ -831,7 +937,11 @@ unregisterActiveThread(NSThread *thread)
 	}
       else
 	{
+#if GS_USE_WIN32_THREADS_AND_LOCKS
+          _endthread();
+#else
           pthread_exit(NULL);
+#endif
 	}
     }
 }
@@ -843,11 +953,15 @@ unregisterActiveThread(NSThread *thread)
 {
   if (self == [NSThread class])
     {
-      if (pthread_key_create(&thread_object_key, exitedThread))
-	{
-	  [NSException raise: NSInternalInconsistencyException
-		      format: @"Unable to create thread key!"];
-	}
+      if (NO == keyInitialized)
+        {
+          if (!GS_THREAD_KEY_INIT(thread_object_key, exitedThread))
+            {
+              [NSException raise: NSInternalInconsistencyException
+                          format: @"Unable to create thread key!"];
+            }
+          keyInitialized = YES;
+        }
       /* Ensure that the default thread exists.
        * It's safe to create a lock here (since [NSObject+initialize]
        * creates locks, and locks don't depend on any other class),
@@ -855,7 +969,6 @@ unregisterActiveThread(NSThread *thread)
        * initialising NSThread.
        */
       threadClass = self;
-      _exitingThreadsLock = [NSLock new];
       GSCurrentThread();
     }
 }
@@ -880,9 +993,62 @@ unregisterActiveThread(NSThread *thread)
  * range 0.0 (lowest) to 1.0 (highest) which is mapped to the underlying
  * system priorities.
  */
-+ (void) setThreadPriority: (double)pri
++ (BOOL) setThreadPriority: (double)pri
 {
-#if defined(_POSIX_THREAD_PRIORITY_SCHEDULING) && (_POSIX_THREAD_PRIORITY_SCHEDULING > 0)
+#if GS_USE_WIN32_THREADS_AND_LOCKS
+  // convert [0.0,1.0] priority to Windows defines
+  int winPri;
+  if (pri <= 0.0) {
+    winPri = THREAD_PRIORITY_IDLE;
+  } else if (pri <= 0.25) {
+    winPri = THREAD_PRIORITY_LOWEST;
+  } else if (pri < 0.5) {
+    winPri = THREAD_PRIORITY_BELOW_NORMAL;
+  } else if (pri >= 1.0) {
+    winPri = THREAD_PRIORITY_TIME_CRITICAL;
+  } else if (pri >= 0.75) {
+    winPri = THREAD_PRIORITY_HIGHEST;
+  } else if (pri > 0.5) {
+    winPri = THREAD_PRIORITY_ABOVE_NORMAL;
+  } else {
+    winPri = THREAD_PRIORITY_NORMAL;
+  }
+
+  if (!SetThreadPriority(GetCurrentThread(), winPri)) {
+    NSLog(@"Failed to set thread priority %d: %@", winPri, [NSError _last]);
+    return NO;
+  }
+  return YES;
+#elif defined(__ANDROID__)
+/* Android's pthread_setschedparam is currently broken, as it checks
+ * if the priority is in the range of the system's min and max
+ * priorities. The interval bounds are queried with `sched_get_priority_min`,
+ * and `sched_get_priority_max` which just return 0, regardless of the
+ * specified scheduling policy.
+ *
+ * The solution is to use `setpriority` to set the thread
+ * priority. This is possible because on Linux, it is not a per-process setting
+ * as specified by POSIX but a per-thread setting (See the `Bugs` section in `setpriority`).
+ *
+ * Android's internal implementation also relies on this behavior, so it
+ * is safe to use it here.
+ */
+
+  // Clamp pri into the required range.
+  if (pri > 1) { pri = 1; }
+  if (pri < 0) { pri = 0; }
+
+  // Convert [0.0, 1.0] to [-20, 19] range where -20 is the highest
+  // and 19 the lowest priority.
+  int priority = (int)(-20 + (1-pri) * 39);
+  if (setpriority(PRIO_PROCESS, 0, priority) == -1)
+  {
+    NSLog(@"Failed to set thread priority %d: %s", priority, strerror(errno));
+    return NO;
+  }
+  return YES;
+#elif defined(_POSIX_THREAD_PRIORITY_SCHEDULING) && (_POSIX_THREAD_PRIORITY_SCHEDULING > 0)
+  int res;
   int	policy;
   struct sched_param param;
 
@@ -890,13 +1056,31 @@ unregisterActiveThread(NSThread *thread)
   if (pri > 1) { pri = 1; }
   if (pri < 0) { pri = 0; }
 
-  // Scale pri based on the range of the host system.
-  pri *= (PTHREAD_MAX_PRIORITY - PTHREAD_MIN_PRIORITY);
-  pri += PTHREAD_MIN_PRIORITY;
+  res = pthread_getschedparam(pthread_self(), &policy, &param);
+  if (res == 0)
+    {
+      int min = sched_get_priority_min(policy);
+      int max = sched_get_priority_max(policy);
+      if (min == max) {
+        // priority not settable => fail silently
+        return NO;
+      }
 
-  pthread_getschedparam(pthread_self(), &policy, &param);
-  param.sched_priority = pri;
-  pthread_setschedparam(pthread_self(), policy, &param);
+      // Scale pri based on the range of the host system.
+      pri = min + pri * (max - min);
+
+      param.sched_priority = pri;
+      res = pthread_setschedparam(pthread_self(), policy, &param);
+    }
+
+  if (res != 0) {
+    NSLog(@"Failed to set thread priority %f: %d", pri, res);
+    return NO;
+  }
+
+  return YES;
+#else
+  return NO;
 #endif
 }
 
@@ -920,24 +1104,82 @@ unregisterActiveThread(NSThread *thread)
 + (double) threadPriority
 {
   double pri = 0;
-#if defined(_POSIX_THREAD_PRIORITY_SCHEDULING) && (_POSIX_THREAD_PRIORITY_SCHEDULING > 0)
+
+#if GS_USE_WIN32_THREADS_AND_LOCKS
+  // convert [0.0,1.0] priority to Windows defines
+  int winPri = GetThreadPriority(GetCurrentThread());
+  if (winPri == THREAD_PRIORITY_ERROR_RETURN) {
+    NSLog(@"Failed to get thread priority: %@", [NSError _last]);
+    return pri;
+  }
+  
+  switch (winPri)
+    {
+      case THREAD_PRIORITY_IDLE:
+        pri = 0.0;
+        break;
+      case THREAD_PRIORITY_LOWEST:
+        pri = 0.2;
+        break;
+      case THREAD_PRIORITY_BELOW_NORMAL:
+        pri = 0.4;
+        break;
+      case THREAD_PRIORITY_TIME_CRITICAL:
+        pri = 1.0;
+        break;
+      case THREAD_PRIORITY_HIGHEST:
+        pri = 0.8;
+        break;
+      case THREAD_PRIORITY_ABOVE_NORMAL:
+        pri = 0.6;
+        break;
+      case THREAD_PRIORITY_NORMAL:
+        pri = 0.5;
+        break;
+      default:
+        NSLog(@"Unknown thread priority: %d", winPri);
+        break;
+    }
+#elif defined(__ANDROID__)
+/* See notes in setThreadPriority
+ */
+  int priority = getpriority(PRIO_PROCESS, 0);
+  if (priority == -1)
+  {
+    NSLog(@"Failed to get thread priority: %s", strerror(errno));
+    return pri;
+  }
+
+  // Convert [-20, 19] to [0.0, 1.0] range
+  pri = 1 - (priority + 20) / 39.0;
+#elif defined(_POSIX_THREAD_PRIORITY_SCHEDULING) && (_POSIX_THREAD_PRIORITY_SCHEDULING > 0)
+  int res;
   int policy;
   struct sched_param param;
 
-  pthread_getschedparam(pthread_self(), &policy, &param);
-  pri = param.sched_priority;
-  // Scale pri based on the range of the host system.
-  pri -= PTHREAD_MIN_PRIORITY;
-  pri /= (PTHREAD_MAX_PRIORITY - PTHREAD_MIN_PRIORITY);
+  res = pthread_getschedparam(pthread_self(), &policy, &param);
+  if (res == 0)
+    {
+      int min = sched_get_priority_min(policy);
+      int max = sched_get_priority_max(policy);
+      if (min != max) /* avoid division by zero */
+        {
+          pri = param.sched_priority;
 
+          // Scale pri based on the range of the host system.
+          pri = (pri - min) / (max - min);
+        }
+    }
+  else
+    {
+      NSLog(@"Failed to get thread priority: %d", res);
+    }
 #else
 #warning Your pthread implementation does not support thread priorities
 #endif
+
   return pri;
-
 }
-
-
 
 /*
  * Thread instance methods.
@@ -962,6 +1204,7 @@ unregisterActiveThread(NSThread *thread)
   DESTROY(_target);
   DESTROY(_arg);
   DESTROY(_name);
+  DESTROY(stringCollatorCache);
   if (_autorelease_vars.pool_cache != 0)
     {
       [NSAutoreleasePool _endThread: self];
@@ -996,17 +1239,66 @@ unregisterActiveThread(NSThread *thread)
         }
     }
   DESTROY(_gcontext);
+  if (_activeThreads)
+    {
+      GS_MUTEX_LOCK(_activeLock);
+      NSHashRemove(_activeThreads, self);
+      GS_MUTEX_UNLOCK(_activeLock);
+    }
+  if (GS_EXISTS_INTERNAL)
+    {
+      pthread_spin_lock(&lockInfo.spin);
+      DESTROY(lockInfo.held);
+      lockInfo.wait = nil;
+      pthread_spin_unlock(&lockInfo.spin);
+      pthread_spin_destroy(&lockInfo.spin);
+      if (internal != nil)
+        {
+          GS_DESTROY_INTERNAL(NSThread);
+        }
+    }
   [super dealloc];
 }
 
 - (NSString*) description
 {
   return [NSString stringWithFormat: @"%@{name = %@, num = %"PRIuPTR"}",
-    [super description], _name, GSPrivateThreadID()];
+    [super description], _name, threadID];
 }
 
 - (id) init
 {
+// SetThreadDescription() was added in Windows 10 1607 (Redstone 1)
+#if defined(_WIN32) && (NTDDI_VERSION >= NTDDI_WIN10_RS1)
+  HANDLE current;
+  HRESULT hr;
+  PWSTR name;
+  NSString *threadName;
+
+  current = GetCurrentThread();
+  hr = GetThreadDescription(current, &name);
+  if (SUCCEEDED(hr))
+    {
+      threadName = [NSString stringWithCharacters: (const void *) name length: wcslen(name)];
+      ASSIGN(_name, threadName);
+      LocalFree(name);
+    }
+#elif defined(PTHREAD_GETNAME)
+  NSString *threadName;
+  char name[16];
+  int status;
+
+  status = PTHREAD_GETNAME(name, 16);
+  if (status == 0)
+    {
+      threadName = [NSString stringWithCString: name encoding: NSUTF8StringEncoding];
+      ASSIGN(_name, threadName);
+    }
+#endif
+
+  GS_CREATE_INTERNAL(NSThread);
+  pthread_spin_init(&lockInfo.spin, 0);
+  lockInfo.held = NSCreateHashTable(NSNonOwnedPointerHashCallBacks, 10);
   init_autorelease_thread_vars(&_autorelease_vars);
   return self;
 }
@@ -1015,11 +1307,13 @@ unregisterActiveThread(NSThread *thread)
              selector: (SEL)aSelector
                object: (id)anArgument
 {
-  /* initialize our ivars. */
-  _selector = aSelector;
-  _target = RETAIN(aTarget);
-  _arg = RETAIN(anArgument);
-  init_autorelease_thread_vars(&_autorelease_vars);
+  if (nil != (self = [self init]))
+    {
+      /* initialize our ivars. */
+      _selector = aSelector;
+      _target = RETAIN(aTarget);
+      _arg = RETAIN(anArgument);
+    } 
   return self;
 }
 
@@ -1053,7 +1347,15 @@ unregisterActiveThread(NSThread *thread)
         NSStringFromSelector(_cmd)];
     }
 
-  [_target performSelector: _selector withObject: _arg];
+  if (targetIsBlock)
+    {
+      GSThreadBlock block = (GSThreadBlock)_target;
+      CALL_BLOCK_NO_ARGS(block);
+    }
+  else
+    {
+      [_target performSelector: _selector withObject: _arg];
+    }
 }
 
 - (NSString*) name
@@ -1065,11 +1367,20 @@ unregisterActiveThread(NSThread *thread)
 {
   if ([aName isKindOfClass: [NSString class]])
     {
+// SetThreadDescription() was added in Windows 10 1607 (Redstone 1)
+#if defined(_WIN32) && (NTDDI_VERSION >= NTDDI_WIN10_RS1)
+      HANDLE current;
+      const void *utf16String;
+
+      current = GetCurrentThread();
+      utf16String = [aName cStringUsingEncoding: NSUnicodeStringEncoding];
+      SetThreadDescription(current, utf16String);
+#elif defined(PTHREAD_SETNAME)
       int       i;
       char      buf[200];
 
       if (YES == [aName getCString: buf
-                         maxLength: sizeof(buf)
+                        maxLength: sizeof(buf)
                           encoding: NSUTF8StringEncoding])
         {
           i = strlen(buf);
@@ -1077,7 +1388,7 @@ unregisterActiveThread(NSThread *thread)
       else
         {
           /* Too much for buffer ... truncate on a character boundary.
-           */
+          */
           i = sizeof(buf) - 1;
           if (buf[i] & 0x80)
             {
@@ -1093,17 +1404,14 @@ unregisterActiveThread(NSThread *thread)
         }
       while (i > 0)
         {
-          if (PTHREAD_SETNAME(buf) == 0)
-            {
-              break;    // Success
-            }
-
-          if (ERANGE == errno)
+          if (PTHREAD_SETNAME(buf) == ERANGE)
             {
               /* Name must be too long ... gnu/linux uses 15 characters
-               */
+              */
               if (i > 15)
                 {
+                  NSWarnLog(@"Truncating thread name '%s' to 15 characters"
+		    @" due to platform limitations", buf);
                   i = 15;
                 }
               else
@@ -1111,7 +1419,7 @@ unregisterActiveThread(NSThread *thread)
                   i--;
                 }
               /* too long a name ... truncate on a character boundary.
-               */
+              */
               if (buf[i] & 0x80)
                 {
                   while (i > 0 && (buf[i] & 0x80))
@@ -1126,16 +1434,17 @@ unregisterActiveThread(NSThread *thread)
             }
           else
             {
-              break;    // Some other error
+              break;    // Success or some other error
             }
         }
-    }
+#endif
+  }
 }
 
 - (void) setName: (NSString*)aName
 {
   ASSIGN(_name, aName);
-#ifdef PTHREAD_SETNAME
+  
   if (YES == _active)
     {
       [self performSelector: @selector(_setName:)
@@ -1143,7 +1452,6 @@ unregisterActiveThread(NSThread *thread)
                  withObject: aName
               waitUntilDone: NO];
     }
-#endif
 }
 
 - (void) setStackSize: (NSUInteger)stackSize
@@ -1159,13 +1467,19 @@ unregisterActiveThread(NSThread *thread)
 /**
  * Trampoline function called to launch the thread
  */
-static void *
+static
+#if GS_USE_WIN32_THREADS_AND_LOCKS
+void __cdecl
+#else
+void *
+#endif
 nsthreadLauncher(void *thread)
 {
   NSThread *t = (NSThread*)thread;
 
   setThreadForCurrentThread(t);
 
+  ENTER_POOL
   /*
    * Let observers know a new thread is starting.
    */
@@ -1178,18 +1492,22 @@ nsthreadLauncher(void *thread)
 		  userInfo: nil];
 
   [t _setName: [t name]];
+  LEAVE_POOL
 
   [t main];
 
   [NSThread exit];
   // Not reached
+#if !GS_USE_WIN32_THREADS_AND_LOCKS
   return NULL;
+#endif
 }
 
 - (void) start
 {
+#if !GS_USE_WIN32_THREADS_AND_LOCKS
   pthread_attr_t	attr;
-  pthread_t		thr;
+#endif
 
   if (_active == YES)
     {
@@ -1221,11 +1539,21 @@ nsthreadLauncher(void *thread)
    */
   RETAIN(self);
 
-  /* Mark the thread as active whiul it's running.
+  /* Mark the thread as active while it's running.
    */
   _active = YES;
 
   errno = 0;
+
+#if GS_USE_WIN32_THREADS_AND_LOCKS
+  if (_beginthread(nsthreadLauncher, _stackSize, self) == -1)
+    {
+      DESTROY(self);
+      [NSException raise: NSInternalInconsistencyException
+                  format: @"Unable to detach thread (last error %d)",
+                  errno];
+    }
+#else
   pthread_attr_init(&attr);
   /* Create this thread detached, because we never use the return state from
    * threads.
@@ -1238,13 +1566,14 @@ nsthreadLauncher(void *thread)
     {
       pthread_attr_setstacksize(&attr, _stackSize);
     }
-  if (pthread_create(&thr, &attr, nsthreadLauncher, self))
+  if (pthread_create(&pthreadID, &attr, nsthreadLauncher, self))
     {
       DESTROY(self);
       [NSException raise: NSInternalInconsistencyException
                   format: @"Unable to detach thread (last error %@)",
                   [NSError _last]];
     }
+#endif
 }
 
 /**
@@ -1261,6 +1590,352 @@ nsthreadLauncher(void *thread)
       _thread_dictionary = [NSMutableDictionary new];
     }
   return _thread_dictionary;
+}
+
+- (id) _stringCollatorCache
+{
+  return (id)stringCollatorCache;
+}
+- (void) _setStringCollatorCache: (id) cache
+{
+  ASSIGN(stringCollatorCache, cache);
+}
+
+@end
+
+
+
+@implementation NSThread (GSLockInfo)
+
+static NSString *
+lockInfoErr(NSString *str)
+{
+  if (disableTraceLocks)
+    {
+      return nil;
+    }
+  return str;
+}
+
+- (NSString *) mutexDrop: (id)mutex
+{
+  if (GS_EXISTS_INTERNAL)
+    {
+      GSLockInfo        *li = &lockInfo;
+      int               err;
+
+      if (YES == disableTraceLocks) return nil;
+      err = pthread_spin_lock(&li->spin);
+      if (EDEADLK == err) return lockInfoErr(@"thread spin lock deadlocked");
+      if (EINVAL == err) return lockInfoErr(@"thread spin lock invalid");
+
+      if (mutex == li->wait)
+        {
+          /* The mutex was being waited for ... simply remove it.
+           */
+          li->wait = nil;
+        }
+      else if (NSHashGet(li->held, (void*)mutex) == (void*)mutex)
+        {
+          GSStackTrace  *stck = [mutex stack];
+
+          /* The mutex was being held ... if the recursion count was zero
+           * we remove it (otherwise the count is decreased).
+           */
+          if (stck->recursion-- == 0)
+            {
+              NSHashRemove(li->held, (void*)mutex);
+// fprintf(stderr, "%lu: Drop %p (final) %lu\n", (unsigned long)_threadID, mutex, [li->held count]);
+            }
+          else
+            {
+// fprintf(stderr, "%lu: Drop %p (%lu) %lu\n", (unsigned long)threadID, mutex, (unsigned long)stck->recursion, [li->held count]);
+            }
+        }
+      else
+        {
+// fprintf(stderr, "%lu: Drop %p (bad) %lu\n", (unsigned long)threadID, mutex, [li->held count]);
+          pthread_spin_unlock(&li->spin);
+          return lockInfoErr(
+            @"attempt to unlock mutex not locked by this thread");
+        }
+      pthread_spin_unlock(&li->spin);
+      return nil;
+    }
+  return lockInfoErr(@"thread not active");
+}
+
+- (NSString *) mutexHold: (id)mutex
+{
+  if (GS_EXISTS_INTERNAL)
+    {
+      GSLockInfo        *li = &lockInfo;
+      int               err;
+
+      if (YES == disableTraceLocks) return nil;
+      err = pthread_spin_lock(&li->spin);
+      if (EDEADLK == err) return lockInfoErr(@"thread spin lock deadlocked");
+      if (EINVAL == err) return lockInfoErr(@"thread spin lock invalid");
+      if (nil == mutex)
+        {
+          mutex = li->wait;
+          if (nil == mutex)
+            {
+              pthread_spin_unlock(&li->spin);
+              return lockInfoErr(@"attempt to hold nil mutex");
+            }
+        }
+      else if (nil != li->wait && mutex != li->wait)
+        {
+          pthread_spin_unlock(&li->spin);
+          return lockInfoErr(@"attempt to hold mutex without waiting for it");
+        }
+      if (NSHashGet(li->held, (void*)mutex) == NULL)
+        {
+          [[mutex stack] trace];                // Get current strack trace
+          NSHashInsert(li->held, (void*)mutex);
+// fprintf(stderr, "%lu: Hold %p (initial) %lu\n", (unsigned long)threadID, mutex, [li->held count]);
+        }
+      else
+        {
+          GSStackTrace  *stck = [mutex stack];
+
+          stck->recursion++;
+// fprintf(stderr, "%lu: Hold %p (%lu) %lu\n", (unsigned long)threadID, mutex, (unsigned long)stck->recursion, [li->held count]);
+        }
+      li->wait = nil;
+      pthread_spin_unlock(&li->spin);
+      return nil;
+    }
+  return lockInfoErr(@"thread not active");
+}
+
+- (NSString *) mutexWait: (id)mutex
+{
+  if (GS_EXISTS_INTERNAL)
+    {
+      NSMutableArray    *dependencies;
+      id                want;
+      BOOL              done;
+      GSLockInfo        *li = &lockInfo;
+      BOOL              owned = NO;
+      int               err;
+
+      if (YES == disableTraceLocks) return nil;
+      err = pthread_spin_lock(&li->spin);
+      if (EDEADLK == err) return lockInfoErr(@"thread spin lock deadlocked");
+      if (EINVAL == err) return lockInfoErr(@"thread spin lock invalid");
+      if (nil != li->wait)
+        {
+          NSString      *msg = [NSString stringWithFormat:
+            @ "trying to lock %@ when already trying to lock %@",
+            mutex, li->wait];
+          pthread_spin_unlock(&li->spin);
+          return lockInfoErr(msg);
+        }
+      li->wait = mutex;
+      if (nil != NSHashGet(li->held, (const void*)mutex))
+        {
+          owned = YES;
+        }
+      pthread_spin_unlock(&li->spin);
+// fprintf(stderr, "%lu: Wait %p\n", (unsigned long)_threadID, mutex);
+      if (YES == owned && [mutex isKindOfClass: [NSRecursiveLock class]])
+        {
+          return nil;   // We can't deadlock on a recursive lock we own
+        }
+
+      /* While checking for deadlocks we don't want threads created/destroyed
+       * So we hold the lock to prevent thread activity changes.
+       * This also ensures that no more than one thread can be checking for
+       * deadlocks at a time (no interference between checks).
+       */
+      GS_MUTEX_LOCK(_activeLock);
+
+      /* As we isolate dependencies (a thread holding the lock another thread
+       * is waiting for) we disable locking in each thread and record the
+       * thread in a hash table.  Once we have determined all the dependencies
+       * we can re-enable locking in each of the threads.
+       */
+      if (nil == _activeBlocked)
+        {
+          _activeBlocked = NSCreateHashTable(
+            NSNonRetainedObjectHashCallBacks, 100);
+        }
+
+      dependencies = nil;
+      want = mutex;
+      done = NO;
+
+      while (NO == done)
+        {
+          NSHashEnumerator	enumerator;
+          NSThread              *found = nil;
+          BOOL                  foundWasLocked = NO;
+          NSThread              *th;
+
+          /* Look for a thread which is holding the mutex we are currently
+           * interested in.  We are only interested in thread which are
+           * themselves waiting for a lock (if they aren't waiting then
+           * they can't be part of a deadlock dependency list).
+           */
+          enumerator = NSEnumerateHashTable(_activeThreads);
+          while ((th = NSNextHashEnumeratorItem(&enumerator)) != nil)
+            {
+              GSLockInfo        *info = &GSIVar(th, _lockInfo);
+
+              if (YES == th->_active && nil != info->wait)
+                {
+                  BOOL          wasLocked;
+
+                  if (th == self
+                    || NULL != NSHashGet(_activeBlocked, (const void*)th))
+                    {
+                      /* Don't lock ... this is the current thread or is
+                       * already in the set of blocked threads.
+                       */
+                      wasLocked = YES;
+                    }
+                  else
+                    {
+                      pthread_spin_lock(&info->spin);
+                      wasLocked = NO;
+                    }
+                  if (nil != info->wait
+                    && nil != (id)NSHashGet(info->held, (const void*)want))
+                    {
+                      /* This thread holds the lock we are interested in and
+                       * is waiting for another lock.
+                       * We therefore record the details in the dependency list
+                       * and will go on to look for the thread this found one
+                       * depends on.
+                       */
+                      found = th;
+                      foundWasLocked = wasLocked;
+                      want = info->wait;
+                      if (nil == dependencies)
+                        {
+                          dependencies = [NSMutableArray new];
+                        }
+                      [dependencies addObject: found];  // thread
+                      [dependencies addObject: want];   // mutex
+                      /* NB. breaking out here holds the spin lock so that
+                       * the lock state of each dependency thread is
+                       * preserved (if we don't have a deadlock, we get a
+                       * consistent snapshot of the threads and their locks).
+                       * We therefore have to unlock the threads when done.
+                       */
+                      break;
+                    }
+                  /* This thread did not hold the lock we are interested in,
+                   * so we can unlock it (if necessary) and check another.
+                   */
+                  if (NO == wasLocked)
+                    {
+                      pthread_spin_unlock(&info->spin);
+                    }
+                }
+            }
+          NSEndHashTableEnumeration(&enumerator);
+          if (nil == found)
+            {
+              /* There is no thread blocked on the mutex we are checking,
+               * so we can't have a deadlock.
+               */
+              DESTROY(dependencies);
+              done = YES;
+            }
+          else if (foundWasLocked)
+            {
+              /* The found thread is the current one or in the blocked set
+               * so we have a deadlock.
+               */
+              done = YES;
+            }
+          else
+            {
+              /* Record the found (and locked) thread and continue
+               * to find the next dependency.
+               */
+              NSHashInsert(_activeBlocked, (const void*)found);
+            }
+        }
+
+      /* Ensure any locked threads are unlocked again.
+       */
+      if (NSCountHashTable(_activeBlocked) > 0)
+        {
+          NSHashEnumerator	enumerator;
+          NSThread              *th;
+
+          enumerator = NSEnumerateHashTable(_activeThreads);
+          while ((th = NSNextHashEnumeratorItem(&enumerator)) != nil)
+            {
+              GSLockInfo        *info = &GSIVar(th, _lockInfo);
+
+              pthread_spin_unlock(&info->spin);
+            }
+          NSEndHashTableEnumeration(&enumerator);
+          NSResetHashTable(_activeBlocked);
+        }
+
+      /* Finished check ... re-enable thread activity changes.
+       */
+      GS_MUTEX_UNLOCK(_activeLock);
+
+
+      if (nil != dependencies)
+        {
+          GSStackTrace          *stack;
+          NSUInteger            count;
+          NSUInteger            index = 0;
+          NSMutableString       *m;
+
+          disableTraceLocks = YES;
+          m = [NSMutableString stringWithCapacity: 1000];
+          stack = [GSStackTrace new];
+          [stack trace];
+          [m appendFormat: @"Deadlock on %@ at\n  %@\n",
+            mutex, [stack symbols]];
+          RELEASE(stack);
+          count = [dependencies count];
+          while (index < count)
+            {
+              NSArray           *symbols;
+              NSThread          *thread;
+              NSUInteger        frameCount;
+
+              thread = [dependencies objectAtIndex: index++];
+              mutex = [dependencies objectAtIndex: index++];
+              symbols = [[mutex stack] symbols];
+              frameCount = [symbols count];
+              if (frameCount > 0)
+                {
+                  NSUInteger    i;
+
+                  [m appendFormat: @"  depends on %@\n  blocked by %@\n  at\n",
+                    mutex, thread];
+                  for (i = 0; i < frameCount; i++)
+                    {
+                      [m appendFormat: @"    %@\n", [symbols objectAtIndex: i]];
+                    }
+                }
+              else
+                {
+                  [m appendFormat: @"  depends on %@\n  blocked by %@\n",
+                    mutex, thread];
+                }
+            }
+          DESTROY(dependencies);
+          /* NB. Return m directly because we have turned off tracing to
+           * avoid recursion, and don't want lockInfoErr() to stop the
+           * error being ruturned.
+           */
+          return m;
+        }
+      return nil;
+    }
+  return lockInfoErr(@"thread not active");
 }
 
 @end
@@ -1286,8 +1961,11 @@ nsthreadLauncher(void *thread)
         }
     }
 #else
+{
+  NSTimeInterval        start = 0.0;
+
   /* The write could concievably fail if the pipe is full.
-   * In that case we need to release the lock teporarily to allow the other
+   * In that case we need to release the lock temporarily to allow the other
    * thread to consume data from the pipe.  It's possible that the thread
    * and its runloop might stop during that ... so we need to check that
    * outputFd is still valid.
@@ -1295,9 +1973,21 @@ nsthreadLauncher(void *thread)
   while (outputFd >= 0
     && NO == (signalled = (write(outputFd, "0", 1) == 1) ? YES : NO))
     {
+      NSTimeInterval    now = [NSDate timeIntervalSinceReferenceDate];
+
+      if (0.0 == start)
+        {
+          start = now;
+        }
+      else if (now - start >= 1.0)
+        {
+          NSLog(@"Unable to signal %@ within a second; blocked?", self);
+          break;
+        }
       [lock unlock];
       [lock lock];
     }
+}
 #endif
   if (YES == signalled)
     {
@@ -1479,12 +2169,14 @@ GSRunLoopInfoForThread(NSThread *aThread)
     }
   if (aThread->_runLoopInfo == nil)
     {
-      [gnustep_global_lock lock];
+      static gs_mutex_t	infoLock = GS_MUTEX_INIT_STATIC;
+
+      GS_MUTEX_LOCK(infoLock);
       if (aThread->_runLoopInfo == nil)
         {
           aThread->_runLoopInfo = [GSRunLoopThreadInfo new];
 	}
-      [gnustep_global_lock unlock];
+      GS_MUTEX_UNLOCK(infoLock);
     }
   info = aThread->_runLoopInfo;
   return info;
@@ -1526,6 +2218,12 @@ GSRunLoopInfoForThread(NSThread *aThread)
   GSNOSUPERDEALLOC;
 }
 
+- (NSString*) description
+{
+  return [[super description] stringByAppendingFormat: @" [%s %s]",
+    class_getName(object_getClass(receiver)), sel_getName(selector)];
+}
+
 - (void) fire
 {
   GSRunLoopThreadInfo   *threadInfo;
@@ -1546,9 +2244,10 @@ GSRunLoopInfoForThread(NSThread *aThread)
       if (nil == lock)
         {
           NSLog(@"*** NSRunLoop ignoring exception '%@' (reason '%@') "
-            @"raised during perform in other thread... with receiver %p "
+            @"raised during perform in other thread... with receiver %p (%s) "
             @"and selector '%s'",
             [localException name], [localException reason], receiver,
+            class_getName(object_getClass(receiver)),
             sel_getName(selector));
         }
     }
@@ -1675,7 +2374,10 @@ GSRunLoopInfoForThread(NSThread *aThread)
       if ([aThread isFinished] == YES)
         {
           [NSException raise: NSInternalInconsistencyException
-                      format: @"perform on finished thread"];
+            format: @"perform [%@-%@] attempted on finished thread (%@)",
+            NSStringFromClass([self class]),
+            NSStringFromSelector(aSelector),
+            aThread];
         }
       if (aFlag == YES)
 	{
@@ -1693,21 +2395,18 @@ GSRunLoopInfoForThread(NSThread *aThread)
           [l lockWhenCondition: 1];
 	  [l unlock];
 	  RELEASE(l);
-          if ([h isInvalidated] == YES)
+          if ([h isInvalidated] == NO)
             {
-              RELEASE(h);
-              [NSException raise: NSInternalInconsistencyException
-                          format: @"perform on finished thread"];
-            }
-          /* If we have an exception passed back from the remote thread,
-           * re-raise it.
-           */
-          if (nil != h->exception)
-            {
-              NSException       *e = AUTORELEASE(RETAIN(h->exception));
+              /* If we have an exception passed back from the remote thread,
+               * re-raise it.
+               */
+              if (nil != h->exception)
+                {
+                  NSException       *e = AUTORELEASE(RETAIN(h->exception));
 
-              RELEASE(h);
-              [e raise];
+                  RELEASE(h);
+                  [e raise];
+                }
             }
 	}
       RELEASE(h);
@@ -1732,6 +2431,31 @@ GSRunLoopInfoForThread(NSThread *aThread)
   [NSThread detachNewThreadSelector: aSelector
                            toTarget: self
                          withObject: anObject];
+}
+
+@end
+
+@implementation NSThread (BlockAdditions)
+
++ (void) detachNewThreadWithBlock: (GSThreadBlock)block
+{
+  NSThread	*thread;
+
+  thread = [[NSThread alloc] initWithBlock: block];
+  [thread start];
+
+  RELEASE(thread);
+}
+
+- (instancetype) initWithBlock: (GSThreadBlock)block
+{
+  if (nil != (self = [self init]))
+    {
+      targetIsBlock = YES;
+      /* Copy block to heap */
+      _target = _Block_copy(block);
+    } 
+  return self;
 }
 
 @end

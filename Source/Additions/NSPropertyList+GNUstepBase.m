@@ -17,10 +17,7 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
-
-   $Date: 2010-02-17 11:47:06 +0000 (Wed, 17 Feb 2010) $ $Revision: 29657 $
+   Software Foundation, Inc., 31 Milk Street #960789 Boston, MA 02196 USA.
 */
 
 #import "common.h"
@@ -415,8 +412,9 @@ OAppend(id obj, NSDictionary *loc, NSUInteger lev, NSUInteger step,
       const char	*iBaseString;
       const char	*iSizeString;
       SEL		objSel = @selector(objectForKey:);
-      IMP		myObj = [obj methodForSelector: objSel];
-      NSUInteger		i;
+      id (*myObj)(id,SEL,id)
+        = (id(*)(id,SEL,id))[obj methodForSelector: objSel];
+      NSUInteger	i;
       NSArray		*keyArray = [obj allKeys];
       NSUInteger		numKeys = [keyArray count];
       NSString		*plists[numKeys];
@@ -642,7 +640,8 @@ OAppend(id obj, NSDictionary *loc, NSUInteger lev, NSUInteger step,
       OAppend(aPropertyList, loc, 0, step > 3 ? 3 : step, dest);
       return dest;
     }
-  return (*(NSData*(*)(id, SEL, id, NSPropertyListFormat, NSString**))originalImp)(self, _cmd, aPropertyList, aFormat, anErrorString);
+  return (*(id(*)(id,SEL,id,NSPropertyListFormat,NSString**))originalImp)
+    (self, _cmd, aPropertyList, aFormat, anErrorString);
 }
 
 + (void) load
